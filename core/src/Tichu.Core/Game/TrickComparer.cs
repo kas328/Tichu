@@ -12,7 +12,7 @@ namespace Tichu.Core.Game
         /// 현재 trick 위에 카드를 놓으려는 플레이어를 위한 인식 문맥을 반환한다.
         /// trick이 null이거나 Top이 없으면 TrickContext.Lead를 반환한다.
         /// </summary>
-        public static TrickContext ContextFor(Trick trick)
+        public static TrickContext ContextFor(Trick? trick)
         {
             if (trick == null || trick.Top == null)
                 return TrickContext.Lead;

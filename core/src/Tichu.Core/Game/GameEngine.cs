@@ -129,6 +129,14 @@ namespace Tichu.Core.Game
             if (combo.Type == CombinationType.Invalid)
                 return ApplyResult.Reject("not a valid combination");
 
+            // 소원 강제: 강제 상황이면 소원 랭크를 포함하지 않는 수는 거부.
+            if (LegalMoveGenerator.WishIsEnforced(s, seat) && !LegalMoveGenerator.IncludesRank(cards, s.Wish!.Value))
+                return ApplyResult.Reject($"wish {s.Wish.Value} must be satisfied");
+
+            // 이번 플레이가 (기존) 소원을 만족시키면 적용 후 해제한다.
+            // 마작 리드가 새로 거는 소원(2~14)은 마작 카드(랭크1)에 포함되지 않으므로 영향 없음.
+            int? wishBefore = s.Wish;
+
             // 개: 단독으로만, 리드일 때만, 자기 턴일 때만.
             if (ContainsSpecial(cards, SpecialKind.Dog))
                 return ApplyDog(s, seat);
@@ -157,6 +165,7 @@ namespace Tichu.Core.Game
                 if (ContainsSpecial(cards, SpecialKind.Mahjong) && a.Wish.HasValue && a.Wish.Value >= 2 && a.Wish.Value <= 14)
                     s.Wish = a.Wish;
 
+                ClearWishIfSatisfied(s, wishBefore, cards);
                 MarkOutIfEmpty(s, ps);
                 AdvanceAfterTopChange(s, seat);
                 CheckTrickCompletion(s);
@@ -191,10 +200,18 @@ namespace Tichu.Core.Game
                 IsBombInterrupt = combo.IsBomb && seat != turnBefore
             });
 
+            ClearWishIfSatisfied(s, wishBefore, cards);
             MarkOutIfEmpty(s, ps);
             AdvanceAfterTopChange(s, seat);
             CheckTrickCompletion(s);
             return ApplyResult.Accepted;
+        }
+
+        /// <summary>이번 플레이가 기존 소원을 만족시키면 소원을 해제한다.</summary>
+        private static void ClearWishIfSatisfied(GameState s, int? wishBefore, IReadOnlyList<Card> cards)
+        {
+            if (wishBefore.HasValue && LegalMoveGenerator.IncludesRank(cards, wishBefore.Value))
+                s.Wish = null;
         }
 
         /// <summary>개(단독): 트릭을 형성하지 않고 리드를 파트너에게 넘긴다.</summary>
@@ -226,6 +243,10 @@ namespace Tichu.Core.Game
                 return ApplyResult.Reject("cannot pass on a lead");
             if (seat != s.Turn)
                 return ApplyResult.Reject("not your turn");
+
+            // 소원 강제 시 패스 불가.
+            if (LegalMoveGenerator.WishIsEnforced(s, seat))
+                return ApplyResult.Reject($"wish {s.Wish!.Value} must be satisfied; cannot pass");
 
             s.CurrentTrick.History.Add(new Play { Seat = seat, Combination = null });
             s.Turn = Seating.NextActive(s.Seats, seat);

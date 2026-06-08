@@ -87,6 +87,18 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Non_bomb_does_not_beat_a_bomb_top()
+        {
+            var pair = Lead(Card.Normal(14, Suit.Jade), Card.Normal(14, Suit.Star)); // 페어 A
+            var fourBomb = Lead(Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                                Card.Normal(7, Suit.Sword), Card.Normal(7, Suit.Pagoda));
+            var sf = Lead(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                          Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade));
+            Assert.That(CombinationComparer.Beats(pair, fourBomb), Is.False); // 비폭탄 < 포카드
+            Assert.That(CombinationComparer.Beats(pair, sf), Is.False);       // 비폭탄 < 스플
+        }
+
+        [Test]
         public void Equal_four_bombs_do_not_beat_each_other()
         {
             var bomb = Lead(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Star),

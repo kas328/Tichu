@@ -31,7 +31,9 @@ namespace Tichu.Core.Tests
         [Test]
         public void Equality_compares_rank_suit_special()
         {
-            Assert.That(Card.Normal(7, Suit.Jade), Is.EqualTo(Card.Normal(7, Suit.Jade)));
+            var sevenJade = Card.Normal(7, Suit.Jade);
+            var sameValue = Card.Normal(7, Suit.Jade); // 별개 인스턴스, 값 동일
+            Assert.That(sevenJade, Is.EqualTo(sameValue));
             Assert.That(Card.Normal(7, Suit.Jade), Is.Not.EqualTo(Card.Normal(7, Suit.Star)));
             Assert.That(Card.Dragon, Is.Not.EqualTo(Card.Phoenix));
         }

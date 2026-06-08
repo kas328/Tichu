@@ -15,6 +15,9 @@ namespace Tichu.Core.Game
         public ulong RngSeed { get; set; }
         public Rng Rng { get; set; }
 
+        /// <summary>셋업 페이즈(Deal8~Exchange 완료 전)의 임시 상태. Play 진입 후 null.</summary>
+        internal RoundSetup? Setup { get; set; }
+
         public GameState()
         {
             Seats = new PlayerSeat[4];
@@ -66,6 +69,9 @@ namespace Tichu.Core.Game
                     t.History.Add(new Play { Seat = p.Seat, Combination = p.Combination, IsBombInterrupt = p.IsBombInterrupt });
                 clone.CurrentTrick = t;
             }
+
+            // Deep-copy setup (transient; null during Play)
+            clone.Setup = Setup?.Clone();
 
             // Deep-copy scoreboard
             var sb = new ScoreBoard

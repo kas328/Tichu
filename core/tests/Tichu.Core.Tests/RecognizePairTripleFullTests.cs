@@ -58,6 +58,16 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void FullHouse_with_phoenix_completing_a_triple_from_two_pairs()
+        {
+            // 7,7 + 8,8 + 봉황 → 봉황이 더 높은 페어(8)를 트리플로 완성 → 트리플 8 / 페어 7
+            var c = R(Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                      Card.Normal(8, Suit.Sword), Card.Normal(8, Suit.Pagoda), Card.Phoenix);
+            Assert.That(c.Type, Is.EqualTo(CombinationType.FullHouse));
+            Assert.That(c.Rank, Is.EqualTo(16)); // 8*2 (높은 페어가 트리플)
+        }
+
+        [Test]
         public void Mahjong_cannot_form_pair()
         {
             Assert.That(R(Card.Mahjong, Card.Phoenix).Type, Is.EqualTo(CombinationType.Invalid));

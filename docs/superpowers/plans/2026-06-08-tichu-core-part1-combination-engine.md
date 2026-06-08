@@ -1148,7 +1148,7 @@ git commit -m "feat(core): recognize straights and consecutive pairs with phoeni
 
 ## Task 8: Recognize — 폭탄 (포카드 · 스트레이트 플러시, 봉황 제외)
 
-**규칙:** 포카드 폭탄=같은 랭크 4장(봉황 불가). 스트레이트 플러시 폭탄=같은 문양 연속 5장 이상(봉황 불가). 폭탄 판별은 다른 조합보다 우선(`Recognize` 디스패처에서 이미 첫 순위). `FourBomb.Rank`=랭크 값 ×2, `StraightFlushBomb.Rank`=최상단 값 ×2 + `Length`.
+**규칙:** 포카드 폭탄=같은 랭크 4장(봉황 불가). 스트레이트 플러시 폭탄=같은 문양 연속 5장 이상(봉황 불가). 폭탄 판별은 다른 조합보다 우선(`Recognize` 디스패처에서 이미 첫 순위). `FourBomb.Rank`=랭크 값 ×2. `StraightFlushBomb.Rank`=최상단 값 ×2이며 길이는 `Length` 필드에 별도 보관(스플끼리는 `Beats`가 길이를 먼저 비교).
 
 **Files:**
 - Modify: `core/src/Tichu.Core/Combinations/CombinationRecognizer.cs` (Task 6의 `RecognizeBomb` 스텁 교체)

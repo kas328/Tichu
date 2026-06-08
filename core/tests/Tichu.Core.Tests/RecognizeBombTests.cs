@@ -43,5 +43,43 @@ namespace Tichu.Core.Tests
             Assert.That(sf.Type, Is.EqualTo(CombinationType.Straight));
             Assert.That(sf.Type, Is.Not.EqualTo(CombinationType.StraightFlushBomb));
         }
+
+        [Test]
+        public void Four_bomb_carries_points_in_play()
+        {
+            // K 4장 → 포카드 폭탄, 점수 40 보존
+            var c = R(Card.Normal(13, Suit.Jade), Card.Normal(13, Suit.Star),
+                      Card.Normal(13, Suit.Sword), Card.Normal(13, Suit.Pagoda));
+            Assert.That(c.Type, Is.EqualTo(CombinationType.FourBomb));
+            Assert.That(c.Rank, Is.EqualTo(26));        // 13*2
+            Assert.That(c.PointsInPlay, Is.EqualTo(40)); // 10*4
+        }
+
+        [Test]
+        public void Mahjong_cannot_be_part_of_four_of_a_kind()
+        {
+            // 2,2,2 + 마작 → 포카드 폭탄 아님 → Invalid
+            Assert.That(R(Card.Normal(2, Suit.Jade), Card.Normal(2, Suit.Star),
+                          Card.Normal(2, Suit.Sword), Card.Mahjong).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
+
+        [Test]
+        public void Same_suit_with_gap_is_not_a_straight_flush()
+        {
+            // 같은 문양 5,6,7,8,10 (9 빠짐) → SF 아님, 일반 스트레이트도 아님 → Invalid
+            Assert.That(R(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                          Card.Normal(8, Suit.Jade), Card.Normal(10, Suit.Jade)).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
+
+        [Test]
+        public void Four_same_suit_run_is_too_short_for_straight_flush()
+        {
+            // 같은 문양 4장 연속(5,6,7,8) → 최소 길이 5 미만 → Invalid
+            Assert.That(R(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade),
+                          Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Jade)).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
     }
 }

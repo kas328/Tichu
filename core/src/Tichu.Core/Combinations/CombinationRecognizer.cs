@@ -166,10 +166,10 @@ namespace Tichu.Core.Combinations
 
             if (n >= 5) // 스트레이트 플러시
             {
-                // 같은 문양 + 연속 + 각 랭크 1장
+                // 같은 문양 + 연속 + 각 랭크 1장. n>=5이라 Source 비어있지 않음 → 첫 카드를 문양 기준으로.
                 Suit suit = h.Source[0].Suit;
                 int min = 0, max = 0, distinct = 0;
-                for (int i = 0; i < h.Source.Length; i++)
+                for (int i = 0; i < n; i++)
                 {
                     Card c = h.Source[i];
                     if (c.IsSpecial || c.Suit != suit) return Combination.Invalid;

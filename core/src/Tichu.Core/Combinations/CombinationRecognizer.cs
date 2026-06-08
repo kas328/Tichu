@@ -151,7 +151,77 @@ namespace Tichu.Core.Combinations
         }
 
         private static Combination RecognizeBomb(in HandShape h) => Combination.Invalid;
-        private static Combination RecognizeStraight(in HandShape h) => Combination.Invalid;
-        private static Combination RecognizeConsecutivePairs(in HandShape h) => Combination.Invalid;
+
+        private static Combination RecognizeStraight(in HandShape h)
+        {
+            int n = h.CardCount;
+            if (n < 5) return Combination.Invalid;
+
+            // 일반/마작 랭크는 각 1장만 허용(중복 시 스트레이트 아님). 봉황 0/1.
+            int min = 0, max = 0, distinct = 0;
+            for (int r = 1; r <= 14; r++)
+            {
+                int cnt = h.Counts[r];
+                if (cnt == 0) continue;
+                if (cnt > 1) return Combination.Invalid;
+                if (min == 0) min = r;
+                max = r; distinct++;
+            }
+            if (distinct == 0) return Combination.Invalid;
+
+            int span = max - min + 1;
+            int gaps = span - distinct;          // [min,max] 내부 빠진 랭크 수
+            int phoenix = h.PhoenixCount;
+            int topValue;
+
+            if (phoenix == 0)
+            {
+                if (gaps != 0 || distinct != n) return Combination.Invalid;
+                topValue = max;
+            }
+            else // phoenix == 1
+            {
+                if (distinct + 1 != n) return Combination.Invalid;
+                if (gaps == 1) topValue = max;                 // 내부 빈칸 메움
+                else if (gaps == 0)                            // 끝 확장
+                {
+                    if (max + 1 <= 14) topValue = max + 1;     // 상단 확장 우선
+                    else if (min - 1 >= 1) topValue = max;     // 상단 불가 → 하단 확장
+                    else return Combination.Invalid;
+                }
+                else return Combination.Invalid;               // 봉황 1장으로 메울 수 없음
+            }
+
+            if (n < 5) return Combination.Invalid;
+            return new Combination(CombinationType.Straight, h.Source, n, topValue * 2, h.Points);
+        }
+
+        private static Combination RecognizeConsecutivePairs(in HandShape h)
+        {
+            int n = h.CardCount;
+            if (n < 4 || (n % 2) != 0) return Combination.Invalid;
+            if (UsesMahjong(h)) return Combination.Invalid;
+
+            int min = 0, max = 0, distinct = 0, singles = 0;
+            for (int r = 2; r <= 14; r++)
+            {
+                int cnt = h.Counts[r];
+                if (cnt == 0) continue;
+                if (cnt > 2) return Combination.Invalid;
+                if (cnt == 1) singles++;
+                if (min == 0) min = r;
+                max = r; distinct++;
+            }
+            if (distinct == 0) return Combination.Invalid;
+
+            int needPairs = n / 2;
+            // 봉황이 단수 랭크 1개를 페어로 완성. 봉황 없으면 단수 0이어야.
+            if (h.PhoenixCount == 0 && singles != 0) return Combination.Invalid;
+            if (h.PhoenixCount == 1 && singles != 1) return Combination.Invalid;
+            if (distinct != needPairs) return Combination.Invalid;       // 연속이며 빈칸 없음
+            if (max - min + 1 != needPairs) return Combination.Invalid;  // 랭크가 연속
+
+            return new Combination(CombinationType.ConsecutivePairs, h.Source, n, max * 2, h.Points);
+        }
     }
 }

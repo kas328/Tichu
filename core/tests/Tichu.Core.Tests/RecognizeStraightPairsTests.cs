@@ -56,6 +56,23 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Straight_phoenix_extends_bottom_when_top_is_ace()
+        {
+            // 11,12,13,14 + 봉황: 상단(15) 불가 → 하단 확장(10) → 10~14, top=14
+            var c = R(M(11, Suit.Jade), M(12, Suit.Star), M(13, Suit.Sword), M(14, Suit.Pagoda), Card.Phoenix);
+            Assert.That(c.Type, Is.EqualTo(CombinationType.Straight));
+            Assert.That(c.Length, Is.EqualTo(5));
+            Assert.That(c.Rank, Is.EqualTo(28)); // top 14 *2
+        }
+
+        [Test]
+        public void Straight_with_duplicate_rank_is_invalid()
+        {
+            Assert.That(R(M(5, Suit.Jade), M(5, Suit.Star), M(6, Suit.Sword), M(7, Suit.Pagoda), M(8, Suit.Jade)).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
+
+        [Test]
         public void Consecutive_pairs_two()
         {
             var c = R(M(5, Suit.Jade), M(5, Suit.Star), M(6, Suit.Sword), M(6, Suit.Pagoda));
@@ -77,6 +94,22 @@ namespace Tichu.Core.Tests
         public void Non_consecutive_pairs_is_invalid()
         {
             Assert.That(R(M(5, Suit.Jade), M(5, Suit.Star), M(8, Suit.Sword), M(8, Suit.Pagoda)).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
+
+        [Test]
+        public void Consecutive_pairs_phoenix_cannot_fix_three_singles()
+        {
+            // 5,6,7 + 봉황: 봉황 1장으로 단수 3개를 페어로 못 만듦 → Invalid
+            Assert.That(R(M(5, Suit.Jade), M(6, Suit.Star), M(7, Suit.Sword), Card.Phoenix).Type,
+                        Is.EqualTo(CombinationType.Invalid));
+        }
+
+        [Test]
+        public void Consecutive_pairs_phoenix_with_gap_is_invalid()
+        {
+            // 5,5,8 + 봉황: 봉황이 8을 페어로 만들어도 5와 8 사이가 비어 연속 아님 → Invalid
+            Assert.That(R(M(5, Suit.Jade), M(5, Suit.Star), M(8, Suit.Sword), Card.Phoenix).Type,
                         Is.EqualTo(CombinationType.Invalid));
         }
     }

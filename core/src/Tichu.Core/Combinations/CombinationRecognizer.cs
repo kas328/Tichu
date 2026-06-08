@@ -159,7 +159,7 @@ namespace Tichu.Core.Combinations
 
             // 일반/마작 랭크는 각 1장만 허용(중복 시 스트레이트 아님). 봉황 0/1.
             int min = 0, max = 0, distinct = 0;
-            for (int r = 1; r <= 14; r++)
+            for (int r = 1; r <= 14; r++) // r=1은 마작(스트레이트 최하단으로 허용)
             {
                 int cnt = h.Counts[r];
                 if (cnt == 0) continue;
@@ -192,7 +192,7 @@ namespace Tichu.Core.Combinations
                 else return Combination.Invalid;               // 봉황 1장으로 메울 수 없음
             }
 
-            if (n < 5) return Combination.Invalid;
+            // n == 결과 스트레이트 길이(봉황 포함). 진입부 n>=5 보장으로 추가 길이검사 불요.
             return new Combination(CombinationType.Straight, h.Source, n, topValue * 2, h.Points);
         }
 
@@ -203,7 +203,7 @@ namespace Tichu.Core.Combinations
             if (UsesMahjong(h)) return Combination.Invalid;
 
             int min = 0, max = 0, distinct = 0, singles = 0;
-            for (int r = 2; r <= 14; r++)
+            for (int r = 2; r <= 14; r++) // r=2부터: 마작(랭크1)은 연속페어 불가
             {
                 int cnt = h.Counts[r];
                 if (cnt == 0) continue;

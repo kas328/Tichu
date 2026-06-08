@@ -77,3 +77,9 @@ Thumbs.db
 
 # Editor
 .idea/
+
+# --- Tichu.Core standalone .NET solution (Phase 0) — 손수 작성, 추적 대상 ---
+!core/**/*.csproj
+!core/**/*.sln
+core/**/[Bb]in/
+core/**/[Oo]bj/

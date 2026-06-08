@@ -64,7 +64,8 @@ namespace Tichu.Core.Tests
             Assert.That(CombinationComparer.Beats(dragon, phoenixOverAce), Is.True);
 
             var dragonTop = new TrickContext(false, true, 30);
-            var phoenixOverDragon = Single(Card.Phoenix, dragonTop);             // 구조상 31이지만
+            var phoenixOverDragon = Single(Card.Phoenix, dragonTop);             // 구조상 Rank 31이라 31>30이지만,
+            // Beats의 봉황-vs-용 조기 가드가 Rank 비교 전에 false를 반환한다(랭크 비교로 막는 게 아님).
             Assert.That(CombinationComparer.Beats(phoenixOverDragon, dragon), Is.False); // 용은 못 이김
         }
 
@@ -75,6 +76,50 @@ namespace Tichu.Core.Tests
             var phoenix = Single(Card.Phoenix, kingTop);                          // 27 (13.5)
             var king = Single(Card.Normal(13, Suit.Jade), TrickContext.Lead);    // 26
             Assert.That(CombinationComparer.Beats(phoenix, king), Is.True);
+        }
+
+        [Test]
+        public void Dragon_single_cannot_be_played_on_pair()
+        {
+            var pair = Lead(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Star));
+            var dragon = Single(Card.Dragon, TrickContext.Lead);
+            Assert.That(CombinationComparer.Beats(dragon, pair), Is.False); // 타입 불일치
+        }
+
+        [Test]
+        public void Equal_four_bombs_do_not_beat_each_other()
+        {
+            var bomb = Lead(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Star),
+                            Card.Normal(9, Suit.Sword), Card.Normal(9, Suit.Pagoda));
+            Assert.That(CombinationComparer.Beats(bomb, bomb), Is.False); // 동급은 못 이김
+        }
+
+        [Test]
+        public void Four_bomb_does_not_beat_straight_flush_bomb()
+        {
+            var four = Lead(Card.Normal(14, Suit.Jade), Card.Normal(14, Suit.Star),
+                            Card.Normal(14, Suit.Sword), Card.Normal(14, Suit.Pagoda));
+            var sf5 = Lead(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                           Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade));
+            Assert.That(CombinationComparer.Beats(four, sf5), Is.False); // 포카드 < 스플
+        }
+
+        [Test]
+        public void Same_length_lower_rank_straight_flush_does_not_beat()
+        {
+            var sf5Low = Lead(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                              Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade));    // top 9
+            var sf5High = Lead(Card.Normal(9, Suit.Star), Card.Normal(10, Suit.Star), Card.Normal(11, Suit.Star),
+                               Card.Normal(12, Suit.Star), Card.Normal(13, Suit.Star)); // top 13
+            Assert.That(CombinationComparer.Beats(sf5Low, sf5High), Is.False); // 같은 길이, 낮은 랭크
+        }
+
+        [Test]
+        public void Invalid_combination_never_beats_and_is_never_beaten()
+        {
+            var valid = Single(Card.Dragon, TrickContext.Lead);
+            Assert.That(CombinationComparer.Beats(Combination.Invalid, valid), Is.False);
+            Assert.That(CombinationComparer.Beats(valid, Combination.Invalid), Is.False);
         }
     }
 }

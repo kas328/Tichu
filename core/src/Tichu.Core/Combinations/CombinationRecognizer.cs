@@ -150,7 +150,45 @@ namespace Tichu.Core.Combinations
             return have == needed ? found : 0;
         }
 
-        private static Combination RecognizeBomb(in HandShape h) => Combination.Invalid;
+        private static Combination RecognizeBomb(in HandShape h)
+        {
+            if (h.PhoenixCount > 0) return Combination.Invalid; // 봉황은 폭탄 불가
+            int n = h.CardCount;
+
+            if (n == 4) // 포카드
+            {
+                if (UsesMahjong(h)) return Combination.Invalid;
+                for (int r = 2; r <= 14; r++)
+                    if (h.Counts[r] == 4)
+                        return new Combination(CombinationType.FourBomb, h.Source, 4, r * 2, h.Points);
+                return Combination.Invalid;
+            }
+
+            if (n >= 5) // 스트레이트 플러시
+            {
+                // 같은 문양 + 연속 + 각 랭크 1장
+                Suit suit = h.Source[0].Suit;
+                int min = 0, max = 0, distinct = 0;
+                for (int i = 0; i < h.Source.Length; i++)
+                {
+                    Card c = h.Source[i];
+                    if (c.IsSpecial || c.Suit != suit) return Combination.Invalid;
+                }
+                for (int r = 2; r <= 14; r++)
+                {
+                    int cnt = h.Counts[r];
+                    if (cnt == 0) continue;
+                    if (cnt > 1) return Combination.Invalid;
+                    if (min == 0) min = r;
+                    max = r; distinct++;
+                }
+                if (distinct == n && (max - min + 1) == n)
+                    return new Combination(CombinationType.StraightFlushBomb, h.Source, n, max * 2, h.Points);
+                return Combination.Invalid;
+            }
+
+            return Combination.Invalid;
+        }
 
         private static Combination RecognizeStraight(in HandShape h)
         {

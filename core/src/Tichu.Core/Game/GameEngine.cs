@@ -1,14 +1,16 @@
 using System.Collections.Generic;
 using Tichu.Core.Cards;
+using Tichu.Core.Combinations;
 
 namespace Tichu.Core.Game
 {
     /// <summary>라운드 셋업(Deal8 → 큰 티츄 → Deal6 → Exchange) 상태 머신.</summary>
     public static class GameEngine
     {
-        internal const int SeatCount  = 4;
-        internal const int Deal8Count = 8;
-        internal const int Deal6Count = 6;
+        internal const int SeatCount     = 4;
+        internal const int Deal8Count    = 8;
+        internal const int Deal6Count    = 6;
+        internal const int FullHandCount = Deal8Count + Deal6Count; // 14
 
         // ── 공개 API ─────────────────────────────────────────────────────────────
 
@@ -71,15 +73,280 @@ namespace Tichu.Core.Game
                     return ApplyExchange(s, a);
 
                 case GameActionKind.CallTichu:
+                    if (s.Phase == RoundPhase.Play)
+                        return ApplyCallTichu(s, a.Seat);
+                    return ApplyResult.Reject("wrong phase");
+
                 case GameActionKind.Play:
+                    if (s.Phase == RoundPhase.Play)
+                        return ApplyPlay(s, a);
+                    return ApplyResult.Reject("wrong phase");
+
                 case GameActionKind.Pass:
                     if (s.Phase == RoundPhase.Play)
-                        return ApplyResult.Reject("not implemented in this task");
+                        return ApplyPass(s, a.Seat);
                     return ApplyResult.Reject("wrong phase");
 
                 default:
                     return ApplyResult.Reject("unknown action");
             }
+        }
+
+        // ── Play 페이즈: 작은 티츄 ────────────────────────────────────────────────
+
+        private static ApplyResult ApplyCallTichu(GameState s, int seat)
+        {
+            var ps = s.Seats[seat];
+            // 교환 후 14장, 아직 카드를 한 장도 내지 않았고, 다른 콜이 없으며, 아웃이 아닐 때만.
+            if (ps.IsOut)
+                return ApplyResult.Reject($"seat {seat} is out");
+            if (ps.Call != TichuCall.None)
+                return ApplyResult.Reject($"seat {seat} has already called");
+            if (ps.Hand.Count != FullHandCount)
+                return ApplyResult.Reject($"seat {seat} has already played a card");
+
+            ps.Call = TichuCall.Tichu;
+            return ApplyResult.Accepted;
+        }
+
+        // ── Play 페이즈: 카드 제출 ────────────────────────────────────────────────
+
+        private static ApplyResult ApplyPlay(GameState s, GameAction a)
+        {
+            int seat   = a.Seat;
+            var ps     = s.Seats[seat];
+            var cards  = a.Cards!;
+
+            if (ps.IsOut)
+                return ApplyResult.Reject($"seat {seat} is out");
+
+            // 손에 모두 있는지(중복 수량 포함) 확인.
+            if (!HandContainsAll(ps.Hand, cards))
+                return ApplyResult.Reject("played cards are not all in hand");
+
+            var ctx   = TrickComparer.ContextFor(s.CurrentTrick!);
+            var combo = CombinationRecognizer.Recognize(ToSpan(cards), ctx);
+            if (combo.Type == CombinationType.Invalid)
+                return ApplyResult.Reject("not a valid combination");
+
+            // 개: 단독으로만, 리드일 때만, 자기 턴일 때만.
+            if (ContainsSpecial(cards, SpecialKind.Dog))
+                return ApplyDog(s, seat);
+
+            bool isLead = s.CurrentTrick == null;
+
+            if (isLead)
+            {
+                if (seat != s.Turn)
+                    return ApplyResult.Reject("not your turn to lead");
+
+                RemoveCards(ps.Hand, cards);
+
+                var trick = new Trick
+                {
+                    LeadType          = combo.Type,
+                    LeadLength        = combo.Length,
+                    Top               = combo,
+                    TopOwnerSeat      = seat,
+                    AccumulatedPoints = combo.PointsInPlay
+                };
+                trick.History.Add(new Play { Seat = seat, Combination = combo });
+                s.CurrentTrick = trick;
+
+                // 마작 소원 (저장만; 강제는 후속 Task).
+                if (ContainsSpecial(cards, SpecialKind.Mahjong) && a.Wish.HasValue && a.Wish.Value >= 2 && a.Wish.Value <= 14)
+                    s.Wish = a.Wish;
+
+                MarkOutIfEmpty(s, ps);
+                AdvanceAfterTopChange(s, seat);
+                CheckTrickCompletion(s);
+                return ApplyResult.Accepted;
+            }
+
+            // 팔로우.
+            int turnBefore = s.Turn; // IsBombInterrupt 판단에 사용: 폭탄이 현재 턴 소유자와 다르면 인터럽트.
+            var top = s.CurrentTrick!;
+            if (combo.IsBomb)
+            {
+                // 폭탄은 자기 턴이 아니어도 가능하지만, 현재 Top을 이겨야 한다.
+                if (!TrickComparer.Beats(combo, top))
+                    return ApplyResult.Reject("bomb does not beat current top");
+            }
+            else
+            {
+                if (seat != s.Turn)
+                    return ApplyResult.Reject("not your turn");
+                if (!TrickComparer.Beats(combo, top))
+                    return ApplyResult.Reject("does not beat current top");
+            }
+
+            RemoveCards(ps.Hand, cards);
+            top.Top          = combo;
+            top.TopOwnerSeat = seat;
+            top.AccumulatedPoints += combo.PointsInPlay;
+            top.History.Add(new Play
+            {
+                Seat            = seat,
+                Combination     = combo,
+                IsBombInterrupt = combo.IsBomb && seat != turnBefore
+            });
+
+            MarkOutIfEmpty(s, ps);
+            AdvanceAfterTopChange(s, seat);
+            CheckTrickCompletion(s);
+            return ApplyResult.Accepted;
+        }
+
+        /// <summary>개(단독): 트릭을 형성하지 않고 리드를 파트너에게 넘긴다.</summary>
+        private static ApplyResult ApplyDog(GameState s, int seat)
+        {
+            // 팔로우 개도 Single로 인식되어 여기까지 도달한다 — 리드가 아니면 거부.
+            if (s.CurrentTrick != null)
+                return ApplyResult.Reject("dog can only be played as a lead");
+            if (seat != s.Turn)
+                return ApplyResult.Reject("not your turn to lead");
+
+            var ps = s.Seats[seat];
+            ps.Hand.Remove(Card.Dog); // 0점, 버려짐(어떤 더미에도 들어가지 않음).
+            MarkOutIfEmpty(s, ps);
+
+            int partner = Seating.Partner(seat);
+            s.Turn = s.Seats[partner].IsOut
+                ? Seating.NextActive(s.Seats, partner)
+                : partner;
+
+            return ApplyResult.Accepted;
+        }
+
+        // ── Play 페이즈: 패스 ─────────────────────────────────────────────────────
+
+        private static ApplyResult ApplyPass(GameState s, int seat)
+        {
+            if (s.CurrentTrick == null)
+                return ApplyResult.Reject("cannot pass on a lead");
+            if (seat != s.Turn)
+                return ApplyResult.Reject("not your turn");
+
+            s.CurrentTrick.History.Add(new Play { Seat = seat, Combination = null });
+            s.Turn = Seating.NextActive(s.Seats, seat);
+            CheckTrickCompletion(s);
+            return ApplyResult.Accepted;
+        }
+
+        // ── Play 페이즈: 트릭 완료 판정 ──────────────────────────────────────────
+
+        /// <summary>
+        /// 새 Top이 정해진 직후 턴을 진행한다.
+        /// Top 소유자가 마지막 카드로 아웃되었다면 NextActive가 그를 건너뛴다.
+        /// </summary>
+        private static void AdvanceAfterTopChange(GameState s, int topSeat)
+        {
+            s.Turn = Seating.NextActive(s.Seats, topSeat);
+        }
+
+        /// <summary>
+        /// 트릭 완료 여부를 판정하고, 완료 시 회수한다.
+        /// 규칙: 턴이 Top 소유자에게 되돌아오면(모두 패스) 완료.
+        /// 예외: Top 소유자가 그 플레이로 아웃되어 턴이 그에게 닿을 수 없으면,
+        ///       그 이후 살아있는(아웃 아님) 좌석 수만큼 연속 패스가 쌓이면 완료.
+        /// </summary>
+        private static void CheckTrickCompletion(GameState s)
+        {
+            var trick = s.CurrentTrick;
+            if (trick == null) return; // 개 등으로 트릭이 없을 수 있음.
+
+            int owner = trick.TopOwnerSeat;
+            bool complete;
+
+            if (!s.Seats[owner].IsOut)
+            {
+                complete = s.Turn == owner;
+            }
+            else
+            {
+                // 소유자가 아웃됨: 살아있는 좌석 전원이 마지막 Top 이후 패스해야 완료.
+                int activeCount = 0;
+                for (int i = 0; i < SeatCount; i++)
+                    if (!s.Seats[i].IsOut) activeCount++;
+                complete = TrailingPassCount(trick) >= activeCount;
+            }
+
+            if (complete)
+                CollectTrick(s, trick);
+        }
+
+        /// <summary>현재 Top 설정 이후 연속된 패스 수(History 후미의 연속 pass).</summary>
+        private static int TrailingPassCount(Trick trick)
+        {
+            int n = 0;
+            for (int i = trick.History.Count - 1; i >= 0; i--)
+            {
+                if (trick.History[i].Combination == null) n++;
+                else break;
+            }
+            return n;
+        }
+
+        private static void CollectTrick(GameState s, Trick trick)
+        {
+            // 용 단독으로 이긴 트릭 표시 (Task 6의 용 양도 처리에 사용).
+            if (trick.Top != null && trick.Top.Cards.Count == 1 &&
+                trick.Top.Cards[0].Special == SpecialKind.Dragon)
+                trick.WonByDragon = true;
+
+            s.CompletedTricks.Add(trick);
+            s.CurrentTrick = null;
+
+            int winner = trick.TopOwnerSeat;
+            s.Turn = s.Seats[winner].IsOut
+                ? Seating.NextActive(s.Seats, winner)
+                : winner;
+            // s.Wish 는 그대로 유지(트릭을 넘어 지속; 해제는 후속 Task).
+        }
+
+        // ── Play 페이즈: 보조 ─────────────────────────────────────────────────────
+
+        private static void MarkOutIfEmpty(GameState s, PlayerSeat ps)
+        {
+            if (ps.Hand.Count != 0 || ps.IsOut) return;
+            // already 는 ps.IsOut = true 를 설정하기 전에 집계한다.
+            // 따라서 FinishOrder = already + 1 이 정확하다.
+            int already = 0;
+            for (int i = 0; i < SeatCount; i++)
+                if (s.Seats[i].IsOut) already++;
+            ps.IsOut = true;
+            ps.FinishOrder = already + 1;
+        }
+
+        private static bool ContainsSpecial(IReadOnlyList<Card> cards, SpecialKind kind)
+        {
+            for (int i = 0; i < cards.Count; i++)
+                if (cards[i].Special == kind) return true;
+            return false;
+        }
+
+        /// <summary>cards의 각 카드가 hand에 (중복 수량까지) 모두 있는지 확인.</summary>
+        private static bool HandContainsAll(List<Card> hand, IReadOnlyList<Card> cards)
+        {
+            var remaining = new List<Card>(hand);
+            for (int i = 0; i < cards.Count; i++)
+            {
+                if (!remaining.Remove(cards[i])) return false;
+            }
+            return true;
+        }
+
+        private static void RemoveCards(List<Card> hand, IReadOnlyList<Card> cards)
+        {
+            for (int i = 0; i < cards.Count; i++)
+                hand.Remove(cards[i]);
+        }
+
+        private static System.ReadOnlySpan<Card> ToSpan(IReadOnlyList<Card> cards)
+        {
+            var arr = new Card[cards.Count];
+            for (int i = 0; i < cards.Count; i++) arr[i] = cards[i];
+            return arr;
         }
 
         // ── 큰 티츄 결정 ─────────────────────────────────────────────────────────

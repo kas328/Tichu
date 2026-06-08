@@ -1,4 +1,7 @@
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
+using Tichu.Core.Cards;
 using Tichu.Core.Game;
 
 namespace Tichu.Core.Tests
@@ -54,6 +57,44 @@ namespace Tichu.Core.Tests
             Assert.That(s.Seats[1].Call, Is.EqualTo(TichuCall.None));
             Assert.That(s.Seats[2].Call, Is.EqualTo(TichuCall.GrandTichu));
             Assert.That(s.Seats[3].Call, Is.EqualTo(TichuCall.None));
+        }
+
+        // ── 작은 티츄 (Play 페이즈, 첫 카드 전) ──────────────────────────────────────
+
+        /// <summary>전원 큰 티츄 거절 → 앞 3장 교환 → Play 페이즈 진입.</summary>
+        private static GameState AdvanceToPlay(ulong seed = 1UL)
+        {
+            var s = GameEngine.NewRound(seed);
+            for (int i = 0; i < 4; i++)
+                GameEngine.Apply(s, GameAction.DeclineGrandTichu(i));
+            for (int seat = 0; seat < 4; seat++)
+            {
+                var h = s.Seats[seat].Hand;
+                GameEngine.Apply(s, GameAction.Exchange(seat,
+                    new List<Card> { h[0] }, new List<Card> { h[1] }, new List<Card> { h[2] }));
+            }
+            return s;
+        }
+
+        [Test]
+        public void Tichu_call_before_first_card_ok_and_rejected_after()
+        {
+            var s = AdvanceToPlay();
+            int lead = s.Turn; // 마작 보유자
+
+            // 첫 카드 전: 14장 손 → 작은 티츄 허용
+            var ok = GameEngine.Apply(s, GameAction.CallTichu(lead));
+            Assert.That(ok.Ok, Is.True);
+            Assert.That(s.Seats[lead].Call, Is.EqualTo(TichuCall.Tichu));
+
+            // 리드(마작 단독)로 첫 카드 한 장 냄
+            var play = GameEngine.Apply(s, GameAction.Play(lead, new List<Card> { Card.Mahjong }));
+            Assert.That(play.Ok, Is.True);
+
+            // 이미 카드를 냈으므로 작은 티츄 거부
+            var after = GameEngine.Apply(s, GameAction.CallTichu(lead));
+            Assert.That(after.Ok, Is.False);
+            Assert.That(after.RejectReason, Is.Not.Empty);
         }
     }
 }

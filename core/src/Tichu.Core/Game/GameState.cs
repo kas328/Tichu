@@ -6,9 +6,12 @@ namespace Tichu.Core.Game
 {
     public sealed class GameState
     {
+        private const int SeatCount = 4;
         public RoundPhase Phase { get; set; }
         public PlayerSeat[] Seats { get; set; }
         public Trick? CurrentTrick { get; set; }
+        /// <summary>완료되어 회수된 트릭들. Task 6의 점수 분배/용 양도 계산에 사용.</summary>
+        public List<Trick> CompletedTricks { get; set; }
         public int Turn { get; set; }
         public int? Wish { get; set; }
         public ScoreBoard Scores { get; set; }
@@ -20,8 +23,9 @@ namespace Tichu.Core.Game
 
         public GameState()
         {
-            Seats = new PlayerSeat[4];
+            Seats = new PlayerSeat[SeatCount];
             Scores = new ScoreBoard();
+            CompletedTricks = new List<Trick>();
         }
 
         /// <summary>Deep copy — fully independent from the original.</summary>
@@ -37,8 +41,8 @@ namespace Tichu.Core.Game
             };
 
             // Deep-copy seats
-            clone.Seats = new PlayerSeat[4];
-            for (int i = 0; i < 4; i++)
+            clone.Seats = new PlayerSeat[SeatCount];
+            for (int i = 0; i < SeatCount; i++)
             {
                 var src = Seats[i];
                 var dst = new PlayerSeat
@@ -55,20 +59,12 @@ namespace Tichu.Core.Game
 
             // Deep-copy trick
             if (CurrentTrick != null)
-            {
-                var t = new Trick
-                {
-                    LeadType = CurrentTrick.LeadType,
-                    LeadLength = CurrentTrick.LeadLength,
-                    Top = CurrentTrick.Top,
-                    TopOwnerSeat = CurrentTrick.TopOwnerSeat,
-                    AccumulatedPoints = CurrentTrick.AccumulatedPoints,
-                    WonByDragon = CurrentTrick.WonByDragon
-                };
-                foreach (var p in CurrentTrick.History)
-                    t.History.Add(new Play { Seat = p.Seat, Combination = p.Combination, IsBombInterrupt = p.IsBombInterrupt });
-                clone.CurrentTrick = t;
-            }
+                clone.CurrentTrick = CloneTrick(CurrentTrick);
+
+            // Deep-copy completed tricks
+            clone.CompletedTricks = new List<Trick>(CompletedTricks.Count);
+            foreach (var t in CompletedTricks)
+                clone.CompletedTricks.Add(CloneTrick(t));
 
             // Deep-copy setup (transient; null during Play)
             clone.Setup = Setup?.Clone();
@@ -107,7 +103,7 @@ namespace Tichu.Core.Game
             h = Fnv(h, Prime, (ulong)Turn);
             h = Fnv(h, Prime, Wish.HasValue ? (ulong)Wish.Value : ulong.MaxValue);
 
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < SeatCount; i++)
             {
                 var s = Seats[i];
                 h = Fnv(h, Prime, (ulong)s.SeatIndex);
@@ -155,7 +151,31 @@ namespace Tichu.Core.Game
                 }
             }
 
+            h = Fnv(h, Prime, (ulong)CompletedTricks.Count);
+            foreach (var t in CompletedTricks)
+            {
+                h = Fnv(h, Prime, (ulong)t.TopOwnerSeat);
+                h = Fnv(h, Prime, (ulong)t.AccumulatedPoints);
+                h = Fnv(h, Prime, t.WonByDragon ? 1UL : 0UL);
+            }
+
             return h;
+        }
+
+        private static Trick CloneTrick(Trick src)
+        {
+            var t = new Trick
+            {
+                LeadType = src.LeadType,
+                LeadLength = src.LeadLength,
+                Top = src.Top,
+                TopOwnerSeat = src.TopOwnerSeat,
+                AccumulatedPoints = src.AccumulatedPoints,
+                WonByDragon = src.WonByDragon
+            };
+            foreach (var p in src.History)
+                t.History.Add(new Play { Seat = p.Seat, Combination = p.Combination, IsBombInterrupt = p.IsBombInterrupt });
+            return t;
         }
 
         private static ulong Fnv(ulong hash, ulong prime, ulong value)

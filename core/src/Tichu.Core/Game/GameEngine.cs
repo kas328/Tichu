@@ -161,7 +161,7 @@ namespace Tichu.Core.Game
                 trick.History.Add(new Play { Seat = seat, Combination = combo });
                 s.CurrentTrick = trick;
 
-                // 마작 소원 (저장만; 강제는 후속 Task).
+                // 마작 소원 저장 (강제·해제는 LegalMoveGenerator.WishIsEnforced / ClearWishIfSatisfied).
                 if (ContainsSpecial(cards, SpecialKind.Mahjong) && a.Wish.HasValue && a.Wish.Value >= 2 && a.Wish.Value <= 14)
                     s.Wish = a.Wish;
 
@@ -313,7 +313,7 @@ namespace Tichu.Core.Game
 
         private static void CollectTrick(GameState s, Trick trick)
         {
-            // 용 단독으로 이긴 트릭 표시 (Task 6의 용 양도 처리에 사용).
+            // 용 단독으로 이긴 트릭 표시 (ScoreCalculator의 용 양도 처리에 사용).
             MarkDragonIfApplicable(trick);
 
             s.CompletedTricks.Add(trick);
@@ -323,7 +323,7 @@ namespace Tichu.Core.Game
             s.Turn = s.Seats[winner].IsOut
                 ? Seating.NextActive(s.Seats, winner)
                 : winner;
-            // s.Wish 는 그대로 유지(트릭을 넘어 지속; 해제는 후속 Task).
+            // s.Wish 는 그대로 유지(트릭을 넘어 지속; 충족 시 해제는 ClearWishIfSatisfied에서 처리).
         }
 
         // ── 라운드 종료 판정 ──────────────────────────────────────────────────────

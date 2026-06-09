@@ -1,3 +1,4 @@
+using NUnit.Framework;
 using System.Collections.Generic;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;

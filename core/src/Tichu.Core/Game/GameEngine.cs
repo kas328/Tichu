@@ -169,6 +169,7 @@ namespace Tichu.Core.Game
                 MarkOutIfEmpty(s, ps);
                 AdvanceAfterTopChange(s, seat);
                 CheckTrickCompletion(s);
+                CheckRoundEnd(s);
                 return ApplyResult.Accepted;
             }
 
@@ -204,6 +205,7 @@ namespace Tichu.Core.Game
             MarkOutIfEmpty(s, ps);
             AdvanceAfterTopChange(s, seat);
             CheckTrickCompletion(s);
+            CheckRoundEnd(s);
             return ApplyResult.Accepted;
         }
 
@@ -232,6 +234,7 @@ namespace Tichu.Core.Game
                 ? Seating.NextActive(s.Seats, partner)
                 : partner;
 
+            CheckRoundEnd(s);
             return ApplyResult.Accepted;
         }
 
@@ -311,9 +314,7 @@ namespace Tichu.Core.Game
         private static void CollectTrick(GameState s, Trick trick)
         {
             // 용 단독으로 이긴 트릭 표시 (Task 6의 용 양도 처리에 사용).
-            if (trick.Top != null && trick.Top.Cards.Count == 1 &&
-                trick.Top.Cards[0].Special == SpecialKind.Dragon)
-                trick.WonByDragon = true;
+            MarkDragonIfApplicable(trick);
 
             s.CompletedTricks.Add(trick);
             s.CurrentTrick = null;
@@ -323,6 +324,62 @@ namespace Tichu.Core.Game
                 ? Seating.NextActive(s.Seats, winner)
                 : winner;
             // s.Wish 는 그대로 유지(트릭을 넘어 지속; 해제는 후속 Task).
+        }
+
+        // ── 라운드 종료 판정 ──────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 아웃이 발생한 직후 라운드 종료 여부를 판정한다.
+        ///  - 원-투: 정확히 2명이 아웃이고 둘이 파트너 → 2번째 아웃에서 즉시 종료.
+        ///  - 일반: 3명이 아웃(1명만 남음) → 종료.
+        /// 종료 시 진행중 트릭을 현재 소유자에게 마무리하고 Phase=Scoring 으로 전환한다.
+        /// 점수 계산은 ScoreCalculator(Part B)에서 수행한다.
+        /// </summary>
+        private static void CheckRoundEnd(GameState s)
+        {
+            if (s.Phase != RoundPhase.Play) return;
+
+            int outCount = 0;
+            int firstOutSeat = -1, secondOutSeat = -1;
+            for (int i = 0; i < SeatCount; i++)
+            {
+                if (!s.Seats[i].IsOut) continue;
+                outCount++;
+                if (s.Seats[i].FinishOrder == 1) firstOutSeat = i;
+                else if (s.Seats[i].FinishOrder == 2) secondOutSeat = i;
+            }
+
+            bool roundOver;
+            if (outCount >= 3)
+                roundOver = true;
+            else if (outCount == 2)
+                roundOver = secondOutSeat == Seating.Partner(firstOutSeat); // 원-투
+            else
+                roundOver = false;
+
+            if (!roundOver) return;
+
+            if (s.CurrentTrick != null)
+                FinalizeOpenTrick(s);
+
+            s.Phase = RoundPhase.Scoring;
+        }
+
+        /// <summary>진행중 트릭을 현재 Top 소유자에게 귀속시켜 CompletedTricks로 마무리한다.</summary>
+        private static void FinalizeOpenTrick(GameState s)
+        {
+            var trick = s.CurrentTrick!;
+            MarkDragonIfApplicable(trick);
+
+            s.CompletedTricks.Add(trick);
+            s.CurrentTrick = null;
+        }
+
+        private static void MarkDragonIfApplicable(Trick trick)
+        {
+            if (trick.Top != null && trick.Top.Cards.Count == 1 &&
+                trick.Top.Cards[0].Special == SpecialKind.Dragon)
+                trick.WonByDragon = true;
         }
 
         // ── Play 페이즈: 보조 ─────────────────────────────────────────────────────

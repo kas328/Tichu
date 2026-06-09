@@ -133,11 +133,12 @@ namespace Tichu.Core.Tests
         public void Bomb_can_be_played_out_of_turn_to_take_trick()
         {
             // seat0 leads single A; seat2 bombs out of turn (four 6s)
+            // seat2에 여분 카드를 둬 봄으로 아웃되지 않게 한다(seat0와 파트너 원-투 종료 회피, 트릭 검사 유지).
             var s = PlayState(0,
                 Hand(Card.Normal(14, Suit.Jade)),
                 Hand(Card.Normal(3, Suit.Jade)),
                 Hand(Card.Normal(6, Suit.Jade), Card.Normal(6, Suit.Sword),
-                     Card.Normal(6, Suit.Pagoda), Card.Normal(6, Suit.Star)),
+                     Card.Normal(6, Suit.Pagoda), Card.Normal(6, Suit.Star), Card.Normal(2, Suit.Jade)),
                 Hand(Card.Normal(4, Suit.Jade)));
 
             Assert.That(GameEngine.Apply(s, GameAction.Play(0,

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tichu Phase 1 MVP — 설계 검토 보고서 (P1-A 헤드리스 GameFlow + 기본 AI)</title>
+<style>
+  :root{
+    --bg:#f6f8fc; --ink:#1d2330; --sub:#525c70; --line:#d6dcea; --card:#ffffff;
+    --blue:#4f7cff; --green:#15b187; --purple:#7c5cff; --gold:#d99a23; --red:#e5484d;
+    --shadow:0 1px 3px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 90px}
+  header.hero{background:linear-gradient(135deg,#243056,#3a4a78);color:#fff;border-radius:18px;
+    padding:34px 36px;box-shadow:var(--shadow);margin-bottom:26px}
+  header.hero h1{margin:0 0 6px;font-size:25px;letter-spacing:-.4px}
+  header.hero p{margin:0;color:#c5cfe6;font-size:14.5px}
+  .meta-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .pill{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+    color:#eef3ff;font-size:12px;padding:4px 11px;border-radius:999px}
+  h2{font-size:20px;margin:40px 0 14px;letter-spacing:-.3px;display:flex;align-items:center;gap:9px}
+  h2 .n{display:inline-grid;place-items:center;width:27px;height:27px;border-radius:8px;
+    background:var(--blue);color:#fff;font-size:14px;font-weight:700}
+  h3{font-size:15.5px;margin:22px 0 8px}
+  p{margin:8px 0}
+  .lead{color:var(--sub);font-size:14.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;
+    box-shadow:var(--shadow);margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr}}
+  code{background:#eef1f8;border:1px solid #e1e6f1;border-radius:5px;padding:1px 6px;font-size:12.5px;
+    font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;color:#33405e}
+  pre{background:#1d2330;color:#e8edf7;border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:12.5px;
+    font-family:'JetBrains Mono',ui-monospace,Consolas,monospace;line-height:1.5}
+  pre .c{color:#7f8aa3}
+  pre .k{color:#88b5ff}
+  pre .s{color:#9be29b}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:#eef2fb;font-weight:700}
+  tr:nth-child(even) td{background:#fafbfe}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-a{background:#e7f0ff;color:#2a4fd0;border:1px solid #c4d4ff}
+  .t-b{background:#f0ebff;color:#5a3fd6;border:1px solid #d8ccff}
+  .t-c{background:#eafaf3;color:#0c7a5b;border:1px solid #bce6d4}
+  .t-core{background:#fdeaea;color:#c02b30;border:1px solid #f4c4c6}
+  .diagram{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;
+    box-shadow:var(--shadow);margin:16px 0;overflow-x:auto}
+  .cap{color:var(--sub);font-size:12.5px;margin-top:6px;text-align:center}
+  .note{background:#eef3ff;border:1px solid #d3e0ff;border-radius:10px;padding:12px 16px;font-size:13.5px;color:#33405e;margin:12px 0}
+  .crit{border-left:5px solid var(--red);background:#fff6f6;border-radius:0 12px 12px 0;padding:14px 18px;margin:12px 0;box-shadow:var(--shadow)}
+  .ok{border-left:5px solid var(--green);background:#f2fbf7;border-radius:0 12px 12px 0;padding:14px 18px;margin:12px 0;box-shadow:var(--shadow)}
+  ul.tight{margin:6px 0;padding-left:20px}
+  ul.tight li{margin:3px 0}
+  .foot{color:var(--sub);font-size:12.5px;text-align:center;margin-top:44px}
+  .sev{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;color:#fff}
+  .sev.crit{background:var(--red)}
+  .sev.high{background:#e3892b}
+  .sev.med{background:var(--gold)}
+  .sev.low{background:#8b94a6}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Tichu Phase 1 MVP — 설계 검토 보고서</h1>
+    <p>3-서브프로젝트 분해 · 지금은 <strong>P1-A 헤드리스 GameFlow + 기본 AI</strong> 상세 설계</p>
+    <div class="meta-row">
+      <span class="pill">2026-06-10</span>
+      <span class="pill">brainstorming → 설계 승인 게이트</span>
+      <span class="pill">멀티에이전트 설계+적대적 검증 완료</span>
+      <span class="pill">Phase 0(룰엔진) 위에 구축</span>
+    </div>
+  </header>
+
+  <p class="lead">Phase 0(코어 룰엔진, Part 1+2)은 <code>main</code>에 머지·검증 완료(155 tests + 10만 판 무결성). 이 보고서는 Phase 1 MVP의 전체 설계 골격과, 지금 상세 계획할 <strong>P1-A</strong>(헤드리스 게임 드라이버 + 기본 AI, 순수 .NET·dotnet 테스트)를 제시해. <strong>승인하면</strong> 설계 스펙 + P1-A 구현 계획서를 확정할게. 설계는 그라운딩→아키텍처 패널→계획 초안→<strong>적대적 검증</strong> 워크플로우로 다졌고, 검증이 잡은 핵심 결함(§6)을 모두 반영했어.</p>
+
+  <!-- ===== 1. 분해 ===== -->
+  <h2><span class="n">1</span> Phase 1 분해 — 3 서브프로젝트, 헤드리스부터</h2>
+  <p class="lead">Phase 1(싱글 vs AI 풀 게임 + UI + 애니 + DI)은 커서 셋으로 나눠 위험을 낮춰. 각 단계는 독립적으로 동작/검증 가능하고, 의존은 A→B→C.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 920 250" role="img" aria-label="3 서브프로젝트 분해">
+      <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a6"/></marker></defs>
+      <rect x="20" y="40" width="270" height="150" rx="13" fill="#f3f7ff" stroke="#4f7cff" stroke-width="1.8"/>
+      <text x="38" y="66" font-size="14" font-weight="700" fill="#2a4fd0">P1-A · 헤드리스 GameFlow + 기본 AI</text>
+      <text x="38" y="86" font-size="11.5" fill="#525c70">순수 .NET (Tichu.GameFlow), dotnet 테스트</text>
+      <text x="38" y="108" font-size="11.5" fill="#1d2330">· IAgent 계약(동기) · GameDriver/MatchRunner</text>
+      <text x="38" y="126" font-size="11.5" fill="#1d2330">· Normal 휴리스틱 AI · 용 양도 Core 변경</text>
+      <text x="38" y="144" font-size="11.5" fill="#1d2330">· AI-vs-AI 풀게임 완주 · 결정성 · 무결성</text>
+      <text x="38" y="170" font-size="11" fill="#0c7a5b" font-weight="700">▶ 지금 상세 계획 (이번 산출물)</text>
+
+      <rect x="325" y="55" width="265" height="120" rx="13" fill="#faf8ff" stroke="#7c5cff" stroke-width="1.5"/>
+      <text x="343" y="80" font-size="14" font-weight="700" fill="#5a3fd6">P1-B · Presentation</text>
+      <text x="343" y="100" font-size="11.5" fill="#525c70">Unity (2D uGUI 플레이스홀더)</text>
+      <text x="343" y="121" font-size="11.5" fill="#1d2330">· 4좌석 테이블 · 손패 선택/제출</text>
+      <text x="343" y="139" font-size="11.5" fill="#1d2330">· R3 상태바인딩 · DoTween 애니</text>
+      <text x="343" y="157" font-size="11.5" fill="#1d2330">· HumanAgent(UI 입력) · 비동기 래퍼</text>
+
+      <rect x="625" y="55" width="270" height="120" rx="13" fill="#f2fbf7" stroke="#15b187" stroke-width="1.5"/>
+      <text x="643" y="80" font-size="14" font-weight="700" fill="#0c7a5b">P1-C · App / 흐름</text>
+      <text x="643" y="100" font-size="11.5" fill="#525c70">Unity (Composition Root)</text>
+      <text x="643" y="121" font-size="11.5" fill="#1d2330">· 메인→모드선택→테이블→결과</text>
+      <text x="643" y="139" font-size="11.5" fill="#1d2330">· 일시정지/재시작 · 결과 화면</text>
+      <text x="643" y="157" font-size="11.5" fill="#1d2330">· VContainer DI 조립</text>
+
+      <line x1="290" y1="115" x2="323" y2="115" stroke="#8b94a6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="590" y1="115" x2="623" y2="115" stroke="#8b94a6" stroke-width="1.6" marker-end="url(#ar)"/>
+      <text x="40" y="222" font-size="11.5" fill="#525c70">P1-A = 헤드리스 정확성·결정성 / P1-B = Unity 통합·사람 플레이 / P1-C = 폴리시·흐름. 같은 .cs가 netstandard2.1이라 P1-B에서 Unity asmdef로 무수정 링크됨.</text>
+    </svg>
+    <p class="cap">Phase 1 분해. P1-A는 헤드리스 테스트로 룰·흐름을 확정하는 "오라클", P1-B/C가 그 위에 Unity·UX를 얹는다.</p>
+  </div>
+
+  <!-- ===== 2. 레이어 ===== -->
+  <h2><span class="n">2</span> 레이어 아키텍처 (기획서 ch10 ↔ Part 2 현실 정합)</h2>
+  <p class="lead">기획서 ch10.5는 "GameFlow = 별도 FSM" 레이어를 그렸지만, <strong>Part 2가 라운드 FSM을 이미 <code>Tichu.Core.Game</code>(GameEngine.Apply)에 구현</strong>했어. 그래서 GameFlow는 Core 위의 <strong>얇은 드라이버 + 포트(IAgent)</strong>로 축소돼(중복 FSM 없음). 의존은 항상 안쪽(Core)을 향함.</p>
+  <div class="diagram">
+    <svg viewBox="0 0 920 230" role="img" aria-label="레이어 의존도">
+      <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a6"/></marker></defs>
+      <rect x="690" y="70" width="210" height="90" rx="12" fill="#eafaf4" stroke="#15b187" stroke-width="2"/>
+      <text x="795" y="98" text-anchor="middle" font-size="14" font-weight="700" fill="#0c7a5b">Tichu.Core ✅</text>
+      <text x="795" y="118" text-anchor="middle" font-size="11" fill="#525c70">룰·조합·GameState·FSM</text>
+      <text x="795" y="134" text-anchor="middle" font-size="11" fill="#525c70">(GameEngine.Apply)·정산</text>
+      <text x="795" y="150" text-anchor="middle" font-size="10.5" fill="#0c7a5b">Unity 비의존 · 변경=용양도뿐</text>
+
+      <rect x="430" y="60" width="220" height="110" rx="12" fill="#f3f7ff" stroke="#4f7cff" stroke-width="1.8"/>
+      <text x="540" y="86" text-anchor="middle" font-size="14" font-weight="700" fill="#2a4fd0">Tichu.GameFlow (P1-A)</text>
+      <text x="540" y="106" text-anchor="middle" font-size="11" fill="#525c70">얇은 드라이버 + 포트 + AI</text>
+      <text x="540" y="123" text-anchor="middle" font-size="11" fill="#1d2330">IAgent · GameDriver</text>
+      <text x="540" y="139" text-anchor="middle" font-size="11" fill="#1d2330">MatchRunner · FlowQuery · AiAgent</text>
+      <text x="540" y="158" text-anchor="middle" font-size="10.5" fill="#2a4fd0">netstandard2.1 · 동기 · UniTask 없음</text>
+
+      <rect x="200" y="40" width="190" height="60" rx="11" fill="#faf8ff" stroke="#7c5cff" stroke-width="1.5"/>
+      <text x="295" y="64" text-anchor="middle" font-size="13" font-weight="700" fill="#5a3fd6">Presentation (P1-B)</text>
+      <text x="295" y="83" text-anchor="middle" font-size="10.5" fill="#525c70">R3·DoTween·UniTask·HumanAgent</text>
+
+      <rect x="200" y="120" width="190" height="55" rx="11" fill="#f5f7fc" stroke="#8b94a6" stroke-width="1.5"/>
+      <text x="295" y="143" text-anchor="middle" font-size="13" font-weight="700" fill="#3a4458">App (P1-C)</text>
+      <text x="295" y="161" text-anchor="middle" font-size="10.5" fill="#525c70">VContainer Composition Root</text>
+
+      <line x1="650" y1="112" x2="688" y2="112" stroke="#8b94a6" stroke-width="1.8" marker-end="url(#ar2)"/>
+      <line x1="390" y1="74" x2="428" y2="96" stroke="#8b94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <line x1="390" y1="140" x2="428" y2="120" stroke="#8b94a6" stroke-width="1.5" marker-end="url(#ar2)"/>
+      <path d="M250 100 L250 118" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar2)"/>
+      <text x="30" y="120" font-size="11.5" fill="#525c70" width="160">화살표 = 컴파일 의존(항상 안쪽).</text>
+      <text x="30" y="138" font-size="11.5" fill="#525c70">App→모두, Pres→Flow/Core,</text>
+      <text x="30" y="156" font-size="11.5" fill="#525c70">Flow→Core, Core→없음.</text>
+    </svg>
+    <p class="cap">정합된 레이어. P1-A는 <code>Tichu.GameFlow</code>(Core만 참조)로 신설. AI는 같은 어셈블리 <code>Agents/</code>에 둠(단일 구현 ⇒ 별도 IAiService 포트는 YAGNI, P1-B/C에서 필요 시 도입).</p>
+  </div>
+  <div class="note"><strong>문서화한 일탈(검증 통과):</strong> 기획서 ch10.5는 AI를 Core <code>Ai/</code> 안에 두지만, CLAUDE.md/메모리의 "Core는 룰 전용" 원칙에 따라 AI를 GameFlow에 둠. 동기 <code>IAgent</code>는 기획서의 비동기 <code>IDecisionAgent</code>(UniTask)와 다르나, Core를 UniTask-free로 유지하려는 의도적 선택 — UniTask 래핑은 P1-B에서.</p></div>
+
+  <!-- ===== 3. IAgent 계약 ===== -->
+  <h2><span class="n">3</span> P1-A 핵심 — <code>IAgent</code> 계약 (모든 결정 9포인트 매핑)</h2>
+  <p class="lead">드라이버는 "누가 사람/AI인지" 몰라도 됨 — 모든 참가자가 동일 <code>IAgent</code>로 결정을 반환. 6개 메서드가 룰상 발생하는 9개 결정 포인트를 모두 덮어.</p>
+  <pre><span class="c">// Tichu.GameFlow/Agents/IAgent.cs — 동기, Unity/UniTask 무관</span>
+<span class="k">public interface</span> IAgent {
+    <span class="k">bool</span>           CallGrandTichu(<span class="k">in</span> DecisionContext ctx);   <span class="c">// 큰 티츄 콜/거절</span>
+    ExchangeChoice ChooseExchange(<span class="k">in</span> DecisionContext ctx);    <span class="c">// 좌/파트너/우 1장씩</span>
+    <span class="k">bool</span>           CallTichu(<span class="k">in</span> DecisionContext ctx);        <span class="c">// 작은 티츄(첫 플레이 전)</span>
+    TurnDecision   DecideTurn(<span class="k">in</span> DecisionContext ctx);       <span class="c">// 리드/팔로우/패스(+마작 소원)</span>
+    Combination?   DecideBomb(<span class="k">in</span> DecisionContext ctx);       <span class="c">// 차례 밖 폭탄, null=안 함</span>
+    <span class="k">int</span>            ChooseDragonRecipient(<span class="k">in</span> DecisionContext ctx); <span class="c">// 용 트릭 양도 상대</span>
+}
+<span class="c">// DecisionContext = (GameState, seat) 읽기전용 뷰: MyHand / LegalMoves / CanPass / Left·Partner·Right</span>
+<span class="c">// 자기 손패 + 공개정보만 노출(상대 손패 비공개). RNG는 에이전트 생성자에 주입.</span></pre>
+  <table>
+    <thead><tr><th>결정 포인트 (룰)</th><th>IAgent 메서드</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>큰 티츄 콜/거절 (8장 시점)</td><td><code>CallGrandTichu</code></td><td>좌석별 1회, 4명 결정 시 6장 딜+교환 전이</td></tr>
+      <tr><td>카드 교환 (좌/파트너/우)</td><td><code>ChooseExchange</code> → <code>ExchangeChoice</code></td><td>각 방향 1장, 4명 제출 시 동시 적용</td></tr>
+      <tr><td>작은 티츄 콜 (첫 플레이 전)</td><td><code>CallTichu</code></td><td>Hand.Count==14 && Call==None일 때만</td></tr>
+      <tr><td>리드 / 팔로우 / 패스</td><td><code>DecideTurn</code> → <code>TurnDecision</code></td><td>LegalMoves가 이미 리드·추종·beats·소원 필터 완료</td></tr>
+      <tr><td>마작 소원 (마작 리드 시)</td><td><code>TurnDecision.Wish</code></td><td>같은 액션의 서브필드(별도 프롬프트 X)</td></tr>
+      <tr><td>차례 밖 폭탄 인터럽트</td><td><code>DecideBomb</code></td><td>유일한 off-turn 폴; 차례 좌석은 DecideTurn로</td></tr>
+      <tr><td>용 트릭 양도 상대</td><td><code>ChooseDragonRecipient</code></td><td>상대 2명 중 택 (Core 변경 필요 — §5)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ===== 4. 드라이브 흐름 ===== -->
+  <h2><span class="n">4</span> P1-A 드라이브 흐름 — GameDriver · MatchRunner · FlowQuery</h2>
+  <p class="lead"><code>GameDriver.RunRound</code>가 한 라운드를, <code>MatchRunner.RunMatch</code>가 1000점까지 여러 라운드를 굴려. 둘 다 결정성(시드 주입)·무작위성 0. Part 2의 테스트 전용 Simulator를 프로덕션으로 승격하며 <strong>두 버그를 수정</strong>(누적점수 실제 carry-over, 1000-동점 시 속행).</p>
+  <div class="diagram">
+    <svg viewBox="0 0 920 280" role="img" aria-label="P1-A 드라이브 흐름">
+      <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a6"/></marker></defs>
+      <text x="20" y="26" font-size="13" font-weight="700" fill="#1d2330">MatchRunner.RunMatch(masterSeed) — 1000점까지</text>
+      <rect x="20" y="40" width="120" height="44" rx="9" fill="#eafaf4" stroke="#15b187" stroke-width="1.5"/>
+      <text x="80" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0c7a5b">NewRound(seed)</text>
+      <text x="80" y="76" text-anchor="middle" font-size="10" fill="#525c70">8장 딜</text>
+
+      <rect x="162" y="40" width="120" height="44" rx="9" fill="#f3f7ff" stroke="#4f7cff" stroke-width="1.5"/>
+      <text x="222" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2a4fd0">큰티츄 4명</text>
+      <text x="222" y="76" text-anchor="middle" font-size="10" fill="#525c70">→ 6장 딜</text>
+
+      <rect x="304" y="40" width="120" height="44" rx="9" fill="#f3f7ff" stroke="#4f7cff" stroke-width="1.5"/>
+      <text x="364" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2a4fd0">교환 4명</text>
+      <text x="364" y="76" text-anchor="middle" font-size="10" fill="#525c70">→ 마작 선</text>
+
+      <rect x="446" y="40" width="150" height="44" rx="9" fill="#faf8ff" stroke="#7c5cff" stroke-width="1.8"/>
+      <text x="521" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="#5a3fd6">Play 루프 (DrivePlay)</text>
+      <text x="521" y="76" text-anchor="middle" font-size="10" fill="#525c70">아래 고정 순서</text>
+
+      <rect x="618" y="40" width="120" height="44" rx="9" fill="#fdf3e1" stroke="#d99a23" stroke-width="1.5"/>
+      <text x="678" y="60" text-anchor="middle" font-size="11.5" font-weight="700" fill="#a06d10">ScoreRound</text>
+      <text x="678" y="76" text-anchor="middle" font-size="10" fill="#525c70">정산</text>
+
+      <rect x="760" y="40" width="140" height="44" rx="9" fill="#eafaf4" stroke="#15b187" stroke-width="1.5"/>
+      <text x="830" y="58" text-anchor="middle" font-size="11" font-weight="700" fill="#0c7a5b">누적 += Total</text>
+      <text x="830" y="74" text-anchor="middle" font-size="10" fill="#525c70">≥1000 &amp; 비동점?→종료</text>
+
+      <line x1="140" y1="62" x2="160" y2="62" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <line x1="282" y1="62" x2="302" y2="62" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <line x1="424" y1="62" x2="444" y2="62" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <line x1="596" y1="62" x2="616" y2="62" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <line x1="738" y1="62" x2="758" y2="62" stroke="#8b94a6" stroke-width="1.4" marker-end="url(#ar3)"/>
+      <path d="M830 84 C 830 120, 80 120, 80 86" fill="none" stroke="#8b94a6" stroke-width="1.3" marker-end="url(#ar3)"/>
+      <text x="430" y="116" font-size="10.5" fill="#525c70" text-anchor="middle">미달 또는 동점 → 다음 라운드</text>
+
+      <!-- DrivePlay order -->
+      <rect x="120" y="150" width="700" height="110" rx="12" fill="#fbfcff" stroke="#7c5cff" stroke-width="1.4"/>
+      <text x="140" y="174" font-size="12.5" font-weight="700" fill="#5a3fd6">DrivePlay — 매 반복 고정 순서 (결정성)</text>
+      <text x="140" y="197" font-size="11.5" fill="#1d2330">① 용 양도 대기 중이면 → ChooseDragonRecipient 후 GiveDragon (최우선)</text>
+      <text x="140" y="216" font-size="11.5" fill="#1d2330">② 폭탄 창: Turn+1부터 시계방향 off-turn 좌석에 DecideBomb → 성사 시 루프 재시작</text>
+      <text x="140" y="235" font-size="11.5" fill="#1d2330">③ 작은 티츄 훅: 해당 좌석 첫 행동 전 1회(폴백 X, 턴 소모 X)</text>
+      <text x="140" y="254" font-size="11.5" fill="#1d2330">④ 차례 행동: DecideTurn → Play/Pass · 모든 Apply는 Ok 단언(거부=throw=무결성 증명)</text>
+    </svg>
+    <p class="cap">매치/라운드 드라이브. Apply가 거부를 반환하면 즉시 throw — "예외 없이 완주" 자체가 불법 상태 0 증명. Simulator 대비: 누적점수 실제 carry-over + 1000-동점 속행 수정.</p>
+  </div>
+
+  <!-- ===== 5. 용 양도 ===== -->
+  <h2><span class="n">5</span> 용 양도(Dragon-gift) — 유일한 Core 변경 + <strong>검증이 잡은 치명 결함 수정</strong></h2>
+  <p class="lead">Part 2는 용 트릭 수혜자를 <code>(winner+1)%4</code>로 결정론적 고정해뒀어. Phase 1은 트릭 승자(사람/AI)가 상대 2명 중 <strong>선택</strong>해야 함. 이게 Phase 1이 요구하는 유일한 Core 변경(~25줄, 5파일).</p>
+  <div class="crit">
+    <p style="margin:0 0 6px"><span class="sev crit">CRITICAL</span> <strong>적대적 검증이 잡은 결함</strong>: 초안의 "일시정지"가 실제로 작동하지 않음.</p>
+    <p style="margin:0;font-size:13.5px;color:#33405e"><code>CheckRoundEnd</code>은 <code>CollectTrick</code> 내부가 아니라 <strong><code>ApplyPlay</code>/<code>ApplyPass</code>에서 CollectTrick이 리턴된 뒤</strong> 호출돼. 그래서 "Turn 할당 전 return"만으로는 라운드 종료를 못 막아 → 용 트릭이 라운드를 끝내는 경우(용이 마지막 카드이거나 원-투 성립) 양도가 <strong>조용히 누락</strong>되고 <code>(winner+1)%4</code> 하드코드가 재발동. 점수가 가장 크게 갈리는 라운드에서 틀림.</p>
+  </div>
+  <div class="diagram">
+    <svg viewBox="0 0 920 210" role="img" aria-label="용 양도 캡처-정지-재개">
+      <defs><marker id="ar4" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a6"/></marker></defs>
+      <rect x="20" y="50" width="200" height="80" rx="11" fill="#fdeaea" stroke="#e5484d" stroke-width="1.5"/>
+      <text x="120" y="74" text-anchor="middle" font-size="12.5" font-weight="700" fill="#c02b30">① 캡처 (CollectTrick)</text>
+      <text x="120" y="94" text-anchor="middle" font-size="10.5" fill="#525c70">WonByDragon이면</text>
+      <text x="120" y="110" text-anchor="middle" font-size="10.5" fill="#525c70">PendingDragonGiftWinner 세팅,</text>
+      <text x="120" y="124" text-anchor="middle" font-size="10.5" fill="#525c70">Turn 미할당 · return</text>
+
+      <rect x="255" y="50" width="220" height="80" rx="11" fill="#fff6f2" stroke="#e3892b" stroke-width="1.8"/>
+      <text x="365" y="74" text-anchor="middle" font-size="12.5" font-weight="700" fill="#b5610f">② 가드 (수정 핵심)</text>
+      <text x="365" y="95" text-anchor="middle" font-size="10.5" fill="#525c70">ApplyPlay/ApplyPass:</text>
+      <text x="365" y="111" text-anchor="middle" font-size="11" fill="#1d2330" font-weight="700">if (Pending==null) CheckRoundEnd(s);</text>
+      <text x="365" y="126" text-anchor="middle" font-size="10.5" fill="#525c70">대기 중이면 라운드 종료 보류</text>
+
+      <rect x="510" y="50" width="180" height="80" rx="11" fill="#f3f7ff" stroke="#4f7cff" stroke-width="1.5"/>
+      <text x="600" y="74" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2a4fd0">③ 드라이버 질의</text>
+      <text x="600" y="95" text-anchor="middle" font-size="10.5" fill="#525c70">FlowQuery.Next → DragonGift</text>
+      <text x="600" y="111" text-anchor="middle" font-size="10.5" fill="#525c70">ChooseDragonRecipient(ctx)</text>
+      <text x="600" y="126" text-anchor="middle" font-size="10.5" fill="#525c70">→ GiveDragon 액션</text>
+
+      <rect x="725" y="50" width="175" height="80" rx="11" fill="#eafaf4" stroke="#15b187" stroke-width="1.5"/>
+      <text x="812" y="74" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0c7a5b">④ 재개 (ApplyGiveDragon)</text>
+      <text x="812" y="95" text-anchor="middle" font-size="10.5" fill="#525c70">Recipient 기록 · 플래그 해제</text>
+      <text x="812" y="111" text-anchor="middle" font-size="10.5" fill="#525c70">Turn 설정 +</text>
+      <text x="812" y="126" text-anchor="middle" font-size="10.5" fill="#525c70">보류했던 CheckRoundEnd 실행</text>
+
+      <line x1="220" y1="90" x2="253" y2="90" stroke="#8b94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+      <line x1="475" y1="90" x2="508" y2="90" stroke="#8b94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+      <line x1="690" y1="90" x2="723" y2="90" stroke="#8b94a6" stroke-width="1.5" marker-end="url(#ar4)"/>
+      <text x="20" y="165" font-size="11.5" fill="#525c70">ScoreCalculator: <code>credited = WonByDragon ? (DragonGiftRecipient ?? (winner+1)%4) : winner</code> — <code>??</code> 폴백으로 기존 정산 테스트 전부 그린 유지.</text>
+      <text x="20" y="185" font-size="11.5" fill="#525c70">라운드 종료 시점의 open 트릭(FinalizeOpenTrick) 용 양도도 동일 가드로 Phase=Scoring 전 해결 — 검증이 짚은 두 번째 경로.</text>
+    </svg>
+    <p class="cap">캡처→가드→질의→재개. ②의 가드가 핵심 수정: 양도 대기 중엔 라운드 종료를 보류하고, GiveDragon이 해결한 뒤에 보류했던 종료를 실행. <code>??</code> 폴백으로 무회귀.</p>
+  </div>
+  <p class="lead">Core 변경 5파일: <code>Trick</code>(DragonGiftRecipient), <code>GameState</code>(pending flag + Clone/Hash, null 센티넬 인코딩), <code>GameAction</code>(GiveDragon), <code>GameEngine</code>(캡처+가드+ApplyGiveDragon), <code>ScoreCalculator</code>(?? 폴백). 기존 공개 시그니처 무변경.</p>
+
+  <!-- ===== 6. 검증 강화 ===== -->
+  <h2><span class="n">6</span> 적대적 검증으로 강화된 점</h2>
+  <p class="lead">설계 워크플로우의 검증 단계가 잡은 이슈와 반영 결과 — 이게 ultracode 방식의 핵심 가치야.</p>
+  <table>
+    <thead><tr><th>심각도</th><th>이슈</th><th>반영</th></tr></thead>
+    <tbody>
+      <tr><td><span class="sev crit">CRIT</span></td><td>용 양도 "일시정지"가 실제 작동 안 함 (CheckRoundEnd 호출 위치)</td><td>ApplyPlay/Pass에 <code>Pending==null</code> 가드 + ApplyGiveDragon에서 보류 종료 실행 (§5)</td></tr>
+      <tr><td><span class="sev high">HIGH</span></td><td>라운드 종료 open 트릭(FinalizeOpenTrick) 용 양도가 드라이버로 처리 불가</td><td>Phase=Scoring 전 양도 해결 강제, 전용 테스트 추가</td></tr>
+      <tr><td><span class="sev high">HIGH</span></td><td>태스크 순서: FlowQuery(03)가 용양도(04)에 의존하는데 앞에 배치</td><td><strong>재정렬</strong>: 04(용양도 Core)를 03(FlowQuery)보다 앞으로</td></tr>
+      <tr><td><span class="sev high">HIGH</span></td><td>시나리오 테스트(용/폭탄/소원)가 NewRound 랜덤딜로는 목표 상태 도달 불가</td><td>손패 직접 구성 seam(PlayPhaseTests.PlayState 패턴)을 GameDriver에 주입 — 각 시나리오 카드 명시</td></tr>
+      <tr><td><span class="sev high">HIGH</span></td><td>1000-동점 테스트를 실제 플레이로 구성 불가능</td><td>순수함수 <code>Decide(teamA,teamB,target)</code> 추출해 단위테스트, 통합은 [Explicit] 1개</td></tr>
+      <tr><td><span class="sev med">MED</span></td><td>AI 휴리스틱 "최저/최소/가장 싼" 선택의 객관적 기준 부재(LegalMoves 무순서)</td><td>무브 정렬 헬퍼(<code>MoveValue/Compare</code>) 추가·단위테스트, AiAgent가 참조</td></tr>
+      <tr><td><span class="sev med">MED</span></td><td>폭탄 순서 모순 (FlowQuery 0..3 vs 드라이버 시계방향)</td><td>하나로 통일: <strong>Turn+1부터 시계방향</strong>, FlowQuery가 그 순서로 반환·테스트</td></tr>
+      <tr><td><span class="sev low">LOW</span></td><td>"마지막 1명 빼고 손패 빔" 불변식이 원-투에선 거짓(2명 잔류)</td><td>종료 유형별 분기 / 약한 항상참 불변식(FinishOrder 프리픽스)으로 수정</td></tr>
+      <tr><td><span class="sev low">LOW</span></td><td>소원강제 데드엔드 방어코드</td><td>실제로 도달 불가(WishIsEnforced는 충족수 존재 시만 true) → "LegalMoves≠∅ ∨ CanPass" 불변식으로 테스트화</td></tr>
+      <tr><td><span class="sev low">LOW</span></td><td>ComputeHash null 센티넬 / sln 폴더 네스팅</td><td>recipient는 <code>HasValue?val:ulong.MaxValue</code>로 폴드, sln 네스팅 명시 단계 추가</td></tr>
+    </tbody>
+  </table>
+  <div class="ok"><strong>범위·결정 검증 통과:</strong> P1-A는 순수 .NET 유지(UnityEngine/UniTask 없음), UI 침투 없음, 단일 Normal 휴리스틱(ISMCTS/티어/룩어헤드 없음). 잠긴 결정 3개 모두 준수, 그라운딩 사실(ScoreCalculator:74-76, 6값 GameActionKind, ComputeHash, Simulator 버그 등)도 실파일 대조로 정확 확인.</div>
+
+  <!-- ===== 7. 태스크 ===== -->
+  <h2><span class="n">7</span> P1-A 구현 태스크 (TDD, 의존순 재정렬)</h2>
+  <table>
+    <thead><tr><th>#</th><th>태스크</th><th>대표 검증</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><code>Tichu.GameFlow</code> 프로젝트 스캐폴딩 + sln/테스트 배선</td><td>3프로젝트 빌드, 기존 테스트 무회귀</td></tr>
+      <tr><td>2</td><td><code>IAgent</code> 계약 + <code>DecisionContext</code> 읽기전용 뷰</td><td>좌석/손패/LegalMoves 위임 정확</td></tr>
+      <tr><td>3</td><td><strong>용 양도 Core 변경</strong> (캡처+가드+ApplyGiveDragon+?? 폴백)</td><td>라운드종료 용트릭도 양도 honored, 무회귀</td></tr>
+      <tr><td>4</td><td><code>FlowQuery</code> (NextStep 디스패치 + 폭탄창 시계순)</td><td>DragonGift 단계 노출, 폭탄 좌석 순서</td></tr>
+      <tr><td>5</td><td><code>ScriptedAgent</code> (결정성 시나리오용) + 상태구성 헬퍼</td><td>기본정책 + 람다 오버라이드</td></tr>
+      <tr><td>6</td><td><code>GameDriver.RunRound</code> (1라운드 오케스트레이션)</td><td>RoundEnd 도달, 불법행동 throw, 리플레이 일치</td></tr>
+      <tr><td>7</td><td>Normal <code>AiAgent</code> + <code>RandomAgent</code> + 무브정렬</td><td>휴리스틱 단위테스트, 결정성</td></tr>
+      <tr><td>8</td><td><code>MatchRunner.RunMatch</code> (1000점, carry-over, <code>Decide()</code> 순수함수)</td><td>실누적, 동점속행, maxRounds 가드</td></tr>
+      <tr><td>9</td><td>헤드리스 게임 테스트 (완주·결정성·불변식·시나리오·AI품질)</td><td>AI-vs-AI 완주, [Heavy] 10만판 무결성</td></tr>
+    </tbody>
+  </table>
+  <div class="note"><strong>테스트 오라클</strong>(기획서 12.3 + Part 0 불변식 재사용): AI-vs-AI 풀게임 완주(WinningTeam∈{0,1}), 결정성(동일 시드→동일 ComputeHash + 액션로그 리플레이), 라운드 점수 불변식(원-투 200/0 또는 카드합 100), 10만 판 무결성 <code>[Explicit, Category("Heavy")]</code>. 모두 <code>dotnet test</code>로 검증, Unity 미러는 P1-A에서 안 함(P1-B 몫).</div>
+
+  <!-- ===== 8. 결정/DoD/다음 ===== -->
+  <h2><span class="n">8</span> 잠긴 결정 · DoD · 다음</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>잠긴 결정 (네가 확정)</h3>
+      <ul class="tight">
+        <li>3-서브프로젝트, 헤드리스부터 → 지금 P1-A</li>
+        <li>2D uGUI 플레이스홀더 먼저 (P1-B)</li>
+        <li>단일 Normal 휴리스틱 AI (ISMCTS/티어 = Phase 2)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>P1-A 완료 기준 (DoD)</h3>
+      <ul class="tight">
+        <li><code>dotnet test</code> 그린 + <code>--filter Category=Heavy</code> 10만 판 무결</li>
+        <li>AI-vs-AI 풀게임 1000점 완주, 불법상태/예외 0</li>
+        <li>결정성(동일 시드→동일 결과) + 용양도 회귀 테스트</li>
+        <li>Core 변경은 용양도뿐, GameFlow는 UnityEngine/UniTask-free</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">
+    <strong>승인하면</strong>: ① 설계 스펙(<code>docs/superpowers/specs/</code>) 작성 → 네 검토 → ② P1-A 구현 계획서(writing-plans) 확정 → ③ 서브에이전트 TDD로 P1-A 구현. <br>
+    <strong>별도 정리 권고(이번 아님)</strong>: 테스트 전용 <code>Sim/Simulator.cs</code>·<code>RandomBot.cs</code>(RandomAgent로 대체됨), <code>PlayerSeat.WonCards</code>(엔진이 안 채우는 死코드) — 별도 cleanup PR로.
+  </div>
+
+  <p class="foot">Tichu Phase 1 MVP 설계 검토 보고서 · 2026-06-10 · 멀티에이전트 설계+적대적 검증 기반 · Phase 0(룰엔진 155 tests+10만판) 위에 구축</p>
+
+</div>
+</body>
+</html>

@@ -168,15 +168,27 @@ namespace Tichu.Core.Game
 
         // ── 후보 열거 ───────────────────────────────────────────────────────────
 
+        // ThreadStatic 재사용 버퍼들 — 핫패스 할당 제거.
+        [ThreadStatic] private static Card[]? _tryAddBuffer;
+        [ThreadStatic] private static HashSet<ulong>? _seenSet;
+
         private static void EnumerateCandidates(in HandBag bag, TrickContext ctx, List<Combination> outList)
         {
-            var seen = new HashSet<string>();
+            // HashSet 재사용: Clear()는 내부 버킷을 유지하므로 재할당 없음.
+            var seen = _seenSet ??= new HashSet<ulong>(256);
+            seen.Clear();
 
             void TryAdd(List<Card> cards)
             {
-                var combo = CombinationRecognizer.Recognize(cards.ToArray(), ctx);
+                int n = cards.Count;
+                if (_tryAddBuffer == null || _tryAddBuffer.Length < n)
+                    _tryAddBuffer = new Card[n < 16 ? 16 : n];
+                for (int i = 0; i < n; i++) _tryAddBuffer[i] = cards[i];
+                // 안전: Recognize()는 span을 HandShape.Source(새 Card[])로 복사하므로,
+                // 반환된 Combination은 _tryAddBuffer를 참조하지 않는다(다음 후보가 덮어써도 무해).
+                var combo = CombinationRecognizer.Recognize(_tryAddBuffer.AsSpan(0, n), ctx);
                 if (combo.Type == CombinationType.Invalid) return;
-                string key = Key(combo);
+                ulong key = ComboKey(combo);
                 if (seen.Add(key)) outList.Add(combo);
             }
 
@@ -188,18 +200,31 @@ namespace Tichu.Core.Game
             GenerateStraightFlushBombs(bag, TryAdd);
         }
 
-        /// <summary>조합을 중복 제거하기 위한 키(타입+길이+카드집합).</summary>
-        private static string Key(Combination c)
+        /// <summary>
+        /// 조합을 중복 제거하기 위한 64비트 키.
+        /// (Type, Length, Rank) 를 상위 비트에, 카드 집합의 XOR-fold 해시를 하위 비트에 배치한다.
+        /// 카드 1장: Rank(5b) | Suit(3b) | Special(3b) = 11비트 → 64비트 FNV-1a 폴드.
+        /// 충돌 확률은 2^-40 이하(최대 14장 조합, 실용상 무시).
+        /// </summary>
+        private static ulong ComboKey(Combination c)
         {
-            // 카드 집합을 정렬해 직렬화(동일 카드 구성이면 같은 키).
-            var parts = new List<string>(c.Cards.Count);
+            // 상위: Type(3b), Length(5b), Rank(12b) — 20비트
+            ulong header = ((ulong)(int)c.Type << 17) | ((ulong)c.Length << 12) | (ulong)(uint)c.Rank;
+
+            // 카드 집합 해시: 순서 독립적 XOR fold (정렬 불필요)
+            ulong cardHash = 0;
             for (int i = 0; i < c.Cards.Count; i++)
             {
                 var card = c.Cards[i];
-                parts.Add($"{card.Rank}.{(int)card.Suit}.{(int)card.Special}");
+                // 카드 식별자: Rank(5b) | Suit(3b) | Special(3b) = 11비트 범위내 고유
+                uint id = ((uint)card.Rank & 0x1F) | ((uint)(int)card.Suit << 5) | ((uint)(int)card.Special << 8);
+                // FNV-1a 로 개별 해시 후 XOR-fold (순서 독립)
+                ulong h = 14695981039346656037UL;
+                h = (h ^ (ulong)id) * 1099511628211UL;
+                cardHash ^= h;
             }
-            parts.Sort(StringComparer.Ordinal);
-            return ((int)c.Type) + "|" + c.Rank + "|" + string.Join(",", parts);
+
+            return (header << 43) | (cardHash & 0x7FF_FFFF_FFFFUL);
         }
 
         // 단독: 각 distinct 일반 랭크 1장 + 특수카드(마작/개/봉황/용).

@@ -1,4 +1,3 @@
-#nullable enable
 using System.Collections.Generic;
 using NUnit.Framework;
 using Tichu.Core.Cards;

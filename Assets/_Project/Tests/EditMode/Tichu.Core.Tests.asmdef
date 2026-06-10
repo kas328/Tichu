@@ -3,6 +3,7 @@
     "rootNamespace": "Tichu.Core.Tests",
     "references": [
         "Tichu.Core",
+        "Tichu.GameFlow",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

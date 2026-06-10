@@ -1,4 +1,3 @@
-#nullable enable
 using System.Collections.Generic;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
@@ -22,6 +21,21 @@ namespace Tichu.Core.Game
         /// <summary>셋업 페이즈(Deal8~Exchange 완료 전)의 임시 상태. Play 진입 후 null.</summary>
         internal RoundSetup? Setup { get; set; }
 
+        /// <summary>용 단독으로 트릭을 이긴 직후, 수혜 상대를 지정하기 전까지 승자 좌석을 보관한다. 양도 완료 시 null.</summary>
+        internal int? PendingDragonGiftWinner { get; set; }
+
+        /// <summary>용 양도 대기 중이면 true와 승자 좌석을 반환; 아니면 false와 winner=-1.</summary>
+        public bool TryGetPendingDragonGift(out int winner)
+        {
+            if (PendingDragonGiftWinner.HasValue)
+            {
+                winner = PendingDragonGiftWinner.Value;
+                return true;
+            }
+            winner = -1;
+            return false;
+        }
+
         public GameState()
         {
             Seats = new PlayerSeat[SeatCount];
@@ -37,6 +51,7 @@ namespace Tichu.Core.Game
                 Phase = Phase,
                 Turn = Turn,
                 Wish = Wish,
+                PendingDragonGiftWinner = PendingDragonGiftWinner,
                 RngSeed = RngSeed,
                 Rng = Rng  // struct — value copy
             };
@@ -103,6 +118,7 @@ namespace Tichu.Core.Game
             h = Fnv(h, Prime, (ulong)(int)Phase);
             h = Fnv(h, Prime, (ulong)Turn);
             h = Fnv(h, Prime, Wish.HasValue ? (ulong)Wish.Value : ulong.MaxValue);
+            h = Fnv(h, Prime, PendingDragonGiftWinner.HasValue ? (ulong)PendingDragonGiftWinner.Value : ulong.MaxValue);
 
             for (int i = 0; i < SeatCount; i++)
             {
@@ -158,6 +174,7 @@ namespace Tichu.Core.Game
                 h = Fnv(h, Prime, (ulong)t.TopOwnerSeat);
                 h = Fnv(h, Prime, (ulong)t.AccumulatedPoints);
                 h = Fnv(h, Prime, t.WonByDragon ? 1UL : 0UL);
+                h = Fnv(h, Prime, t.DragonGiftRecipient.HasValue ? (ulong)t.DragonGiftRecipient.Value : ulong.MaxValue);
             }
 
             return h;
@@ -172,7 +189,8 @@ namespace Tichu.Core.Game
                 Top = src.Top,
                 TopOwnerSeat = src.TopOwnerSeat,
                 AccumulatedPoints = src.AccumulatedPoints,
-                WonByDragon = src.WonByDragon
+                WonByDragon = src.WonByDragon,
+                DragonGiftRecipient = src.DragonGiftRecipient
             };
             foreach (var p in src.History)
                 t.History.Add(new Play { Seat = p.Seat, Combination = p.Combination, IsBombInterrupt = p.IsBombInterrupt });

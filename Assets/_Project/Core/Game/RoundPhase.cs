@@ -1,4 +1,3 @@
-#nullable enable
 namespace Tichu.Core.Game
 {
     public enum RoundPhase

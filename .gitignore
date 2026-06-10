@@ -83,3 +83,6 @@ Thumbs.db
 !core/**/*.sln
 core/**/[Bb]in/
 core/**/[Oo]bj/
+
+# --- Brainstorming 산출물(비주얼 동반 도구 임시 HTML 목업) — 추적 제외 ---
+.superpowers/

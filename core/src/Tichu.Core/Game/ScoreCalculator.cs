@@ -69,10 +69,10 @@ namespace Tichu.Core.Game
             var perSeat = new int[SeatCount];
             foreach (var t in s.CompletedTricks)
             {
-                // 용 트릭: (좌석+1)은 항상 홀짝이 바뀌어 TeamOf 기준 상대팀이 된다.
-                // 실제 티츄는 패배 측이 수혜 상대를 지정하지만, GiveToOpponent 액션 도입 전까지 +1 고정(두 상대 중 한 좌석에 귀속).
+                // 용 트릭: 승자가 지정한 수혜 상대(DragonGiftRecipient)로 귀속.
+                // 미지정(null)이면 기존 의미(좌석+1)%4로 폴백 — 두 상대 중 한 좌석은 항상 상대팀.
                 int credited = t.WonByDragon
-                    ? (t.TopOwnerSeat + 1) % SeatCount
+                    ? (t.DragonGiftRecipient ?? (t.TopOwnerSeat + 1) % SeatCount)
                     : t.TopOwnerSeat;
                 perSeat[credited] += t.AccumulatedPoints;
             }

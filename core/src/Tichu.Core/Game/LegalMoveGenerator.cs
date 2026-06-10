@@ -17,6 +17,8 @@ namespace Tichu.Core.Game
         {
             var result = new List<Combination>();
             if (s.Phase != RoundPhase.Play) return result;
+            // 용 양도 대기 중에는 GiveDragon만 유효하므로 일반 수는 없음.
+            if (s.PendingDragonGiftWinner != null) return result;
 
             var hand = s.Seats[seat].Hand;
             if (s.Seats[seat].IsOut || hand.Count == 0) return result;
@@ -63,6 +65,8 @@ namespace Tichu.Core.Game
         public static bool CanPass(GameState s, int seat)
         {
             if (s.Phase != RoundPhase.Play) return false;
+            // 용 양도 대기 중에는 패스 불가(CurrentTrick이 null이라 아래에서도 걸리나 명시적으로 거부).
+            if (s.PendingDragonGiftWinner != null) return false;
             if (s.CurrentTrick == null) return false;          // 리드는 패스 불가
             if (seat != s.Turn) return false;                  // 자기 턴에만
 

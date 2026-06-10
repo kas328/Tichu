@@ -120,6 +120,15 @@ namespace Tichu.Core.Tests.Sim
             ref int grandTichuNext,
             ref int exchangeNext)
         {
+            // 용 양도 대기: 두 상대 중 한 명을 결정적으로 선택해 양도한다.
+            if (s.TryGetPendingDragonGift(out int dragonWinner))
+            {
+                int leftOpp  = (dragonWinner + 1) % 4;
+                int rightOpp = (dragonWinner + 3) % 4;
+                int recipient = rng.NextInt(2) == 0 ? leftOpp : rightOpp;
+                return GameAction.GiveDragon(dragonWinner, recipient);
+            }
+
             switch (s.Phase)
             {
                 case RoundPhase.GrandTichuDecision:

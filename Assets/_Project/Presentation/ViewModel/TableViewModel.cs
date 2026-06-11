@@ -42,6 +42,13 @@ namespace Tichu.Presentation.ViewModel
         public ReactiveProperty<DecisionRequest?> PendingDecision { get; }
             = new ReactiveProperty<DecisionRequest?>();
 
+        /// <summary>현재 활성 마작 소원 랭크(없으면 null).</summary>
+        public ReactiveProperty<int?> Wish { get; } = new ReactiveProperty<int?>();
+
+        /// <summary>누적 팀 총점(여러 라운드 합). 부트스트랩이 갱신한다.</summary>
+        public ReactiveProperty<int> CumulativeA { get; } = new ReactiveProperty<int>(0);
+        public ReactiveProperty<int> CumulativeB { get; } = new ReactiveProperty<int>(0);
+
         // 좌석별 손패 수 (0..3)
         private readonly ReactiveProperty<int>[] _handCounts = new ReactiveProperty<int>[4];
 
@@ -77,6 +84,7 @@ namespace Tichu.Presentation.ViewModel
         public void ApplySnapshot(GameState s)
         {
             Phase.Value = s.Phase;
+            Wish.Value = s.Wish;
             // ReactiveProperty 는 같은 참조를 다시 넣으면 통지하지 않는다. 엔진은 손패 List·트릭을
             // 제자리 변경하므로(같은 참조), 변경 감지를 위해 사본/강제 재통지가 필요하다.
             MyHand.Value = new List<Card>(s.Seats[_mySeat].Hand);   // 사본 → 항상 통지

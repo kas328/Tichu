@@ -1,5 +1,6 @@
 using Cysharp.Threading.Tasks;
 using R3;
+using Tichu.Core;
 using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.Presentation.ViewModel;
@@ -32,53 +33,55 @@ namespace Tichu.Presentation
             if (EventSystem.current == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
-            // 2) Screen-Space-Overlay 캔버스 생성.
+            // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
             var canvas = CreateCanvas();
-
-            // 3) ViewModel 생성.
             var vm = new TableViewModel(MySeat);
+            new TableUiView().Bind(vm, canvas);
 
-            // 4) 뷰 빌드 + 구독.
-            var view = new TableUiView();
-            view.Bind(vm, canvas);
-
-            // 5) 에이전트 구성: 좌석 0=인간, 1~3=Normal AI.
-            var agents = new IDecisionAgent[]
-            {
-                new HumanAgent(vm),
-                new AiDecisionAgent(Seed, 1),
-                new AiDecisionAgent(Seed, 2),
-                new AiDecisionAgent(Seed, 3)
-            };
-
-            // 6) 초기 렌더 후 라운드 구동. (RandomDeal 이면 매 실행 무작위 시드.)
-            if (RandomDeal) Seed = unchecked((ulong)System.DateTime.UtcNow.Ticks);
-            var state = GameEngine.NewRound(Seed);
-            vm.ApplySnapshot(state);
-
-            RunRoundAsync(agents, state, vm).Forget();
+            // 3) 매치 루프 기동(여러 라운드, 누적 점수).
+            RunMatchAsync(vm).Forget();
         }
 
-        /// <summary>라운드를 비동기로 구동하고 예외를 콘솔에 노출한다.</summary>
-        private async UniTaskVoid RunRoundAsync(IDecisionAgent[] agents, GameState state, TableViewModel vm)
+        /// <summary>여러 라운드를 누적 점수와 함께 구동한다(인간 1 + AI 3). 라운드 사이 잠시 결과 표시.</summary>
+        private async UniTaskVoid RunMatchAsync(TableViewModel vm)
         {
+            var ct = this.GetCancellationTokenOnDestroy();
+            var human = new HumanAgent(vm);                 // 인간 에이전트는 매치 내내 재사용
+            var master = new Rng(RandomDeal ? unchecked((ulong)System.DateTime.UtcNow.Ticks) : Seed);
+            int teamA = 0, teamB = 0;
+
             try
             {
-                var outcome = await new AsyncGameDriver(agents)
-                    .RunRoundAsync(state, this.GetCancellationTokenOnDestroy());
+                while (!ct.IsCancellationRequested)
+                {
+                    ulong seed = RandomDeal ? master.NextULong() : Seed;
+                    var state = GameEngine.NewRound(seed);
+                    vm.RoundResult.Value = null;            // 새 라운드: 이전 결과 지움
+                    vm.ApplySnapshot(state);
 
-                // 7) 완료: 최종 결산 표시.
-                vm.RoundResult.Value = outcome.Result;
-                vm.ApplySnapshot(outcome.State);
+                    var agents = new IDecisionAgent[]
+                    {
+                        human,
+                        new AiDecisionAgent(seed, 1),
+                        new AiDecisionAgent(seed, 2),
+                        new AiDecisionAgent(seed, 3),
+                    };
+
+                    var outcome = await new AsyncGameDriver(agents).RunRoundAsync(state, ct);
+
+                    teamA += outcome.Result.TeamATotal;     // 누적
+                    teamB += outcome.Result.TeamBTotal;
+                    vm.CumulativeA.Value = teamA;
+                    vm.CumulativeB.Value = teamB;
+                    vm.RoundResult.Value = outcome.Result;
+                    vm.ApplySnapshot(outcome.State);
+
+                    // 결과를 잠시 보여준 뒤 다음 라운드.
+                    await UniTask.Delay(System.TimeSpan.FromSeconds(3.5), cancellationToken: ct);
+                }
             }
-            catch (System.OperationCanceledException)
-            {
-                // 오브젝트 파괴로 인한 취소는 정상 종료.
-            }
-            catch (System.Exception e)
-            {
-                Debug.LogException(e);
-            }
+            catch (System.OperationCanceledException) { /* 씬 종료: 정상 */ }
+            catch (System.Exception e) { Debug.LogException(e); }
         }
 
         private static Canvas CreateCanvas()

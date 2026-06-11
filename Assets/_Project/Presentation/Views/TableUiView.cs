@@ -42,6 +42,7 @@ namespace Tichu.Presentation.Views
 
         private readonly Text[] _seatTexts = new Text[4];
         private readonly RectTransform[] _backRoots = new RectTransform[4];
+        private readonly Text[] _countTexts = new Text[4];
         private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _hintLabel, _resultText;
         private RectTransform _handRoot, _trickRoot, _actionRoot, _wishPickRoot, _exchangeRoot, _playsRoot;
 
@@ -82,17 +83,10 @@ namespace Tichu.Presentation.Views
             // 중앙 상단: 라운드 결과.
             _resultText = NewAnchoredText("Result", rt, "", 24, new Vector2(0.5f, 1), new Vector2(0, -16), new Vector2(720, 44), TextAnchor.UpperCenter);
 
-            // seat2=파트너(상, 가로 뒷면).
-            _seatTexts[2] = NewAnchoredText("PartnerLbl", rt, "", 26, new Vector2(0.5f, 1), new Vector2(0, -70), new Vector2(560, 34), TextAnchor.MiddleCenter);
-            _backRoots[2] = NewRow("PartnerBacks", rt, new Vector2(0.5f, 1), new Vector2(0, -106), new Vector2(720, 56), TextAnchor.MiddleCenter, false);
-            // seat1=오른쪽(우중앙, 세로 뒷면 — 화면 중앙 높이, 겹쳐 컴팩트).
-            _seatTexts[1] = NewAnchoredText("RightLbl", rt, "", 26, new Vector2(1, 0.5f), new Vector2(-20, 190), new Vector2(280, 34), TextAnchor.MiddleRight);
-            _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
-            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = 6;
-            // seat3=왼쪽(좌중앙, 세로 뒷면).
-            _seatTexts[3] = NewAnchoredText("LeftLbl", rt, "", 26, new Vector2(0, 0.5f), new Vector2(20, 190), new Vector2(280, 34), TextAnchor.MiddleLeft);
-            _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
-            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = 6;
+            // 상대 = 프로필 박스 + 이름 + 장수 + 카드(뒷면). 카드가 이름/장수와 겹치지 않게 배치.
+            BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -52),  new Vector2(0, -156),  false, new Vector2(700, 50)); // 파트너(상)
+            BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(64, 250),  new Vector2(52, 110),  true,  new Vector2(80, 360)); // 왼쪽
+            BuildOpponent(rt, 1, new Vector2(1, 0.5f), new Vector2(-64, 250), new Vector2(-52, 110), true,  new Vector2(80, 360)); // 오른쪽
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
@@ -135,6 +129,23 @@ namespace Tichu.Presentation.Views
             _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
         }
 
+        // 상대 1명: 프로필 박스(placeholder 사진) + 이름 + 장수 + 카드(뒷면).
+        private void BuildOpponent(RectTransform rt, int seat, Vector2 anchor, Vector2 infoPos, Vector2 cardsPos, bool vertical, Vector2 cardsSize)
+        {
+            var prof = NewPanel($"Prof{seat}", rt);
+            var prt = prof.GetComponent<RectTransform>();
+            prt.anchorMin = prt.anchorMax = prt.pivot = anchor;
+            prt.sizeDelta = new Vector2(64, 64); prt.anchoredPosition = infoPos;
+            prof.AddComponent<Image>().color = new Color(0.30f, 0.36f, 0.44f);
+            var po = prof.AddComponent<Outline>(); po.effectColor = new Color(0.10f, 0.13f, 0.18f); po.effectDistance = new Vector2(2, 2);
+
+            _seatTexts[seat] = NewAnchoredText($"Name{seat}", rt, SeatNames[seat], 24, anchor, infoPos + new Vector2(0, -48), new Vector2(180, 30), TextAnchor.MiddleCenter);
+            _countTexts[seat] = NewAnchoredText($"Cnt{seat}", rt, "14장", 22, anchor, infoPos + new Vector2(0, -76), new Vector2(180, 28), TextAnchor.MiddleCenter);
+
+            _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, vertical ? TextAnchor.UpperCenter : TextAnchor.MiddleCenter, vertical);
+            if (vertical) _backRoots[seat].GetComponent<VerticalLayoutGroup>().spacing = -2;
+        }
+
         // ── 구독 ─────────────────────────────────────────────────────────────
 
         private void Subscribe()
@@ -153,8 +164,8 @@ namespace Tichu.Presentation.Views
                 int seat = i;
                 _vm.HandCount(seat).Subscribe(c =>
                 {
-                    _seatTexts[seat].text = $"{SeatNames[seat]} · {c}장";
-                    if (seat != 0) RenderBacks(seat, c);
+                    if (seat == 0) _seatTexts[0].text = $"{SeatNames[0]} · {c}장";
+                    else { _countTexts[seat].text = $"{c}장"; RenderBacks(seat, c); }
                 }).AddTo(_subs);
             }
             _vm.PendingDecision.Subscribe(RenderPrompt).AddTo(_subs);
@@ -267,7 +278,7 @@ namespace Tichu.Presentation.Views
             if (rb == null) return;
             ClearChildren(rb);
             bool side = (seat == 1 || seat == 3);
-            float w = side ? 46 : 30, h = side ? 24 : 44;
+            float w = side ? 44 : 30, h = side ? 22 : 44;
             int show = Mathf.Min(count, 14);
             for (int i = 0; i < show; i++)
             {

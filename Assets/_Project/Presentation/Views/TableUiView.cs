@@ -48,6 +48,7 @@ namespace Tichu.Presentation.Views
 
         private readonly List<Card> _selection = new List<Card>(); // 차례/폭탄
         private readonly List<GameObject> _playEntries = new List<GameObject>(); // 최근 플레이 항목
+        private GameObject _tichuButton; // 상시 스몰 티츄 버튼
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
@@ -127,6 +128,17 @@ namespace Tichu.Presentation.Views
             al.childForceExpandWidth = false; al.childForceExpandHeight = false;
             actions.AddComponent<LayoutElement>().preferredHeight = 64;
             _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
+
+            // 상시 "스몰 티츄" 버튼(손패 위, 선언 가능할 때만 표시).
+            var tb = new GameObject("TichuButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            var tbrt = tb.GetComponent<RectTransform>();
+            tbrt.anchorMin = tbrt.anchorMax = tbrt.pivot = new Vector2(0, 0);
+            tbrt.sizeDelta = new Vector2(220, 56); tbrt.anchoredPosition = new Vector2(40, 196);
+            tb.GetComponent<Image>().color = new Color(0.66f, 0.32f, 0.62f);
+            tb.GetComponent<Button>().onClick.AddListener(() => _vm.DeclareSmallTichu());
+            AddCardLabel(tb.transform, "스몰 티츄 선언", Ink, 24);
+            tb.SetActive(false);
+            _tichuButton = tb;
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -135,7 +147,7 @@ namespace Tichu.Presentation.Views
             var info = NewPanel($"Info{seat}", rt);
             var irt = info.GetComponent<RectTransform>();
             irt.anchorMin = irt.anchorMax = irt.pivot = anchor;
-            irt.sizeDelta = new Vector2(140, 132); irt.anchoredPosition = infoPos;
+            irt.sizeDelta = new Vector2(150, 152); irt.anchoredPosition = infoPos;
             var iv = info.AddComponent<VerticalLayoutGroup>();
             iv.spacing = 4; iv.childAlignment = TextAnchor.MiddleCenter;
             iv.childControlWidth = true; iv.childControlHeight = true;
@@ -145,7 +157,7 @@ namespace Tichu.Presentation.Views
             prof.transform.SetParent(info.transform, false);
             prof.GetComponent<Image>().color = new Color(0.30f, 0.36f, 0.44f);
             var po = prof.AddComponent<Outline>(); po.effectColor = new Color(0.10f, 0.13f, 0.18f); po.effectDistance = new Vector2(2, 2);
-            var ple = prof.GetComponent<LayoutElement>(); ple.preferredWidth = 64; ple.preferredHeight = 64;
+            var ple = prof.GetComponent<LayoutElement>(); ple.preferredWidth = 84; ple.preferredHeight = 84;
 
             _seatTexts[seat] = NewText($"Name{seat}", info.transform, SeatNames[seat], 24);
             _seatTexts[seat].alignment = TextAnchor.MiddleCenter;
@@ -165,6 +177,7 @@ namespace Tichu.Presentation.Views
         {
             _vm.Phase.Subscribe(p => _phaseText.text = $"Phase: {p}").AddTo(_subs);
             _vm.Wish.Subscribe(w => _wishText.text = w.HasValue ? $"소원(콜): {RankLabel(w.Value)}" : "").AddTo(_subs);
+            _vm.TichuAvailable.Subscribe(v => _tichuButton.SetActive(v)).AddTo(_subs);
             _vm.CumulativeA.Subscribe(a => { _cumA = a; UpdateScore(); }).AddTo(_subs);
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
             _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
@@ -559,9 +572,9 @@ namespace Tichu.Presentation.Views
         {
             switch (c.Special)
             {
-                case SpecialKind.Dragon:  return "龍";
-                case SpecialKind.Phoenix: return "鳳";
-                case SpecialKind.Dog:     return "犬";
+                case SpecialKind.Dragon:  return "용";
+                case SpecialKind.Phoenix: return "봉";
+                case SpecialKind.Dog:     return "개";
                 case SpecialKind.Mahjong: return "1";
                 default: return $"{RankLabel(c.Rank)}\n{SuitGlyph(c.Suit)}";
             }

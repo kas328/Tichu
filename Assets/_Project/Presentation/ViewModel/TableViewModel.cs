@@ -74,6 +74,12 @@ namespace Tichu.Presentation.ViewModel
         // 각 결정 요청 시 컨텍스트를 보관한다(Submit 시 합법성 검사에 사용).
         private DecisionContext _pendingCtx;
 
+        /// <summary>작은 티츄 선언 가능 여부(인간 차례·손패14·미선언). 뷰가 상시 버튼을 표시한다.</summary>
+        public ReactiveProperty<bool> TichuAvailable { get; } = new ReactiveProperty<bool>(false);
+        // 작은 티츄 단계에서 인간이 먼저 낸 턴 결정을 캐시(다음 RequestTurnDecisionAsync 가 소비).
+        private bool _hasCachedTurn;
+        private TurnDecision _cachedTurn;
+
         // ── 생성자 ──────────────────────────────────────────────────────────
 
         public TableViewModel(int mySeat)
@@ -138,13 +144,15 @@ namespace Tichu.Presentation.ViewModel
         }
 
         /// <inheritdoc/>
+        // 작은 티츄: 별도 프롬프트를 띄우지 않고 턴 UI 를 그대로 보여주며 상시 "스몰 티츄" 버튼을 활성화한다.
+        // 버튼을 누르면 선언(true), 그냥 패를 내면 미선언(false)+그 결정을 캐시해 다음 턴 요청이 소비한다.
         public UniTask<bool> RequestTichuAsync(DecisionContext ctx, CancellationToken ct)
         {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
             ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _tichuTcs = new UniTaskCompletionSource<bool>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.Tichu, ctx);
+            TichuAvailable.Value = true;
+            PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
             ct.Register(CancelTichu);
             return _tichuTcs.Task;
         }
@@ -152,8 +160,15 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<TurnDecision> RequestTurnDecisionAsync(DecisionContext ctx, CancellationToken ct)
         {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
             ApplySnapshot(ctx.State);
+            // 티츄 단계에서 이미 낸 결정이 있으면 즉시 소비(추가 프롬프트 없이).
+            if (_hasCachedTurn)
+            {
+                _hasCachedTurn = false;
+                var cached = _cachedTurn;
+                PendingDecision.Value = null;
+                return UniTask.FromResult(cached);
+            }
             _pendingCtx = ctx;
             _turnTcs = new UniTaskCompletionSource<TurnDecision>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
@@ -221,8 +236,20 @@ namespace Tichu.Presentation.ViewModel
             if (_tichuTcs == null) return false;
             var tcs = _tichuTcs;
             _tichuTcs = null;
+            TichuAvailable.Value = false;
             PendingDecision.Value = null;
             tcs.TrySetResult(call);
+            return true;
+        }
+
+        /// <summary>상시 "스몰 티츄" 버튼: 작은 티츄를 선언한다(티츄 단계에서만 유효).</summary>
+        public bool DeclareSmallTichu()
+        {
+            if (_tichuTcs == null) return false;
+            TichuAvailable.Value = false;
+            var tcs = _tichuTcs;
+            _tichuTcs = null;
+            tcs.TrySetResult(true); // 선언 → 드라이버가 CallTichu 적용 후 턴을 다시 묻는다.
             return true;
         }
 
@@ -234,7 +261,9 @@ namespace Tichu.Presentation.ViewModel
         /// <returns>수락 여부(false 면 거부, await 는 계속 대기).</returns>
         public bool SubmitTurnDecision(TurnDecision d)
         {
-            if (_turnTcs == null) return false;
+            // 턴 TCS 가 없고 티츄 단계면: 작은 티츄 미선언 + 이 결정을 캐시(다음 턴 요청이 소비).
+            bool tichuPhase = _turnTcs == null && _tichuTcs != null;
+            if (_turnTcs == null && !tichuPhase) return false;
 
             if (d.IsPass)
             {
@@ -242,9 +271,20 @@ namespace Tichu.Presentation.ViewModel
             }
             else
             {
-                // d.Move 의 카드 집합이 합법 수 목록 중 하나와 멀티셋 일치해야 한다.
+                // d.Move 의 카드 집합이 합법 수 목록 중 하나와 일치해야 한다.
                 if (d.Move == null || !IsMoveLegal(d.Move, _pendingCtx.LegalMoves))
                     return false;
+            }
+
+            if (tichuPhase)
+            {
+                _hasCachedTurn = true;
+                _cachedTurn = d;
+                TichuAvailable.Value = false;
+                var tt = _tichuTcs;
+                _tichuTcs = null;
+                tt.TrySetResult(false); // 작은 티츄 미선언 → 다음 RequestTurnDecisionAsync 가 캐시 소비
+                return true;
             }
 
             var tcs = _turnTcs;
@@ -309,6 +349,8 @@ namespace Tichu.Presentation.ViewModel
         {
             _tichuTcs?.TrySetCanceled();
             _tichuTcs = null;
+            TichuAvailable.Value = false;
+            _hasCachedTurn = false;
             PendingDecision.Value = null;
         }
 

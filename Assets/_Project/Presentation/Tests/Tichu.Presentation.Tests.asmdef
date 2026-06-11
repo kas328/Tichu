@@ -1,0 +1,27 @@
+{
+    "name": "Tichu.Presentation.Tests",
+    "rootNamespace": "Tichu.Presentation.Tests",
+    "references": [
+        "Tichu.Core",
+        "Tichu.GameFlow",
+        "Tichu.Presentation",
+        "UniTask",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

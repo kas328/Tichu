@@ -46,6 +46,7 @@ namespace Tichu.Presentation.Views
         private RectTransform _handRoot, _trickRoot, _actionRoot, _wishPickRoot, _exchangeRoot, _playsRoot;
 
         private readonly List<Card> _selection = new List<Card>(); // 차례/폭탄
+        private readonly List<GameObject> _playEntries = new List<GameObject>(); // 최근 플레이 항목
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
@@ -143,7 +144,7 @@ namespace Tichu.Presentation.Views
             _vm.CumulativeA.Subscribe(a => { _cumA = a; UpdateScore(); }).AddTo(_subs);
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
             _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
-            _vm.PlaysCleared.Subscribe(_ => ClearChildren(_playsRoot)).AddTo(_subs);
+            _vm.PlaysCleared.Subscribe(_ => { ClearChildren(_playsRoot); _playEntries.Clear(); }).AddTo(_subs);
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
             _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.Clear(); RenderHand(); }).AddTo(_subs);
@@ -172,8 +173,15 @@ namespace Tichu.Presentation.Views
             t.text = FormatAction(a); t.alignment = TextAnchor.UpperRight;
             t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Overflow;
             go.GetComponent<LayoutElement>().preferredHeight = 28;
-            while (_playsRoot.childCount > 5) // 최대 5개
-                Object.Destroy(_playsRoot.GetChild(_playsRoot.childCount - 1).gameObject);
+            // 최대 5개 — 반드시 리스트 카운트(즉시 반영)로 제한. Object.Destroy 는 프레임 끝까지
+            // 지연되므로 childCount 로 while 을 돌면 무한 루프(메모리 폭발)가 된다.
+            _playEntries.Insert(0, go);
+            while (_playEntries.Count > 5)
+            {
+                var oldest = _playEntries[_playEntries.Count - 1];
+                _playEntries.RemoveAt(_playEntries.Count - 1);
+                if (oldest != null) Object.Destroy(oldest);
+            }
             FadeEntryAsync(go, t).Forget();
         }
 
@@ -183,12 +191,14 @@ namespace Tichu.Presentation.Views
             {
                 await UniTask.Delay(5000, cancellationToken: _sceneCt);
                 float a = 1f;
-                while (a > 0f && go != null)
+                int guard = 0;
+                while (a > 0f && go != null && guard++ < 600) // guard: deltaTime=0 무한방지
                 {
                     a -= Time.deltaTime / 1.2f;
                     if (t != null) { var c = t.color; c.a = Mathf.Max(a, 0f); t.color = c; }
                     await UniTask.Yield(_sceneCt);
                 }
+                _playEntries.Remove(go);
                 if (go != null) Object.Destroy(go);
             }
             catch (System.OperationCanceledException) { /* 씬 종료 */ }

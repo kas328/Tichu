@@ -77,7 +77,10 @@ namespace Tichu.Presentation.ViewModel
         public void ApplySnapshot(GameState s)
         {
             Phase.Value = s.Phase;
-            MyHand.Value = s.Seats[_mySeat].Hand;
+            // ReactiveProperty 는 같은 참조를 다시 넣으면 통지하지 않는다. 엔진은 손패 List·트릭을
+            // 제자리 변경하므로(같은 참조), 변경 감지를 위해 사본/강제 재통지가 필요하다.
+            MyHand.Value = new List<Card>(s.Seats[_mySeat].Hand);   // 사본 → 항상 통지
+            CurrentTrick.Value = null;                              // 트릭 Top 갱신 반영: null→값으로 강제 통지
             CurrentTrick.Value = s.CurrentTrick;
             for (int i = 0; i < 4; i++)
                 _handCounts[i].Value = s.Seats[i].Hand.Count;

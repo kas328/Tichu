@@ -49,10 +49,12 @@ namespace Tichu.Presentation.ViewModel
         public ReactiveProperty<int> CumulativeA { get; } = new ReactiveProperty<int>(0);
         public ReactiveProperty<int> CumulativeB { get; } = new ReactiveProperty<int>(0);
 
-        /// <summary>최근 플레이(낸 카드/패스/용양도) 로그. 최신이 앞. 뷰가 포맷해 표시한다.</summary>
-        public ReactiveProperty<IReadOnlyList<GameAction>> RecentPlays { get; }
-            = new ReactiveProperty<IReadOnlyList<GameAction>>(new List<GameAction>());
-        private readonly List<GameAction> _recent = new List<GameAction>();
+        /// <summary>플레이가 일어날 때마다 발행(뷰가 항목별로 5초 후 페이드시킨다).</summary>
+        private readonly Subject<GameAction> _played = new Subject<GameAction>();
+        public Observable<GameAction> Played => _played;
+        /// <summary>새 라운드 시작 시 발행(로그 비우기).</summary>
+        private readonly Subject<R3.Unit> _cleared = new Subject<R3.Unit>();
+        public Observable<R3.Unit> PlaysCleared => _cleared;
 
         // 좌석별 손패 수 (0..3)
         private readonly ReactiveProperty<int>[] _handCounts = new ReactiveProperty<int>[4];
@@ -102,19 +104,12 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>플레이 액션을 최근 로그에 기록한다(Play/Pass/GiveDragon만).</summary>
         public void RecordPlay(GameAction a)
         {
-            if (a.Kind != GameActionKind.Play && a.Kind != GameActionKind.Pass && a.Kind != GameActionKind.GiveDragon)
-                return;
-            _recent.Insert(0, a);
-            if (_recent.Count > 5) _recent.RemoveAt(_recent.Count - 1);
-            RecentPlays.Value = new List<GameAction>(_recent); // 사본 → 통지
+            if (a.Kind == GameActionKind.Play || a.Kind == GameActionKind.Pass || a.Kind == GameActionKind.GiveDragon)
+                _played.OnNext(a);
         }
 
-        /// <summary>새 라운드 시작 시 로그 초기화.</summary>
-        public void ClearPlays()
-        {
-            _recent.Clear();
-            RecentPlays.Value = new List<GameAction>();
-        }
+        /// <summary>새 라운드 시작 시 로그 비우기 신호.</summary>
+        public void ClearPlays() => _cleared.OnNext(default);
 
         // ── IHumanInputPort 구현 ─────────────────────────────────────────────
 
@@ -350,11 +345,13 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>
         /// move 의 카드 집합이 legalMoves 중 하나와 멀티셋 동일한지 확인한다.
         /// </summary>
+        // 합법성: 카드 정확 일치 대신 (Type, Rank) 등가 — 같은 랭크 다른 무늬 카드도 동일하게 합법.
+        // (GenerateSingles 가 랭크당 1장만 합법수로 내므로, 정확 일치는 다른 무늬를 거부함.)
         private static bool IsMoveLegal(Combination move, IReadOnlyList<Combination> legalMoves)
         {
             for (int i = 0; i < legalMoves.Count; i++)
             {
-                if (CardsMatch(move.Cards, legalMoves[i].Cards))
+                if (legalMoves[i].Type == move.Type && legalMoves[i].Rank == move.Rank)
                     return true;
             }
             return false;

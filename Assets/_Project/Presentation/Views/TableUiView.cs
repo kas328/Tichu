@@ -42,8 +42,8 @@ namespace Tichu.Presentation.Views
 
         private readonly Text[] _seatTexts = new Text[4];
         private readonly RectTransform[] _backRoots = new RectTransform[4];
-        private Text _phaseText, _scoreText, _wishText, _playsText, _trickOwnerText, _promptLabel, _hintLabel, _resultText;
-        private RectTransform _handRoot, _trickRoot, _actionRoot, _wishPickRoot, _exchangeRoot;
+        private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _hintLabel, _resultText;
+        private RectTransform _handRoot, _trickRoot, _actionRoot, _wishPickRoot, _exchangeRoot, _playsRoot;
 
         private readonly List<Card> _selection = new List<Card>(); // 차례/폭탄
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
@@ -52,7 +52,6 @@ namespace Tichu.Presentation.Views
         private IReadOnlyList<Card> _hand = new List<Card>();
         private int _cumA, _cumB;
         private CancellationToken _sceneCt;
-        private CancellationTokenSource _fadeCts;
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -76,9 +75,9 @@ namespace Tichu.Presentation.Views
             _phaseText = NewAnchoredText("Phase", rt, "Phase: -", 22, new Vector2(0, 1), new Vector2(20, -56), new Vector2(560, 32), TextAnchor.UpperLeft);
             _wishText  = NewAnchoredText("Wish",  rt, "", 26, new Vector2(0, 1), new Vector2(20, -90), new Vector2(560, 34), TextAnchor.UpperLeft);
             _wishText.color = Warn;
-            // 우상단: 최근 플레이 로그.
-            _playsText = NewAnchoredText("Plays", rt, "", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 280), TextAnchor.UpperRight);
-            _playsText.color = new Color(0.82f, 0.88f, 0.96f);
+            // 우상단: 최근 플레이 로그(항목별로 5초 후 사라짐).
+            NewAnchoredText("PlaysHeader", rt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
+            _playsRoot = NewRow("PlaysRoot", rt, new Vector2(1, 1), new Vector2(-20, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
             // 중앙 상단: 라운드 결과.
             _resultText = NewAnchoredText("Result", rt, "", 24, new Vector2(0.5f, 1), new Vector2(0, -16), new Vector2(720, 44), TextAnchor.UpperCenter);
 
@@ -87,12 +86,12 @@ namespace Tichu.Presentation.Views
             _backRoots[2] = NewRow("PartnerBacks", rt, new Vector2(0.5f, 1), new Vector2(0, -106), new Vector2(720, 56), TextAnchor.MiddleCenter, false);
             // seat1=오른쪽(우중앙, 세로 뒷면 — 화면 중앙 높이, 겹쳐 컴팩트).
             _seatTexts[1] = NewAnchoredText("RightLbl", rt, "", 26, new Vector2(1, 0.5f), new Vector2(-20, 190), new Vector2(280, 34), TextAnchor.MiddleRight);
-            _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 0), new Vector2(90, 460), TextAnchor.MiddleCenter, true);
-            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = -14;
+            _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
+            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = -6;
             // seat3=왼쪽(좌중앙, 세로 뒷면).
             _seatTexts[3] = NewAnchoredText("LeftLbl", rt, "", 26, new Vector2(0, 0.5f), new Vector2(20, 190), new Vector2(280, 34), TextAnchor.MiddleLeft);
-            _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(90, 460), TextAnchor.MiddleCenter, true);
-            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = -14;
+            _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
+            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = -6;
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
@@ -143,7 +142,8 @@ namespace Tichu.Presentation.Views
             _vm.Wish.Subscribe(w => _wishText.text = w.HasValue ? $"소원(콜): {RankLabel(w.Value)}" : "").AddTo(_subs);
             _vm.CumulativeA.Subscribe(a => { _cumA = a; UpdateScore(); }).AddTo(_subs);
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
-            _vm.RecentPlays.Subscribe(RenderPlays).AddTo(_subs);
+            _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
+            _vm.PlaysCleared.Subscribe(_ => ClearChildren(_playsRoot)).AddTo(_subs);
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
             _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.Clear(); RenderHand(); }).AddTo(_subs);
@@ -161,43 +161,37 @@ namespace Tichu.Presentation.Views
 
         private void UpdateScore() => _scoreText.text = $"총점  우리(A) {_cumA} : 상대(B) {_cumB}";
 
-        private void RenderPlays(IReadOnlyList<GameAction> plays)
+        // 플레이 1건을 우상단에 추가. 각 항목은 5초 뒤 ~1.2초에 걸쳐 페이드 후 제거(순차).
+        private void AddPlayEntry(GameAction a)
         {
-            if (plays == null || plays.Count == 0) { _playsText.text = ""; return; }
-            _playsText.text = "최근 플레이\n" + string.Join("\n", plays.Select(FormatAction));
-            SetPlaysAlpha(1f);
-            RestartFade();
+            var go = new GameObject("PlayEntry", typeof(RectTransform), typeof(Text), typeof(LayoutElement));
+            go.transform.SetParent(_playsRoot, false);
+            go.transform.SetSiblingIndex(0); // 최신을 맨 위로
+            var t = go.GetComponent<Text>();
+            t.font = DefaultFont(); t.fontSize = 22; t.color = new Color(0.82f, 0.88f, 0.96f);
+            t.text = FormatAction(a); t.alignment = TextAnchor.UpperRight;
+            t.horizontalOverflow = HorizontalWrapMode.Overflow; t.verticalOverflow = VerticalWrapMode.Overflow;
+            go.GetComponent<LayoutElement>().preferredHeight = 28;
+            while (_playsRoot.childCount > 5) // 최대 5개
+                Object.Destroy(_playsRoot.GetChild(_playsRoot.childCount - 1).gameObject);
+            FadeEntryAsync(go, t).Forget();
         }
 
-        // 5초 후 서서히 페이드 아웃(DoTween 대신 UniTask). 새 플레이가 오면 리셋.
-        private void RestartFade()
-        {
-            _fadeCts?.Cancel();
-            _fadeCts?.Dispose();
-            _fadeCts = CancellationTokenSource.CreateLinkedTokenSource(_sceneCt);
-            FadePlaysAsync(_fadeCts.Token).Forget();
-        }
-
-        private async UniTaskVoid FadePlaysAsync(CancellationToken ct)
+        private async UniTaskVoid FadeEntryAsync(GameObject go, Text t)
         {
             try
             {
-                await UniTask.Delay(5000, cancellationToken: ct);
+                await UniTask.Delay(5000, cancellationToken: _sceneCt);
                 float a = 1f;
-                while (a > 0f)
+                while (a > 0f && go != null)
                 {
-                    a -= Time.deltaTime / 1.2f;       // ~1.2초에 걸쳐 사라짐
-                    SetPlaysAlpha(Mathf.Max(a, 0f));
-                    await UniTask.Yield(ct);
+                    a -= Time.deltaTime / 1.2f;
+                    if (t != null) { var c = t.color; c.a = Mathf.Max(a, 0f); t.color = c; }
+                    await UniTask.Yield(_sceneCt);
                 }
-                _playsText.text = "";
+                if (go != null) Object.Destroy(go);
             }
-            catch (System.OperationCanceledException) { /* 새 플레이/씬 종료: 정상 */ }
-        }
-
-        private void SetPlaysAlpha(float a)
-        {
-            var c = _playsText.color; c.a = a; _playsText.color = c;
+            catch (System.OperationCanceledException) { /* 씬 종료 */ }
         }
 
         // ── 손패(앞면, 선택) ─────────────────────────────────────────────────
@@ -355,9 +349,9 @@ namespace Tichu.Presentation.Views
 
         private void RenderExchangeRow()
         {
-            AddSlot("왼쪽 ▸", _exVL, () => Assign(ref _exVL));
-            AddSlot("파트너 ▸", _exVP, () => Assign(ref _exVP));
-            AddSlot("오른쪽 ▸", _exVR, () => Assign(ref _exVR));
+            AddSlot("왼쪽", _exVL, () => Assign(ref _exVL));
+            AddSlot("파트너", _exVP, () => Assign(ref _exVP));
+            AddSlot("오른쪽", _exVR, () => Assign(ref _exVR));
         }
 
         private void Assign(ref Card? slot)
@@ -403,18 +397,39 @@ namespace Tichu.Presentation.Views
 
         private void PlaySelectedTurn()
         {
-            var move = _activeReq.Context.LegalMoves.FirstOrDefault(m => CardsMatch(m.Cards, _selection));
-            if (move == null) { _hintLabel.text = "낼 수 없는 조합"; return; }
+            var sel = RecognizeSelection();
+            if (sel == null) { _hintLabel.text = "유효한 조합이 아닙니다"; return; }
+            if (!LegalByTypeRank(sel)) { _hintLabel.text = "낼 수 없는 조합"; return; }
             // 마작 포함 → 소원 선택 후 제출.
-            if (move.Cards.Any(c => c.Special == SpecialKind.Mahjong)) { _wishMove = move; RenderHand(); RefreshActions(); return; }
-            _vm.SubmitTurnDecision(TurnDecision.Play(move));
+            if (sel.Cards.Any(c => c.Special == SpecialKind.Mahjong)) { _wishMove = sel; RenderHand(); RefreshActions(); return; }
+            _vm.SubmitTurnDecision(TurnDecision.Play(sel)); // 내가 고른 실제 카드로 제출
         }
 
         private void PlaySelectedBomb()
         {
-            var bomb = _activeReq.Context.LegalMoves.FirstOrDefault(m => m.IsBomb && CardsMatch(m.Cards, _selection));
-            if (bomb == null) { _hintLabel.text = "유효한 폭탄 아님"; return; }
-            _vm.SubmitBomb(bomb);
+            var sel = RecognizeSelection();
+            if (sel == null || !sel.IsBomb || !LegalByTypeRank(sel)) { _hintLabel.text = "유효한 폭탄 아님"; return; }
+            _vm.SubmitBomb(sel);
+        }
+
+        // 선택한 카드를 현재 트릭 문맥으로 조합 인식.
+        private Combination RecognizeSelection()
+        {
+            if (_selection.Count == 0) return null;
+            var trick = _activeReq.Context.State.CurrentTrick;
+            TrickContext tc;
+            if (trick?.Top == null) tc = TrickContext.Lead;
+            else { bool single = trick.Top.Type == CombinationType.Single; tc = new TrickContext(false, single, single ? trick.Top.Rank : 0); }
+            var c = CombinationRecognizer.Recognize(_selection.ToArray(), tc);
+            return c.Type == CombinationType.Invalid ? null : c;
+        }
+
+        // (Type, Rank) 등가로 합법수 존재 확인 — 무늬 무관(같은 랭크 다른 무늬도 허용).
+        private bool LegalByTypeRank(Combination sel)
+        {
+            var lm = _activeReq.Context.LegalMoves;
+            for (int i = 0; i < lm.Count; i++) if (lm[i].Type == sel.Type && lm[i].Rank == sel.Rank) return true;
+            return false;
         }
 
         private void ConfirmExchange()

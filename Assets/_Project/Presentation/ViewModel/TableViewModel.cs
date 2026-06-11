@@ -162,16 +162,9 @@ namespace Tichu.Presentation.ViewModel
         }
 
         /// <inheritdoc/>
+        // 인간은 차례밖 폭탄 창에서 매번 묻지 않는다(자동 넘김). 폭탄은 자기 차례에 카드 선택으로 낸다.
         public UniTask<Combination?> RequestBombAsync(DecisionContext ctx, CancellationToken ct)
-        {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
-            ApplySnapshot(ctx.State);
-            _pendingCtx = ctx;
-            _bombTcs = new UniTaskCompletionSource<Combination?>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.Bomb, ctx);
-            ct.Register(CancelBomb);
-            return _bombTcs.Task;
-        }
+            => UniTask.FromResult<Combination?>(null);
 
         /// <inheritdoc/>
         public UniTask<int> RequestDragonRecipientAsync(DecisionContext ctx, CancellationToken ct)

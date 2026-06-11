@@ -87,11 +87,11 @@ namespace Tichu.Presentation.Views
             // seat1=오른쪽(우중앙, 세로 뒷면 — 화면 중앙 높이, 겹쳐 컴팩트).
             _seatTexts[1] = NewAnchoredText("RightLbl", rt, "", 26, new Vector2(1, 0.5f), new Vector2(-20, 190), new Vector2(280, 34), TextAnchor.MiddleRight);
             _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
-            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = -6;
+            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = 6;
             // seat3=왼쪽(좌중앙, 세로 뒷면).
             _seatTexts[3] = NewAnchoredText("LeftLbl", rt, "", 26, new Vector2(0, 0.5f), new Vector2(20, 190), new Vector2(280, 34), TextAnchor.MiddleLeft);
             _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(90, 520), TextAnchor.MiddleCenter, true);
-            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = -6;
+            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = 6;
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
@@ -257,9 +257,15 @@ namespace Tichu.Presentation.Views
             if (rb == null) return;
             ClearChildren(rb);
             bool side = (seat == 1 || seat == 3);
-            float w = side ? 46 : 30, h = side ? 28 : 44;
+            float w = side ? 46 : 30, h = side ? 24 : 44;
             int show = Mathf.Min(count, 14);
-            for (int i = 0; i < show; i++) NewCardChip("Back", rb, Back, w, h);
+            for (int i = 0; i < show; i++)
+            {
+                var b = NewCardChip("Back", rb, Back, w, h);
+                var o = b.AddComponent<Outline>();   // 카드 구분 테두리
+                o.effectColor = new Color(0.04f, 0.06f, 0.14f, 1f);
+                o.effectDistance = new Vector2(2f, 2f);
+            }
         }
 
         // ── 트릭(중앙 앞면) ───────────────────────────────────────────────────
@@ -319,8 +325,10 @@ namespace Tichu.Presentation.Views
                     AddAction("패스", BtnOn, () => _vm.SubmitTichu(false));
                     break;
                 case DecisionKind.Turn:
+                    var selC = RecognizeSelection();
+                    bool isBomb = selC != null && selC.IsBomb;
                     _promptLabel.text = _selection.Count == 0 ? "내 턴 — 카드 선택" : $"선택: {string.Join(" ", _selection.OrderBy(SortKey))}";
-                    AddAction("내기", BtnGo, PlaySelectedTurn, _selection.Count > 0);
+                    AddAction(isBomb ? "폭탄 내기" : "내기", BtnGo, PlaySelectedTurn, _selection.Count > 0);
                     bool canPass = req.Context.CanPass;
                     AddAction("패스", BtnOn, () => _vm.SubmitTurnDecision(TurnDecision.Pass), canPass);
                     if (!canPass) _hintLabel.text = req.Context.State.CurrentTrick == null ? "리드 — 패스 불가" : "소원 강제 — 패스 불가";

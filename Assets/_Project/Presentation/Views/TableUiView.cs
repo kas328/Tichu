@@ -84,9 +84,9 @@ namespace Tichu.Presentation.Views
             _resultText = NewAnchoredText("Result", rt, "", 24, new Vector2(0.5f, 1), new Vector2(0, -16), new Vector2(720, 44), TextAnchor.UpperCenter);
 
             // 상대 = 프로필 박스 + 이름 + 장수 + 카드(뒷면). 카드가 이름/장수와 겹치지 않게 배치.
-            BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -52),  new Vector2(0, -156),  false, new Vector2(700, 50)); // 파트너(상)
-            BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(64, 250),  new Vector2(52, 110),  true,  new Vector2(80, 360)); // 왼쪽
-            BuildOpponent(rt, 1, new Vector2(1, 0.5f), new Vector2(-64, 250), new Vector2(-52, 110), true,  new Vector2(80, 360)); // 오른쪽
+            BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -12),  new Vector2(0, -152), false, new Vector2(700, 50)); // 파트너(상): 정보 위, 카드 아래
+            BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(16, 0),   new Vector2(160, 0),  true,  new Vector2(84, 330)); // 왼쪽: 프로필 왼끝, 카드 오른쪽
+            BuildOpponent(rt, 1, new Vector2(1, 0.5f), new Vector2(-16, 0),  new Vector2(-160, 0), true,  new Vector2(84, 330)); // 오른쪽: 프로필 오른끝, 카드 왼쪽
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
@@ -129,21 +129,34 @@ namespace Tichu.Presentation.Views
             _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
         }
 
-        // 상대 1명: 프로필 박스(placeholder 사진) + 이름 + 장수 + 카드(뒷면).
-        private void BuildOpponent(RectTransform rt, int seat, Vector2 anchor, Vector2 infoPos, Vector2 cardsPos, bool vertical, Vector2 cardsSize)
+        // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
+        private void BuildOpponent(RectTransform rt, int seat, Vector2 anchor, Vector2 infoPos, Vector2 cardsPos, bool cardsVertical, Vector2 cardsSize)
         {
-            var prof = NewPanel($"Prof{seat}", rt);
-            var prt = prof.GetComponent<RectTransform>();
-            prt.anchorMin = prt.anchorMax = prt.pivot = anchor;
-            prt.sizeDelta = new Vector2(64, 64); prt.anchoredPosition = infoPos;
-            prof.AddComponent<Image>().color = new Color(0.30f, 0.36f, 0.44f);
+            var info = NewPanel($"Info{seat}", rt);
+            var irt = info.GetComponent<RectTransform>();
+            irt.anchorMin = irt.anchorMax = irt.pivot = anchor;
+            irt.sizeDelta = new Vector2(140, 132); irt.anchoredPosition = infoPos;
+            var iv = info.AddComponent<VerticalLayoutGroup>();
+            iv.spacing = 4; iv.childAlignment = TextAnchor.MiddleCenter;
+            iv.childControlWidth = true; iv.childControlHeight = true;
+            iv.childForceExpandWidth = false; iv.childForceExpandHeight = false;
+
+            var prof = new GameObject($"Prof{seat}", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            prof.transform.SetParent(info.transform, false);
+            prof.GetComponent<Image>().color = new Color(0.30f, 0.36f, 0.44f);
             var po = prof.AddComponent<Outline>(); po.effectColor = new Color(0.10f, 0.13f, 0.18f); po.effectDistance = new Vector2(2, 2);
+            var ple = prof.GetComponent<LayoutElement>(); ple.preferredWidth = 64; ple.preferredHeight = 64;
 
-            _seatTexts[seat] = NewAnchoredText($"Name{seat}", rt, SeatNames[seat], 24, anchor, infoPos + new Vector2(0, -48), new Vector2(180, 30), TextAnchor.MiddleCenter);
-            _countTexts[seat] = NewAnchoredText($"Cnt{seat}", rt, "14장", 22, anchor, infoPos + new Vector2(0, -76), new Vector2(180, 28), TextAnchor.MiddleCenter);
+            _seatTexts[seat] = NewText($"Name{seat}", info.transform, SeatNames[seat], 24);
+            _seatTexts[seat].alignment = TextAnchor.MiddleCenter;
+            var nle = _seatTexts[seat].gameObject.AddComponent<LayoutElement>(); nle.preferredWidth = 140; nle.preferredHeight = 28;
 
-            _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, vertical ? TextAnchor.UpperCenter : TextAnchor.MiddleCenter, vertical);
-            if (vertical) _backRoots[seat].GetComponent<VerticalLayoutGroup>().spacing = -2;
+            _countTexts[seat] = NewText($"Cnt{seat}", info.transform, "14장", 22);
+            _countTexts[seat].alignment = TextAnchor.MiddleCenter;
+            var cle = _countTexts[seat].gameObject.AddComponent<LayoutElement>(); cle.preferredWidth = 140; cle.preferredHeight = 26;
+
+            _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, TextAnchor.MiddleCenter, cardsVertical);
+            if (cardsVertical) _backRoots[seat].GetComponent<VerticalLayoutGroup>().spacing = -2;
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────

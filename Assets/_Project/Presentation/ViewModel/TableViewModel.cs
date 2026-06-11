@@ -88,6 +88,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<bool> RequestGrandTichuAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _grandTichuTcs = new UniTaskCompletionSource<bool>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.GrandTichu, ctx);
@@ -98,6 +100,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<ExchangeChoice> RequestExchangeAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _exchangeTcs = new UniTaskCompletionSource<ExchangeChoice>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.Exchange, ctx);
@@ -108,6 +112,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<bool> RequestTichuAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _tichuTcs = new UniTaskCompletionSource<bool>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.Tichu, ctx);
@@ -118,6 +124,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<TurnDecision> RequestTurnDecisionAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _turnTcs = new UniTaskCompletionSource<TurnDecision>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
@@ -128,6 +136,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<Combination?> RequestBombAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _bombTcs = new UniTaskCompletionSource<Combination?>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.Bomb, ctx);
@@ -138,6 +148,8 @@ namespace Tichu.Presentation.ViewModel
         /// <inheritdoc/>
         public UniTask<int> RequestDragonRecipientAsync(DecisionContext ctx, CancellationToken ct)
         {
+            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
+            ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _dragonTcs = new UniTaskCompletionSource<int>();
             PendingDecision.Value = new DecisionRequest(DecisionKind.DragonRecipient, ctx);

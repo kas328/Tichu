@@ -18,7 +18,10 @@ namespace Tichu.Presentation
     /// </summary>
     public sealed class RoundBootstrap : MonoBehaviour
     {
-        /// <summary>라운드 시드.</summary>
+        /// <summary>체크 시 매 실행마다 무작위 분배. 해제 시 아래 Seed 로 고정(재현용).</summary>
+        public bool RandomDeal = true;
+
+        /// <summary>라운드 시드(RandomDeal 해제 시 사용).</summary>
         public ulong Seed = 42;
 
         private const int MySeat = 0;
@@ -48,7 +51,8 @@ namespace Tichu.Presentation
                 new AiDecisionAgent(Seed, 3)
             };
 
-            // 6) 초기 렌더 후 라운드 구동.
+            // 6) 초기 렌더 후 라운드 구동. (RandomDeal 이면 매 실행 무작위 시드.)
+            if (RandomDeal) Seed = unchecked((ulong)System.DateTime.UtcNow.Ticks);
             var state = GameEngine.NewRound(Seed);
             vm.ApplySnapshot(state);
 

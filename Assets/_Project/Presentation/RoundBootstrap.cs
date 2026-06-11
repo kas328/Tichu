@@ -6,6 +6,7 @@ using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Tichu.Presentation
@@ -26,7 +27,7 @@ namespace Tichu.Presentation
         {
             // 1) EventSystem 보장(없으면 생성).
             if (EventSystem.current == null)
-                new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+                new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             // 2) Screen-Space-Overlay 캔버스 생성.
             var canvas = CreateCanvas();

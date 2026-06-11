@@ -4,7 +4,8 @@
     "references": [
         "Tichu.Core",
         "Tichu.GameFlow",
-        "UniTask"
+        "UniTask",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

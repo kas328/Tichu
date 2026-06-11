@@ -39,7 +39,7 @@ namespace Tichu.Presentation
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
             var canvas = CreateCanvas();
             var vm = new TableViewModel(MySeat);
-            new TableUiView().Bind(vm, canvas);
+            new TableUiView().Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 
             // 3) 매치 루프 기동(여러 라운드, 누적 점수).
             RunMatchAsync(vm).Forget();

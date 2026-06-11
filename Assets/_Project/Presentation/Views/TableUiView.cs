@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using Cysharp.Threading.Tasks;
 using R3;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
@@ -49,10 +51,13 @@ namespace Tichu.Presentation.Views
         private DecisionRequest _activeReq;
         private IReadOnlyList<Card> _hand = new List<Card>();
         private int _cumA, _cumB;
+        private CancellationToken _sceneCt;
+        private CancellationTokenSource _fadeCts;
 
-        public void Bind(TableViewModel vm, Canvas canvas)
+        public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
             _vm = vm;
+            _sceneCt = sceneCt;
             BuildLayout(canvas);
             Subscribe();
         }
@@ -80,12 +85,14 @@ namespace Tichu.Presentation.Views
             // seat2=파트너(상, 가로 뒷면).
             _seatTexts[2] = NewAnchoredText("PartnerLbl", rt, "", 26, new Vector2(0.5f, 1), new Vector2(0, -70), new Vector2(560, 34), TextAnchor.MiddleCenter);
             _backRoots[2] = NewRow("PartnerBacks", rt, new Vector2(0.5f, 1), new Vector2(0, -106), new Vector2(720, 56), TextAnchor.MiddleCenter, false);
-            // seat1=오른쪽(우중앙, 세로 뒷면).
-            _seatTexts[1] = NewAnchoredText("RightLbl", rt, "", 26, new Vector2(1, 0.5f), new Vector2(-20, 300), new Vector2(280, 34), TextAnchor.MiddleRight);
-            _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 40), new Vector2(70, 380), TextAnchor.UpperCenter, true);
+            // seat1=오른쪽(우중앙, 세로 뒷면 — 화면 중앙 높이, 겹쳐 컴팩트).
+            _seatTexts[1] = NewAnchoredText("RightLbl", rt, "", 26, new Vector2(1, 0.5f), new Vector2(-20, 190), new Vector2(280, 34), TextAnchor.MiddleRight);
+            _backRoots[1] = NewRow("RightBacks", rt, new Vector2(1, 0.5f), new Vector2(-34, 0), new Vector2(90, 460), TextAnchor.MiddleCenter, true);
+            _backRoots[1].GetComponent<VerticalLayoutGroup>().spacing = -14;
             // seat3=왼쪽(좌중앙, 세로 뒷면).
-            _seatTexts[3] = NewAnchoredText("LeftLbl", rt, "", 26, new Vector2(0, 0.5f), new Vector2(20, 300), new Vector2(280, 34), TextAnchor.MiddleLeft);
-            _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 40), new Vector2(70, 380), TextAnchor.UpperCenter, true);
+            _seatTexts[3] = NewAnchoredText("LeftLbl", rt, "", 26, new Vector2(0, 0.5f), new Vector2(20, 190), new Vector2(280, 34), TextAnchor.MiddleLeft);
+            _backRoots[3] = NewRow("LeftBacks", rt, new Vector2(0, 0.5f), new Vector2(34, 0), new Vector2(90, 460), TextAnchor.MiddleCenter, true);
+            _backRoots[3].GetComponent<VerticalLayoutGroup>().spacing = -14;
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
@@ -111,13 +118,13 @@ namespace Tichu.Presentation.Views
             var panel = NewPanel("Decision", rt);
             var prt = panel.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(1, 0);
-            prt.sizeDelta = new Vector2(380, 220); prt.anchoredPosition = new Vector2(-12, 184);
+            prt.sizeDelta = new Vector2(380, 180); prt.anchoredPosition = new Vector2(-8, 176);
             var pv = panel.AddComponent<VerticalLayoutGroup>();
-            pv.spacing = 8; pv.childControlWidth = true; pv.childControlHeight = false;
+            pv.spacing = 4; pv.childControlWidth = true; pv.childControlHeight = false;
             pv.childForceExpandWidth = true; pv.childForceExpandHeight = false;
             pv.childAlignment = TextAnchor.LowerCenter; pv.padding = new RectOffset(8, 8, 8, 8);
+            // 라벨을 버튼 바로 위에 두기 위해 순서: 라벨 → 버튼 → 힌트(아래).
             _promptLabel = NewText("PromptLabel", panel.transform, "", 26); _promptLabel.alignment = TextAnchor.MiddleCenter;
-            _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
             var actions = NewPanel("Actions", panel.transform);
             _actionRoot = actions.GetComponent<RectTransform>();
             var al = actions.AddComponent<HorizontalLayoutGroup>();
@@ -125,6 +132,7 @@ namespace Tichu.Presentation.Views
             al.childControlWidth = false; al.childControlHeight = false;
             al.childForceExpandWidth = false; al.childForceExpandHeight = false;
             actions.AddComponent<LayoutElement>().preferredHeight = 64;
+            _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────
@@ -157,6 +165,39 @@ namespace Tichu.Presentation.Views
         {
             if (plays == null || plays.Count == 0) { _playsText.text = ""; return; }
             _playsText.text = "최근 플레이\n" + string.Join("\n", plays.Select(FormatAction));
+            SetPlaysAlpha(1f);
+            RestartFade();
+        }
+
+        // 5초 후 서서히 페이드 아웃(DoTween 대신 UniTask). 새 플레이가 오면 리셋.
+        private void RestartFade()
+        {
+            _fadeCts?.Cancel();
+            _fadeCts?.Dispose();
+            _fadeCts = CancellationTokenSource.CreateLinkedTokenSource(_sceneCt);
+            FadePlaysAsync(_fadeCts.Token).Forget();
+        }
+
+        private async UniTaskVoid FadePlaysAsync(CancellationToken ct)
+        {
+            try
+            {
+                await UniTask.Delay(5000, cancellationToken: ct);
+                float a = 1f;
+                while (a > 0f)
+                {
+                    a -= Time.deltaTime / 1.2f;       // ~1.2초에 걸쳐 사라짐
+                    SetPlaysAlpha(Mathf.Max(a, 0f));
+                    await UniTask.Yield(ct);
+                }
+                _playsText.text = "";
+            }
+            catch (System.OperationCanceledException) { /* 새 플레이/씬 종료: 정상 */ }
+        }
+
+        private void SetPlaysAlpha(float a)
+        {
+            var c = _playsText.color; c.a = a; _playsText.color = c;
         }
 
         // ── 손패(앞면, 선택) ─────────────────────────────────────────────────

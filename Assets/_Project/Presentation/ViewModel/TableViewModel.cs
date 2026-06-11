@@ -105,7 +105,7 @@ namespace Tichu.Presentation.ViewModel
             if (a.Kind != GameActionKind.Play && a.Kind != GameActionKind.Pass && a.Kind != GameActionKind.GiveDragon)
                 return;
             _recent.Insert(0, a);
-            if (_recent.Count > 6) _recent.RemoveAt(_recent.Count - 1);
+            if (_recent.Count > 5) _recent.RemoveAt(_recent.Count - 1);
             RecentPlays.Value = new List<GameAction>(_recent); // 사본 → 통지
         }
 

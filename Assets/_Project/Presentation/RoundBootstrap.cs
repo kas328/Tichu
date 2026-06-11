@@ -25,6 +25,9 @@ namespace Tichu.Presentation
         /// <summary>라운드 시드(RandomDeal 해제 시 사용).</summary>
         public ulong Seed = 42;
 
+        /// <summary>AI 가 카드를 낼 때의 딜레이(ms). 사람이 따라 보며 카운팅하도록.</summary>
+        public int AiDelayMs = 900;
+
         private const int MySeat = 0;
 
         private void Start()
@@ -56,18 +59,21 @@ namespace Tichu.Presentation
                 {
                     ulong seed = RandomDeal ? master.NextULong() : Seed;
                     var state = GameEngine.NewRound(seed);
-                    vm.RoundResult.Value = null;            // 새 라운드: 이전 결과 지움
+                    vm.RoundResult.Value = null;            // 새 라운드: 이전 결과·로그 지움
+                    vm.ClearPlays();
                     vm.ApplySnapshot(state);
 
                     var agents = new IDecisionAgent[]
                     {
                         human,
-                        new AiDecisionAgent(seed, 1),
-                        new AiDecisionAgent(seed, 2),
-                        new AiDecisionAgent(seed, 3),
+                        new DelayedAiDecisionAgent(seed, 1, AiDelayMs),
+                        new DelayedAiDecisionAgent(seed, 2, AiDelayMs),
+                        new DelayedAiDecisionAgent(seed, 3, AiDelayMs),
                     };
 
-                    var outcome = await new AsyncGameDriver(agents).RunRoundAsync(state, ct);
+                    // 매 플레이마다 뷰 갱신 + 로그 기록 → 사람이 AI 플레이를 보며 카운팅.
+                    var outcome = await new AsyncGameDriver(agents).RunRoundAsync(
+                        state, ct, (st, act) => { vm.ApplySnapshot(st); vm.RecordPlay(act); });
 
                     teamA += outcome.Result.TeamATotal;     // 누적
                     teamB += outcome.Result.TeamBTotal;

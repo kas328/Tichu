@@ -49,6 +49,11 @@ namespace Tichu.Presentation.ViewModel
         public ReactiveProperty<int> CumulativeA { get; } = new ReactiveProperty<int>(0);
         public ReactiveProperty<int> CumulativeB { get; } = new ReactiveProperty<int>(0);
 
+        /// <summary>최근 플레이(낸 카드/패스/용양도) 로그. 최신이 앞. 뷰가 포맷해 표시한다.</summary>
+        public ReactiveProperty<IReadOnlyList<GameAction>> RecentPlays { get; }
+            = new ReactiveProperty<IReadOnlyList<GameAction>>(new List<GameAction>());
+        private readonly List<GameAction> _recent = new List<GameAction>();
+
         // 좌석별 손패 수 (0..3)
         private readonly ReactiveProperty<int>[] _handCounts = new ReactiveProperty<int>[4];
 
@@ -92,6 +97,23 @@ namespace Tichu.Presentation.ViewModel
             CurrentTrick.Value = s.CurrentTrick;
             for (int i = 0; i < 4; i++)
                 _handCounts[i].Value = s.Seats[i].Hand.Count;
+        }
+
+        /// <summary>플레이 액션을 최근 로그에 기록한다(Play/Pass/GiveDragon만).</summary>
+        public void RecordPlay(GameAction a)
+        {
+            if (a.Kind != GameActionKind.Play && a.Kind != GameActionKind.Pass && a.Kind != GameActionKind.GiveDragon)
+                return;
+            _recent.Insert(0, a);
+            if (_recent.Count > 6) _recent.RemoveAt(_recent.Count - 1);
+            RecentPlays.Value = new List<GameAction>(_recent); // 사본 → 통지
+        }
+
+        /// <summary>새 라운드 시작 시 로그 초기화.</summary>
+        public void ClearPlays()
+        {
+            _recent.Clear();
+            RecentPlays.Value = new List<GameAction>();
         }
 
         // ── IHumanInputPort 구현 ─────────────────────────────────────────────

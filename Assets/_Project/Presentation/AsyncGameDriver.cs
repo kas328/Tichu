@@ -21,6 +21,7 @@ namespace Tichu.Presentation
         private const int MaxSteps = 100_000;
 
         private readonly IDecisionAgent[] _agents; // 좌석 0..3 인덱싱.
+        private System.Action<GameState, GameAction> _onApply; // 매 Apply 후 호출(앱 뷰 갱신용; null=테스트/오라클).
 
         public AsyncGameDriver(IDecisionAgent[] agents)
         {
@@ -29,8 +30,10 @@ namespace Tichu.Presentation
         }
 
         /// <summary>주어진 상태에서 한 라운드를 Scoring 까지 구동한 뒤 정산해 결과를 반환한다.</summary>
-        public async UniTask<RoundOutcome> RunRoundAsync(GameState s, CancellationToken ct)
+        public async UniTask<RoundOutcome> RunRoundAsync(GameState s, CancellationToken ct,
+            System.Action<GameState, GameAction> onApply = null)
         {
+            _onApply = onApply;
             var log = new List<GameAction>();
             int grandNext = 0, exchangeNext = 0;
             int steps = 0;
@@ -118,12 +121,13 @@ namespace Tichu.Presentation
         }
 
         /// <summary>액션을 적용한다. 거부되면 throw(불법 상태 미발생 증명), 성공하면 로그에 기록.</summary>
-        private static void Apply(GameState s, GameAction a, List<GameAction> log)
+        private void Apply(GameState s, GameAction a, List<GameAction> log)
         {
             var res = GameEngine.Apply(s, a);
             if (!res.Ok)
                 throw new System.InvalidOperationException($"illegal action {a.Kind} seat {a.Seat}: {res.RejectReason}");
             log.Add(a);
+            _onApply?.Invoke(s, a); // 앱: 매 플레이마다 뷰 갱신/로그. 테스트/오라클은 onApply=null.
         }
 
         private static DecisionContext Ctx(GameState s, int seat) => new DecisionContext(s, seat);

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using R3;
 using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
@@ -22,6 +23,9 @@ namespace Tichu.Presentation
 
         private readonly IDecisionAgent[] _agents; // 좌석 0..3 인덱싱.
         private System.Action<GameState, GameAction> _onApply; // 매 Apply 후 호출(앱 뷰 갱신용; null=테스트/오라클).
+        private System.Func<GameState, int> _takePendingTichu;  // 인간 작은 티츄 인터럽트(-1=없음). 앱 전용; null=테스트/오라클.
+        private System.Func<GameState, GameAction> _takePendingBomb; // 인간 차례밖 폭탄 인터럽트(null=없음). 앱 전용.
+        private Observable<R3.Unit> _bombInterrupt;                  // 폭탄 예약 즉시 신호 — 진행 중 상대 결정 취소용. null=테스트.
 
         public AsyncGameDriver(IDecisionAgent[] agents)
         {
@@ -31,9 +35,15 @@ namespace Tichu.Presentation
 
         /// <summary>주어진 상태에서 한 라운드를 Scoring 까지 구동한 뒤 정산해 결과를 반환한다.</summary>
         public async UniTask<RoundOutcome> RunRoundAsync(GameState s, CancellationToken ct,
-            System.Action<GameState, GameAction> onApply = null)
+            System.Action<GameState, GameAction> onApply = null,
+            System.Func<GameState, int> takePendingTichu = null,
+            System.Func<GameState, GameAction> takePendingBomb = null,
+            Observable<R3.Unit> bombInterrupt = null)
         {
             _onApply = onApply;
+            _takePendingTichu = takePendingTichu;
+            _takePendingBomb = takePendingBomb;
+            _bombInterrupt = bombInterrupt;
             var log = new List<GameAction>();
             int grandNext = 0, exchangeNext = 0;
             int steps = 0;
@@ -84,6 +94,25 @@ namespace Tichu.Presentation
         /// </summary>
         private async UniTask DrivePlayAsync(GameState s, List<GameAction> log, CancellationToken ct)
         {
+            // 0) 인간 작은 티츄 인터럽트: 버튼으로 예약된 콜을 먼저 적용(차례 무관, 첫 패 전이면 합법).
+            if (_takePendingTichu != null)
+            {
+                int ts = _takePendingTichu(s);
+                if (ts >= 0) { Apply(s, GameAction.CallTichu(ts), log); return; }
+            }
+
+            // 0b) 인간 차례밖 폭탄 인터럽트: 예약된 폭탄을 적용 시도. 합법성은 엔진이 판정하며,
+            //     거부(현재 Top 미격파 등)되면 throw 하지 않고 조용히 버린다(인간 입력이므로).
+            if (_takePendingBomb != null)
+            {
+                var bombAction = _takePendingBomb(s);
+                if (bombAction != null)
+                {
+                    var res = GameEngine.Apply(s, bombAction);
+                    if (res.Ok) { log.Add(bombAction); _onApply?.Invoke(s, bombAction); return; }
+                }
+            }
+
             // 1) 용 양도 먼저.
             if (FlowQuery.PendingDragonGift(s, out int w))
             {
@@ -113,7 +142,21 @@ namespace Tichu.Presentation
             }
 
             // 4) 인-턴 행동: 패스 또는 패 내기(마작 소원 포함).
-            var d = await _agents[activeTurn].DecideTurnAsync(Ctx(s, activeTurn), ct);
+            //    진행 중 인간 폭탄 예약 신호가 오면 이 결정을 폐기하고 즉시 return → 다음 반복 0b)에서
+            //    폭탄을 선점 적용한다(엔진이 폭탄 낸 좌석 다음부터 차례를 돌려 폭탄 응수 기회를 준다).
+            TurnDecision d;
+            if (_bombInterrupt != null)
+            {
+                using var turnCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                using var sub = _bombInterrupt.Subscribe(_ => turnCts.Cancel());
+                try { d = await _agents[activeTurn].DecideTurnAsync(Ctx(s, activeTurn), turnCts.Token); }
+                catch (System.OperationCanceledException) when (turnCts.IsCancellationRequested && !ct.IsCancellationRequested)
+                { return; } // 폭탄 인터럽트 — 이 턴 결정을 버리고 루프 재시작
+            }
+            else
+            {
+                d = await _agents[activeTurn].DecideTurnAsync(Ctx(s, activeTurn), ct);
+            }
             if (d.IsPass)
                 Apply(s, GameAction.Pass(activeTurn), log);
             else

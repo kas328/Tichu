@@ -73,7 +73,8 @@ namespace Tichu.Presentation
 
                     // 매 플레이마다 뷰 갱신 + 로그 기록 → 사람이 AI 플레이를 보며 카운팅.
                     var outcome = await new AsyncGameDriver(agents).RunRoundAsync(
-                        state, ct, (st, act) => { vm.ApplySnapshot(st); vm.RecordPlay(act); });
+                        state, ct, (st, act) => { vm.ApplySnapshot(st); vm.RecordPlay(act); },
+                        vm.TakePendingTichuSeat, vm.TakePendingBomb, vm.BombReserved);
 
                     teamA += outcome.Result.TeamATotal;     // 누적
                     teamB += outcome.Result.TeamBTotal;

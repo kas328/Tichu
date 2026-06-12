@@ -36,6 +36,7 @@ namespace Tichu.Presentation.Views
         private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
         private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
         private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
+        private static readonly Color TurnHi  = new Color(0.45f, 0.95f, 0.55f); // 현재 차례 이름 강조
 
         private TableViewModel _vm;
         private readonly CompositeDisposable _subs = new CompositeDisposable();
@@ -43,12 +44,13 @@ namespace Tichu.Presentation.Views
         private readonly Text[] _seatTexts = new Text[4];
         private readonly RectTransform[] _backRoots = new RectTransform[4];
         private readonly Text[] _countTexts = new Text[4];
-        private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _hintLabel, _resultText;
+        private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _resultText;
         private RectTransform _handRoot, _trickRoot, _actionRoot, _wishPickRoot, _exchangeRoot, _playsRoot;
 
         private readonly List<Card> _selection = new List<Card>(); // 차례/폭탄
         private readonly List<GameObject> _playEntries = new List<GameObject>(); // 최근 플레이 항목
         private GameObject _tichuButton; // 상시 스몰 티츄 버튼
+        private GameObject _resultPanel; // 라운드 결과 중앙 배너
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
@@ -81,17 +83,22 @@ namespace Tichu.Presentation.Views
             // 우상단: 최근 플레이 로그(항목별로 5초 후 사라짐).
             NewAnchoredText("PlaysHeader", rt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
             _playsRoot = NewRow("PlaysRoot", rt, new Vector2(1, 1), new Vector2(-20, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
-            // 중앙 상단: 라운드 결과.
-            _resultText = NewAnchoredText("Result", rt, "", 24, new Vector2(0.5f, 1), new Vector2(0, -16), new Vector2(720, 44), TextAnchor.UpperCenter);
-
             // 상대 = 프로필 박스 + 이름 + 장수 + 카드(뒷면). 카드가 이름/장수와 겹치지 않게 배치.
-            BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -12),  new Vector2(0, -152), false, new Vector2(700, 50)); // 파트너(상): 정보 위, 카드 아래
-            BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(16, 0),   new Vector2(160, 0),  true,  new Vector2(84, 330)); // 왼쪽: 프로필 왼끝, 카드 오른쪽
-            BuildOpponent(rt, 1, new Vector2(1, 0.5f), new Vector2(-16, 0),  new Vector2(-160, 0), true,  new Vector2(84, 330)); // 오른쪽: 프로필 오른끝, 카드 왼쪽
+            BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -12),  new Vector2(0, -170), false, new Vector2(700, 50)); // 파트너(상): 정보 위, 카드 아래
+            BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(16, 0),   new Vector2(160, 0),  true,  new Vector2(84, 540)); // 왼쪽: 프로필 왼끝, 카드 오른쪽
+            BuildOpponent(rt, 1, new Vector2(1, 0.5f), new Vector2(-16, 0),  new Vector2(-160, 0), true,  new Vector2(84, 540)); // 오른쪽: 프로필 오른끝, 카드 왼쪽
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
             _trickOwnerText = NewAnchoredText("TrickOwner", rt, "트릭: (없음)", 24, new Vector2(0.5f, 0.5f), new Vector2(0, -30), new Vector2(700, 34), TextAnchor.MiddleCenter);
+            // 중앙: 라운드 결과 배너(결과 있을 때만 표시; 트릭 위 레이어).
+            _resultPanel = NewPanel("ResultPanel", rt);
+            var rprt = _resultPanel.GetComponent<RectTransform>();
+            rprt.anchorMin = rprt.anchorMax = rprt.pivot = new Vector2(0.5f, 0.5f);
+            rprt.sizeDelta = new Vector2(960, 100); rprt.anchoredPosition = Vector2.zero;
+            _resultPanel.AddComponent<Image>().color = new Color(0.04f, 0.10f, 0.06f, 0.92f);
+            _resultText = NewAnchoredText("Result", rprt, "", 30, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(920, 92), TextAnchor.MiddleCenter);
+            _resultPanel.SetActive(false);
             // 소원 선택 UI(중앙, 마작 포함 차례 때만 채워짐).
             var wp = NewPanel("WishPick", rt);
             var wprt = wp.GetComponent<RectTransform>();
@@ -109,16 +116,16 @@ namespace Tichu.Presentation.Views
             _handRoot = NewRow("Hand", rt, new Vector2(0.5f, 0), new Vector2(0, 16), new Vector2(1060, 150), TextAnchor.MiddleCenter, false);
             AnchorBottomStretch(_handRoot, height: 150, bottom: 16, sideInset: 8);
 
-            // 결정 패널 — 우하단(손패 위), 라벨+힌트+가로 버튼.
+            // 결정 패널 — 손패 옆(우하단), 라벨(위) + 가로 버튼(아래). 힌트 라벨 없음.
             var panel = NewPanel("Decision", rt);
             var prt = panel.GetComponent<RectTransform>();
             prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(1, 0);
-            prt.sizeDelta = new Vector2(380, 180); prt.anchoredPosition = new Vector2(-8, 176);
+            prt.sizeDelta = new Vector2(360, 120); prt.anchoredPosition = new Vector2(-48, 125);
             var pv = panel.AddComponent<VerticalLayoutGroup>();
             pv.spacing = 4; pv.childControlWidth = true; pv.childControlHeight = false;
             pv.childForceExpandWidth = true; pv.childForceExpandHeight = false;
             pv.childAlignment = TextAnchor.LowerCenter; pv.padding = new RectOffset(8, 8, 8, 8);
-            // 라벨을 버튼 바로 위에 두기 위해 순서: 라벨 → 버튼 → 힌트(아래).
+            // 순서: 라벨(위) → 버튼(아래).
             _promptLabel = NewText("PromptLabel", panel.transform, "", 26); _promptLabel.alignment = TextAnchor.MiddleCenter;
             var actions = NewPanel("Actions", panel.transform);
             _actionRoot = actions.GetComponent<RectTransform>();
@@ -127,13 +134,13 @@ namespace Tichu.Presentation.Views
             al.childControlWidth = false; al.childControlHeight = false;
             al.childForceExpandWidth = false; al.childForceExpandHeight = false;
             actions.AddComponent<LayoutElement>().preferredHeight = 64;
-            _hintLabel = NewText("HintLabel", panel.transform, "", 20); _hintLabel.alignment = TextAnchor.MiddleCenter; _hintLabel.color = Warn;
 
             // 상시 "스몰 티츄" 버튼(손패 위, 선언 가능할 때만 표시).
             var tb = new GameObject("TichuButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            tb.transform.SetParent(rt, false); // 부모 누락 시 캔버스 밖이라 안 보였음(버튼 미표시 버그)
             var tbrt = tb.GetComponent<RectTransform>();
             tbrt.anchorMin = tbrt.anchorMax = tbrt.pivot = new Vector2(0, 0);
-            tbrt.sizeDelta = new Vector2(220, 56); tbrt.anchoredPosition = new Vector2(40, 196);
+            tbrt.sizeDelta = new Vector2(220, 56); tbrt.anchoredPosition = new Vector2(40, 60);
             tb.GetComponent<Image>().color = new Color(0.66f, 0.32f, 0.62f);
             tb.GetComponent<Button>().onClick.AddListener(() => _vm.DeclareSmallTichu());
             AddCardLabel(tb.transform, "스몰 티츄 선언", Ink, 24);
@@ -168,7 +175,7 @@ namespace Tichu.Presentation.Views
             var cle = _countTexts[seat].gameObject.AddComponent<LayoutElement>(); cle.preferredWidth = 140; cle.preferredHeight = 26;
 
             _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, TextAnchor.MiddleCenter, cardsVertical);
-            if (cardsVertical) _backRoots[seat].GetComponent<VerticalLayoutGroup>().spacing = -2;
+            _backRoots[seat].GetComponent<HorizontalOrVerticalLayoutGroup>().spacing = 8; // 파트너·측면 동일 간격(비겹침)
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────
@@ -178,13 +185,15 @@ namespace Tichu.Presentation.Views
             _vm.Phase.Subscribe(p => _phaseText.text = $"Phase: {p}").AddTo(_subs);
             _vm.Wish.Subscribe(w => _wishText.text = w.HasValue ? $"소원(콜): {RankLabel(w.Value)}" : "").AddTo(_subs);
             _vm.TichuAvailable.Subscribe(v => _tichuButton.SetActive(v)).AddTo(_subs);
+            _vm.CurrentTurn.Subscribe(UpdateTurnHighlight).AddTo(_subs);
             _vm.CumulativeA.Subscribe(a => { _cumA = a; UpdateScore(); }).AddTo(_subs);
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
             _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
             _vm.PlaysCleared.Subscribe(_ => { ClearChildren(_playsRoot); _playEntries.Clear(); }).AddTo(_subs);
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
-            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.Clear(); RenderHand(); }).AddTo(_subs);
+            // 손패 갱신 시, 손에서 빠진 카드만 선택에서 제거(상대 턴 중 폭탄 선택은 유지).
+            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.RemoveAll(c => !_hand.Contains(c)); RenderHand(); }).AddTo(_subs);
             for (int i = 0; i < 4; i++)
             {
                 int seat = i;
@@ -245,7 +254,12 @@ namespace Tichu.Presentation.Views
 
         private bool TurnLike => _activeReq != null && (_activeReq.Kind == DecisionKind.Turn || _activeReq.Kind == DecisionKind.Bomb);
         private bool Exchanging => _activeReq != null && _activeReq.Kind == DecisionKind.Exchange;
-        private bool CardSelectable => (TurnLike && _wishMove == null) || Exchanging;
+        // 차례밖 폭탄 가능: Play 중 내 차례가 아니고 격파 대상 트릭이 있을 때(seat0=나).
+        private bool BombInterruptable =>
+            _vm.Phase.CurrentValue == RoundPhase.Play
+            && _vm.CurrentTurn.CurrentValue != 0
+            && _vm.CurrentTrick.CurrentValue?.Top != null;
+        private bool CardSelectable => (TurnLike && _wishMove == null) || Exchanging || BombInterruptable;
 
         private void RenderHand()
         {
@@ -304,7 +318,7 @@ namespace Tichu.Presentation.Views
             if (rb == null) return;
             ClearChildren(rb);
             bool side = (seat == 1 || seat == 3);
-            float w = side ? 44 : 30, h = side ? 22 : 44;
+            float w = side ? 44 : 30, h = side ? 30 : 44; // 측면도 파트너와 같은 카드 치수(눕힌 44×30)
             int show = Mathf.Min(count, 14);
             for (int i = 0; i < show; i++)
             {
@@ -331,8 +345,17 @@ namespace Tichu.Presentation.Views
 
         private void RenderResult(RoundResult? r)
         {
+            _resultPanel.SetActive(r != null);
             _resultText.text = r == null ? "" :
                 $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}  (카드 {r.TeamACardPoints}/{r.TeamBCardPoints}, 티츄 {r.TeamATichuDelta}/{r.TeamBTichuDelta})";
+        }
+
+        // 현재 차례 좌석 이름을 강조색으로(나머지는 기본).
+        private void UpdateTurnHighlight(int turn)
+        {
+            for (int i = 0; i < 4; i++)
+                if (_seatTexts[i] != null)
+                    _seatTexts[i].color = (i == turn) ? TurnHi : Ink;
         }
 
         // ── 결정 프롬프트 ─────────────────────────────────────────────────────
@@ -340,7 +363,8 @@ namespace Tichu.Presentation.Views
         private void RenderPrompt(DecisionRequest? req)
         {
             _activeReq = req;
-            _selection.Clear();
+            // 선택(_selection)은 유지한다 — 차례·패스 전환 때 클릭해 둔 카드가 풀리지 않도록.
+            // 손패에서 빠진 카드는 MyHand 구독이 정리한다.
             _exVL = _exVP = _exVR = _exPick = null;
             _wishMove = null;
             RenderHand();
@@ -352,9 +376,8 @@ namespace Tichu.Presentation.Views
             ClearChildren(_actionRoot);
             ClearChildren(_wishPickRoot);
             ClearChildren(_exchangeRoot);
-            _hintLabel.text = "";
             var req = _activeReq;
-            if (req == null) { _promptLabel.text = ""; return; }
+            if (req == null) { RenderBombInterrupt(); return; }
 
             // 마작 포함 차례 → 소원 선택 모드.
             if (_wishMove != null) { RenderWishPicker(); return; }
@@ -378,7 +401,6 @@ namespace Tichu.Presentation.Views
                     AddAction(isBomb ? "폭탄 내기" : "내기", BtnGo, PlaySelectedTurn, _selection.Count > 0);
                     bool canPass = req.Context.CanPass;
                     AddAction("패스", BtnOn, () => _vm.SubmitTurnDecision(TurnDecision.Pass), canPass);
-                    if (!canPass) _hintLabel.text = req.Context.State.CurrentTrick == null ? "리드 — 패스 불가" : "소원 강제 — 패스 불가";
                     break;
                 case DecisionKind.Bomb:
                     _promptLabel.text = _selection.Count == 0 ? "폭탄? 카드 선택/넘기기" : $"선택: {string.Join(" ", _selection.OrderBy(SortKey))}";
@@ -387,9 +409,10 @@ namespace Tichu.Presentation.Views
                     break;
                 case DecisionKind.DragonRecipient:
                     _promptLabel.text = "용 양도 — 상대 선택";
-                    int rseat = req.Context.LeftSeat, lseat = req.Context.RightSeat; // 시각: LeftSeat=오른쪽, RightSeat=왼쪽
-                    AddAction("오른쪽", BtnOn, () => _vm.SubmitDragonRecipient(rseat));
-                    AddAction("왼쪽", BtnOn, () => _vm.SubmitDragonRecipient(lseat));
+                    // 게임 LeftSeat=시각 오른쪽(seat1), RightSeat=시각 왼쪽(seat3). 버튼 위치=실제 대상 일치.
+                    int rightPlayer = req.Context.LeftSeat, leftPlayer = req.Context.RightSeat;
+                    AddAction("왼쪽", BtnOn, () => _vm.SubmitDragonRecipient(leftPlayer));
+                    AddAction("오른쪽", BtnOn, () => _vm.SubmitDragonRecipient(rightPlayer));
                     break;
                 case DecisionKind.Exchange:
                     _promptLabel.text = "교환 — 카드 선택 후 방향";
@@ -411,7 +434,7 @@ namespace Tichu.Presentation.Views
 
         private void Assign(ref Card? slot)
         {
-            if (!_exPick.HasValue) { _hintLabel.text = "먼저 카드를 고르세요"; return; }
+            if (!_exPick.HasValue) return;
             slot = _exPick; _exPick = null;
             RenderHand(); RefreshActions();
         }
@@ -453,8 +476,8 @@ namespace Tichu.Presentation.Views
         private void PlaySelectedTurn()
         {
             var sel = RecognizeSelection();
-            if (sel == null) { _hintLabel.text = "유효한 조합이 아닙니다"; return; }
-            if (!LegalByTypeRank(sel)) { _hintLabel.text = "낼 수 없는 조합"; return; }
+            if (sel == null) return;
+            if (!LegalByTypeRank(sel)) return;
             // 마작 포함 → 소원 선택 후 제출.
             if (sel.Cards.Any(c => c.Special == SpecialKind.Mahjong)) { _wishMove = sel; RenderHand(); RefreshActions(); return; }
             _vm.SubmitTurnDecision(TurnDecision.Play(sel)); // 내가 고른 실제 카드로 제출
@@ -463,8 +486,42 @@ namespace Tichu.Presentation.Views
         private void PlaySelectedBomb()
         {
             var sel = RecognizeSelection();
-            if (sel == null || !sel.IsBomb || !LegalByTypeRank(sel)) { _hintLabel.text = "유효한 폭탄 아님"; return; }
+            if (sel == null || !sel.IsBomb || !LegalByTypeRank(sel)) return;
             _vm.SubmitBomb(sel);
+        }
+
+        // ── 차례밖 폭탄(상대 턴 인터럽트) ───────────────────────────────────────
+
+        // 상대 턴 중: 폭탄 조합 선택 시 "폭탄 내기" 버튼, 예약되면 대기 표시.
+        private void RenderBombInterrupt()
+        {
+            if (_vm.HasPendingBomb) { _promptLabel.text = "폭탄 발동!"; return; }
+            // 폭탄으로 인식되는 선택일 때만 버튼을 노출한다(일반 선택은 차례밖에 낼 수 없으므로 표시 안 함).
+            var bomb = (BombInterruptable && _selection.Count > 0) ? RecognizeBombSelection() : null;
+            if (bomb != null)
+            {
+                _promptLabel.text = $"차례밖 폭탄: {string.Join(" ", _selection.OrderBy(SortKey))}";
+                AddAction("폭탄 내기", BtnGo, ReserveSelectedBomb);
+            }
+            else _promptLabel.text = "";
+        }
+
+        // 선택 카드가 폭탄 조합이면 반환(아니면 null). 트릭 문맥 무관(폭탄 자체 인식).
+        private Combination RecognizeBombSelection()
+        {
+            if (_selection.Count == 0) return null;
+            var c = CombinationRecognizer.Recognize(_selection.ToArray(), TrickContext.Lead);
+            return (c.Type != CombinationType.Invalid && c.IsBomb) ? c : null;
+        }
+
+        private void ReserveSelectedBomb()
+        {
+            var bomb = RecognizeBombSelection();
+            if (bomb == null) return;
+            _vm.ReserveBomb(bomb);
+            _selection.Clear();
+            RenderHand();
+            RefreshActions();
         }
 
         // 선택한 카드를 현재 트릭 문맥으로 조합 인식.
@@ -492,7 +549,7 @@ namespace Tichu.Presentation.Views
             if (!(_exVL.HasValue && _exVP.HasValue && _exVR.HasValue)) return;
             // 시각 왼쪽(seat3)=ToRight, 파트너=ToPartner, 시각 오른쪽(seat1)=ToLeft.
             var choice = new ExchangeChoice(_exVR.Value, _exVP.Value, _exVL.Value);
-            if (!_vm.SubmitExchange(choice)) { _hintLabel.text = "교환 거부 — 다시"; _exVL = _exVP = _exVR = _exPick = null; RenderHand(); RefreshActions(); }
+            if (!_vm.SubmitExchange(choice)) { _exVL = _exVP = _exVR = _exPick = null; RenderHand(); RefreshActions(); }
         }
 
         // ── 위젯 ──────────────────────────────────────────────────────────────
@@ -598,8 +655,8 @@ namespace Tichu.Presentation.Views
             {
                 case SpecialKind.Dog: return 0;
                 case SpecialKind.Mahjong: return 1;
-                case SpecialKind.Phoenix: return 2;
-                case SpecialKind.Dragon: return 15;
+                case SpecialKind.Phoenix: return 15;
+                case SpecialKind.Dragon: return 16;
                 default: return c.Rank;
             }
         }

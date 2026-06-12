@@ -25,6 +25,9 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>현재 라운드 페이즈.</summary>
         public ReactiveProperty<RoundPhase> Phase { get; } = new ReactiveProperty<RoundPhase>();
 
+        /// <summary>현재 차례 좌석(Play 페이즈에서만 유효, 그 외 -1). 뷰가 이름 색으로 강조한다.</summary>
+        public ReactiveProperty<int> CurrentTurn { get; } = new ReactiveProperty<int>(-1);
+
         /// <summary>내 손패.</summary>
         public ReactiveProperty<IReadOnlyList<Card>> MyHand { get; }
             = new ReactiveProperty<IReadOnlyList<Card>>(new List<Card>());
@@ -55,6 +58,9 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>새 라운드 시작 시 발행(로그 비우기).</summary>
         private readonly Subject<R3.Unit> _cleared = new Subject<R3.Unit>();
         public Observable<R3.Unit> PlaysCleared => _cleared;
+        /// <summary>차례밖 폭탄 예약 즉시 신호 — 드라이버가 진행 중 상대 결정을 취소해 폭탄을 선점 적용한다.</summary>
+        private readonly Subject<R3.Unit> _bombReserved = new Subject<R3.Unit>();
+        public Observable<R3.Unit> BombReserved => _bombReserved;
 
         // 좌석별 손패 수 (0..3)
         private readonly ReactiveProperty<int>[] _handCounts = new ReactiveProperty<int>[4];
@@ -79,6 +85,14 @@ namespace Tichu.Presentation.ViewModel
         // 작은 티츄 단계에서 인간이 먼저 낸 턴 결정을 캐시(다음 RequestTurnDecisionAsync 가 소비).
         private bool _hasCachedTurn;
         private TurnDecision _cachedTurn;
+        // 상대 턴 중 버튼으로 예약된 작은 티츄 콜(드라이버가 다음 Play 반복에서 소비).
+        private const int FullHand = 14;
+        private bool _pendingSmallTichu;
+        // 상대 턴 중 버튼으로 예약된 차례밖 폭탄(드라이버가 다음 Play 반복에서 적용 시도).
+        private Combination _pendingBomb;
+
+        /// <summary>차례밖 폭탄 예약 상태(뷰가 "예약됨" 표시).</summary>
+        public bool HasPendingBomb => _pendingBomb != null;
 
         // ── 생성자 ──────────────────────────────────────────────────────────
 
@@ -100,11 +114,19 @@ namespace Tichu.Presentation.ViewModel
             Wish.Value = s.Wish;
             // ReactiveProperty 는 같은 참조를 다시 넣으면 통지하지 않는다. 엔진은 손패 List·트릭을
             // 제자리 변경하므로(같은 참조), 변경 감지를 위해 사본/강제 재통지가 필요하다.
-            MyHand.Value = new List<Card>(s.Seats[_mySeat].Hand);   // 사본 → 항상 통지
             CurrentTrick.Value = null;                              // 트릭 Top 갱신 반영: null→값으로 강제 통지
             CurrentTrick.Value = s.CurrentTrick;
             for (int i = 0; i < 4; i++)
                 _handCounts[i].Value = s.Seats[i].Hand.Count;
+            // 작은 티츄 상시 버튼: Play 중 내가 첫 패 전(14장)·미콜·미예약이면 표시.
+            TichuAvailable.Value = s.Phase == RoundPhase.Play
+                && s.Seats[_mySeat].Call == TichuCall.None
+                && s.Seats[_mySeat].Hand.Count == FullHand
+                && !_pendingSmallTichu;
+            // 현재 차례(Play에서만) — 뷰가 좌석 이름 강조.
+            CurrentTurn.Value = s.Phase == RoundPhase.Play ? s.Turn : -1;
+            // MyHand 는 마지막에 통지: RenderHand 가 최신 트릭/차례(차례밖 폭탄 가능 여부)를 참조하도록.
+            MyHand.Value = new List<Card>(s.Seats[_mySeat].Hand);   // 사본 → 항상 통지
         }
 
         /// <summary>플레이 액션을 최근 로그에 기록한다(Play/Pass/GiveDragon만).</summary>
@@ -115,7 +137,7 @@ namespace Tichu.Presentation.ViewModel
         }
 
         /// <summary>새 라운드 시작 시 로그 비우기 신호.</summary>
-        public void ClearPlays() => _cleared.OnNext(default);
+        public void ClearPlays() { _pendingSmallTichu = false; _pendingBomb = null; _cleared.OnNext(default); }
 
         // ── IHumanInputPort 구현 ─────────────────────────────────────────────
 
@@ -151,7 +173,7 @@ namespace Tichu.Presentation.ViewModel
             ApplySnapshot(ctx.State);
             _pendingCtx = ctx;
             _tichuTcs = new UniTaskCompletionSource<bool>();
-            TichuAvailable.Value = true;
+            // 버튼 표시는 ApplySnapshot 이 단일 관리(Play·14장·미콜·미예약).
             PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
             ct.Register(CancelTichu);
             return _tichuTcs.Task;
@@ -242,15 +264,49 @@ namespace Tichu.Presentation.ViewModel
             return true;
         }
 
-        /// <summary>상시 "스몰 티츄" 버튼: 작은 티츄를 선언한다(티츄 단계에서만 유효).</summary>
+        /// <summary>상시 "스몰 티츄" 버튼: 작은 티츄를 선언한다.
+        /// 내 차례 훅 대기 중이면 그 경로로, 아니면(상대 턴 등) 보류 콜로 예약한다.</summary>
         public bool DeclareSmallTichu()
         {
-            if (_tichuTcs == null) return false;
+            if (_tichuTcs != null)
+            {
+                TichuAvailable.Value = false;
+                var tcs = _tichuTcs;
+                _tichuTcs = null;
+                tcs.TrySetResult(true); // 선언 → 드라이버가 CallTichu 적용 후 턴을 다시 묻는다.
+                return true;
+            }
+            // 상대 턴 등: 드라이버가 다음 Play 반복에서 TakePendingTichuSeat 로 소비.
+            _pendingSmallTichu = true;
             TichuAvailable.Value = false;
-            var tcs = _tichuTcs;
-            _tichuTcs = null;
-            tcs.TrySetResult(true); // 선언 → 드라이버가 CallTichu 적용 후 턴을 다시 묻는다.
             return true;
+        }
+
+        /// <summary>드라이버가 매 Play 반복 시작에 호출: 버튼으로 예약된 작은 티츄 콜을 소비한다.
+        /// 첫 패 전(14장)·미콜이면 내 좌석을, 아니면 -1 을 반환한다.</summary>
+        public int TakePendingTichuSeat(GameState s)
+        {
+            if (!_pendingSmallTichu) return -1;
+            _pendingSmallTichu = false;
+            if (s.Phase == RoundPhase.Play
+                && s.Seats[_mySeat].Call == TichuCall.None
+                && s.Seats[_mySeat].Hand.Count == FullHand)
+                return _mySeat;
+            return -1; // 늦음(이미 콜됐거나 첫 패를 냄) — 무시.
+        }
+
+        /// <summary>차례밖 폭탄을 예약한다(상대 턴 중 버튼). 드라이버가 다음 Play 반복에서 적용 시도.</summary>
+        public void ReserveBomb(Combination bomb) { _pendingBomb = bomb; _bombReserved.OnNext(default); }
+
+        /// <summary>드라이버가 매 Play 반복 시작에 호출: 예약된 폭탄을 Play 액션으로 소비한다.
+        /// 합법성(현재 Top 격파·손패 보유)은 엔진 Apply 가 판정하며, 거부되면 드라이버가 조용히 버린다.</summary>
+        public GameAction TakePendingBomb(GameState s)
+        {
+            if (_pendingBomb == null) return null;
+            var bomb = _pendingBomb;
+            _pendingBomb = null;
+            if (s.Phase != RoundPhase.Play) return null;
+            return GameAction.Play(_mySeat, bomb.Cards);
         }
 
         /// <summary>

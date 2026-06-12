@@ -90,3 +90,10 @@ core/**/[Oo]bj/
 # --- MCP 스크린샷 출력 — 추적 제외 ---
 /[Aa]ssets/[Ss]creenshots/
 /[Aa]ssets/[Ss]creenshots.meta
+
+# --- Unity 에디터 크래시 복구 임시 씬 — 추적 제외 ---
+/[Aa]ssets/_[Rr]ecovery/
+/[Aa]ssets/_[Rr]ecovery.meta
+
+# --- Visual Studio 컴포넌트 설정 ---
+.vsconfig

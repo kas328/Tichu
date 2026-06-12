@@ -52,6 +52,9 @@ namespace Tichu.Presentation.ViewModel
         public ReactiveProperty<int> CumulativeA { get; } = new ReactiveProperty<int>(0);
         public ReactiveProperty<int> CumulativeB { get; } = new ReactiveProperty<int>(0);
 
+        /// <summary>빠른 진행(스킵): true면 AI 딜레이를 건너뛴다. 내가 out된 뒤 사용, 새 라운드에 리셋.</summary>
+        public bool FastForward { get; set; }
+
         /// <summary>플레이가 일어날 때마다 발행(뷰가 항목별로 5초 후 페이드시킨다).</summary>
         private readonly Subject<GameAction> _played = new Subject<GameAction>();
         public Observable<GameAction> Played => _played;

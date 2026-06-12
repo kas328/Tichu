@@ -61,14 +61,15 @@ namespace Tichu.Presentation
                     var state = GameEngine.NewRound(seed);
                     vm.RoundResult.Value = null;            // 새 라운드: 이전 결과·로그 지움
                     vm.ClearPlays();
+                    vm.FastForward = false;                 // 새 라운드: 스킵(빠른 진행) 해제
                     vm.ApplySnapshot(state);
 
                     var agents = new IDecisionAgent[]
                     {
                         human,
-                        new DelayedAiDecisionAgent(seed, 1, AiDelayMs),
-                        new DelayedAiDecisionAgent(seed, 2, AiDelayMs),
-                        new DelayedAiDecisionAgent(seed, 3, AiDelayMs),
+                        new DelayedAiDecisionAgent(seed, 1, AiDelayMs, () => vm.FastForward),
+                        new DelayedAiDecisionAgent(seed, 2, AiDelayMs, () => vm.FastForward),
+                        new DelayedAiDecisionAgent(seed, 3, AiDelayMs, () => vm.FastForward),
                     };
 
                     // 매 플레이마다 뷰 갱신 + 로그 기록 → 사람이 AI 플레이를 보며 카운팅.

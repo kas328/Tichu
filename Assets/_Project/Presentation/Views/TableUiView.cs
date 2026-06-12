@@ -51,6 +51,7 @@ namespace Tichu.Presentation.Views
         private readonly List<GameObject> _playEntries = new List<GameObject>(); // 최근 플레이 항목
         private GameObject _tichuButton; // 상시 스몰 티츄 버튼
         private GameObject _resultPanel; // 라운드 결과 중앙 배너
+        private GameObject _skipButton;  // 빠른 진행(스킵) 버튼 — 내가 out 됐을 때만
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
@@ -146,6 +147,18 @@ namespace Tichu.Presentation.Views
             AddCardLabel(tb.transform, "스몰 티츄 선언", Ink, 24);
             tb.SetActive(false);
             _tichuButton = tb;
+
+            // 빠른 진행(스킵) 버튼 — 우하단, 내가 out 됐을 때만 표시. 누르면 AI 딜레이를 건너뛴다.
+            var skip = new GameObject("SkipButton", typeof(RectTransform), typeof(Image), typeof(Button));
+            skip.transform.SetParent(rt, false);
+            var skrt = skip.GetComponent<RectTransform>();
+            skrt.anchorMin = skrt.anchorMax = skrt.pivot = new Vector2(1, 0);
+            skrt.sizeDelta = new Vector2(220, 56); skrt.anchoredPosition = new Vector2(-48, 50);
+            skip.GetComponent<Image>().color = BtnGo;
+            skip.GetComponent<Button>().onClick.AddListener(() => { _vm.FastForward = true; UpdateSkipButton(); });
+            AddCardLabel(skip.transform, "▶▶ 스킵", Ink, 24);
+            skip.SetActive(false);
+            _skipButton = skip;
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -182,7 +195,7 @@ namespace Tichu.Presentation.Views
 
         private void Subscribe()
         {
-            _vm.Phase.Subscribe(p => _phaseText.text = $"Phase: {p}").AddTo(_subs);
+            _vm.Phase.Subscribe(p => { _phaseText.text = $"Phase: {p}"; UpdateSkipButton(); }).AddTo(_subs);
             _vm.Wish.Subscribe(w => _wishText.text = w.HasValue ? $"소원(콜): {RankLabel(w.Value)}" : "").AddTo(_subs);
             _vm.TichuAvailable.Subscribe(v => _tichuButton.SetActive(v)).AddTo(_subs);
             _vm.CurrentTurn.Subscribe(UpdateTurnHighlight).AddTo(_subs);
@@ -199,7 +212,11 @@ namespace Tichu.Presentation.Views
                 int seat = i;
                 _vm.HandCount(seat).Subscribe(c =>
                 {
-                    if (seat == 0) _seatTexts[0].text = $"{SeatNames[0]} · {c}장";
+                    if (seat == 0)
+                    {
+                        _seatTexts[0].text = $"{SeatNames[0]} · {c}장";
+                        UpdateSkipButton(); // out 여부 변동 → 스킵 버튼 갱신
+                    }
                     else { _countTexts[seat].text = $"{c}장"; RenderBacks(seat, c); }
                 }).AddTo(_subs);
             }
@@ -356,6 +373,15 @@ namespace Tichu.Presentation.Views
             for (int i = 0; i < 4; i++)
                 if (_seatTexts[i] != null)
                     _seatTexts[i].color = (i == turn) ? TurnHi : Ink;
+        }
+
+        // 빠른 진행 버튼: 내가 out(0장)·Play 중·아직 스킵 안 눌렀을 때만 표시.
+        private void UpdateSkipButton()
+        {
+            _skipButton.SetActive(
+                _vm.HandCount(0).CurrentValue == 0
+                && _vm.Phase.CurrentValue == RoundPhase.Play
+                && !_vm.FastForward);
         }
 
         // ── 결정 프롬프트 ─────────────────────────────────────────────────────

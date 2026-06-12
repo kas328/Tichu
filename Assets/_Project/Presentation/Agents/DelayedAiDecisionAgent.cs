@@ -15,12 +15,17 @@ namespace Tichu.Presentation
     {
         private readonly AiAgent _inner;
         private readonly int _delayMs;
+        private readonly System.Func<bool> _fastForward; // true 반환 시 딜레이 건너뜀(스킵). null=항상 딜레이.
 
-        public DelayedAiDecisionAgent(ulong roundSeed, int seat, int delayMs)
+        public DelayedAiDecisionAgent(ulong roundSeed, int seat, int delayMs, System.Func<bool> fastForward = null)
         {
             _inner = new AiAgent(roundSeed, seat);
             _delayMs = delayMs;
+            _fastForward = fastForward;
         }
+
+        private UniTask DelayAsync(CancellationToken ct)
+            => _fastForward != null && _fastForward() ? UniTask.CompletedTask : UniTask.Delay(_delayMs, cancellationToken: ct);
 
         public UniTask<bool> CallGrandTichuAsync(DecisionContext ctx, CancellationToken ct)
             => UniTask.FromResult(_inner.CallGrandTichu(ctx));
@@ -33,7 +38,7 @@ namespace Tichu.Presentation
 
         public async UniTask<TurnDecision> DecideTurnAsync(DecisionContext ctx, CancellationToken ct)
         {
-            await UniTask.Delay(_delayMs, cancellationToken: ct);
+            await DelayAsync(ct);
             return _inner.DecideTurn(ctx);
         }
 
@@ -41,13 +46,13 @@ namespace Tichu.Presentation
         {
             // 폭탄 창은 매 좌석 검사되므로, 실제로 폭탄을 낼 때만 딜레이(아니면 즉시).
             var bomb = _inner.DecideBomb(ctx);
-            if (bomb != null) await UniTask.Delay(_delayMs, cancellationToken: ct);
+            if (bomb != null) await DelayAsync(ct);
             return bomb;
         }
 
         public async UniTask<int> ChooseDragonRecipientAsync(DecisionContext ctx, CancellationToken ct)
         {
-            await UniTask.Delay(_delayMs, cancellationToken: ct);
+            await DelayAsync(ct);
             return _inner.ChooseDragonRecipient(ctx);
         }
     }

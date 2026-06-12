@@ -1,4 +1,3 @@
-#nullable enable
 using System.Collections.Generic;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
@@ -62,6 +61,10 @@ namespace Tichu.Core.Game
             if (a.Seat < 0 || a.Seat >= SeatCount)
                 return ApplyResult.Reject("invalid seat index");
 
+            // 용 양도 대기 중에는 GiveDragon 외의 액션을 거부(트릭이 이미 회수돼 CurrentTrick이 null).
+            if (s.PendingDragonGiftWinner != null && a.Kind != GameActionKind.GiveDragon)
+                return ApplyResult.Reject("awaiting dragon gift");
+
             switch (a.Kind)
             {
                 case GameActionKind.CallGrandTichu:
@@ -87,6 +90,9 @@ namespace Tichu.Core.Game
                     if (s.Phase == RoundPhase.Play)
                         return ApplyPass(s, a.Seat);
                     return ApplyResult.Reject("wrong phase");
+
+                case GameActionKind.GiveDragon:
+                    return ApplyGiveDragon(s, a.Seat, a.RecipientSeat);
 
                 default:
                     return ApplyResult.Reject("unknown action");
@@ -170,7 +176,8 @@ namespace Tichu.Core.Game
                 MarkOutIfEmpty(s, ps);
                 AdvanceAfterTopChange(s, seat);
                 CheckTrickCompletion(s);
-                CheckRoundEnd(s);
+                // 용 양도 대기 중에는 라운드 종료를 판정하지 않는다(양도 후 ApplyGiveDragon에서 재개).
+                if (s.PendingDragonGiftWinner == null) CheckRoundEnd(s);
                 return ApplyResult.Accepted;
             }
 
@@ -206,7 +213,8 @@ namespace Tichu.Core.Game
             MarkOutIfEmpty(s, ps);
             AdvanceAfterTopChange(s, seat);
             CheckTrickCompletion(s);
-            CheckRoundEnd(s);
+            // 용 양도 대기 중에는 라운드 종료를 판정하지 않는다(양도 후 ApplyGiveDragon에서 재개).
+            if (s.PendingDragonGiftWinner == null) CheckRoundEnd(s);
             return ApplyResult.Accepted;
         }
 
@@ -255,6 +263,44 @@ namespace Tichu.Core.Game
             s.CurrentTrick.History.Add(new Play { Seat = seat, Combination = null });
             s.Turn = Seating.NextActive(s.Seats, seat);
             CheckTrickCompletion(s);
+            return ApplyResult.Accepted;
+        }
+
+        // ── Play 페이즈: 용 양도 ──────────────────────────────────────────────────
+
+        /// <summary>
+        /// 용 단독으로 이긴 트릭의 점수를 두 상대 중 한 명에게 양도한다.
+        /// 양도 대기(PendingDragonGiftWinner)가 해소되면 보류했던 턴 진행/라운드 종료를 재개한다.
+        /// 양도는 필수다(상대 한 명이 아웃이어도 에이전트가 유효 좌석을 지정한다 — 여기서 자동 스킵하지 않는다).
+        /// </summary>
+        private static ApplyResult ApplyGiveDragon(GameState s, int seat, int recipient)
+        {
+            if (s.Phase != RoundPhase.Play)
+                return ApplyResult.Reject("wrong phase: give dragon only allowed in Play phase");
+            if (s.PendingDragonGiftWinner == null)
+                return ApplyResult.Reject("no pending dragon gift");
+            if (s.PendingDragonGiftWinner.Value != seat)
+                return ApplyResult.Reject($"seat {seat} is not the dragon-winning seat");
+
+            int leftOpp  = (seat + 1) % SeatCount;
+            int rightOpp = (seat + 3) % SeatCount;
+            if (recipient != leftOpp && recipient != rightOpp)
+                return ApplyResult.Reject($"recipient {recipient} must be an opponent ({leftOpp} or {rightOpp})");
+
+            // 불변식: 용 트릭 회수 직후 Pending이 설정되므로 마지막 CompletedTricks 항목이 반드시 그 용 트릭이다.
+            var dragonTrick = s.CompletedTricks[s.CompletedTricks.Count - 1];
+            System.Diagnostics.Debug.Assert(dragonTrick.WonByDragon, "last completed trick must be the dragon trick");
+            dragonTrick.DragonGiftRecipient = recipient;
+
+            s.PendingDragonGiftWinner = null;
+
+            // 다음 리드 = 승자(아웃이면 NextActive). CollectTrick의 다음 리드 설정과 동일하게 맞춘다.
+            s.Turn = s.Seats[seat].IsOut
+                ? Seating.NextActive(s.Seats, seat)
+                : seat;
+
+            // 보류했던 라운드 종료 판정을 이제 수행한다.
+            CheckRoundEnd(s);
             return ApplyResult.Accepted;
         }
 
@@ -321,6 +367,15 @@ namespace Tichu.Core.Game
             s.CurrentTrick = null;
 
             int winner = trick.TopOwnerSeat;
+
+            // 용 단독 승리: 수혜 상대 지정(GiveDragon) 전까지 보류한다.
+            // 턴/다음 리드/라운드 종료는 ApplyGiveDragon에서 재개한다.
+            if (trick.WonByDragon)
+            {
+                s.PendingDragonGiftWinner = winner;
+                return;
+            }
+
             s.Turn = s.Seats[winner].IsOut
                 ? Seating.NextActive(s.Seats, winner)
                 : winner;
@@ -363,6 +418,9 @@ namespace Tichu.Core.Game
             if (s.CurrentTrick != null)
                 FinalizeOpenTrick(s);
 
+            // 마무리 중 용 양도 대기가 걸렸다면 Scoring 전환을 보류한다(ApplyGiveDragon에서 재개).
+            if (s.PendingDragonGiftWinner != null) return;
+
             s.Phase = RoundPhase.Scoring;
         }
 
@@ -374,6 +432,11 @@ namespace Tichu.Core.Game
 
             s.CompletedTricks.Add(trick);
             s.CurrentTrick = null;
+
+            // 용 단독으로 이긴 채 라운드가 끝나려는 경우에도 양도 대기를 건다.
+            // (CheckRoundEnd는 PendingDragonGiftWinner가 설정되면 Scoring 전환을 보류한다.)
+            if (trick.WonByDragon)
+                s.PendingDragonGiftWinner = trick.TopOwnerSeat;
         }
 
         private static void MarkDragonIfApplicable(Trick trick)

@@ -1,4 +1,3 @@
-#nullable enable
 using System.Collections.Generic;
 using Tichu.Core.Cards;
 
@@ -11,7 +10,8 @@ namespace Tichu.Core.Game
         Exchange,
         CallTichu,
         Play,
-        Pass
+        Pass,
+        GiveDragon
     }
 
     public sealed class GameAction
@@ -28,6 +28,9 @@ namespace Tichu.Core.Game
         public IReadOnlyList<Card>? ExchangePartner { get; }
         public IReadOnlyList<Card>? ExchangeToRight { get; }
 
+        // GiveDragon payload: 용 트릭 점수를 양도받을 상대 좌석.
+        public int RecipientSeat { get; }
+
         private GameAction(
             GameActionKind kind,
             int seat,
@@ -35,7 +38,8 @@ namespace Tichu.Core.Game
             int? wish = null,
             IReadOnlyList<Card>? exchangeToLeft = null,
             IReadOnlyList<Card>? exchangePartner = null,
-            IReadOnlyList<Card>? exchangeToRight = null)
+            IReadOnlyList<Card>? exchangeToRight = null,
+            int recipientSeat = -1)
         {
             Kind = kind;
             Seat = seat;
@@ -44,6 +48,7 @@ namespace Tichu.Core.Game
             ExchangeToLeft = exchangeToLeft;
             ExchangePartner = exchangePartner;
             ExchangeToRight = exchangeToRight;
+            RecipientSeat = recipientSeat;
         }
 
         public static GameAction CallGrandTichu(int seat) =>
@@ -70,5 +75,8 @@ namespace Tichu.Core.Game
 
         public static GameAction Pass(int seat) =>
             new GameAction(GameActionKind.Pass, seat);
+
+        public static GameAction GiveDragon(int seat, int recipientSeat) =>
+            new GameAction(GameActionKind.GiveDragon, seat, recipientSeat: recipientSeat);
     }
 }

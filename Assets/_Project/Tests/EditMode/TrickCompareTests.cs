@@ -1,4 +1,3 @@
-#nullable enable
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;

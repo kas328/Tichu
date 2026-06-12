@@ -1,4 +1,3 @@
-#nullable enable
 using Tichu.Core.Combinations;
 
 namespace Tichu.Core.Game

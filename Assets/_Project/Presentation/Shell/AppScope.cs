@@ -13,7 +13,8 @@ namespace Tichu.Presentation.Shell
         protected override void Configure(IContainerBuilder builder)
         {
             RegisterServices(builder);
-            builder.RegisterEntryPoint<MenuShellPresenter>();   // 부트 시 메뉴 셸 빌드 + 화면 라우팅(PlayMode)
+            builder.RegisterEntryPoint<MenuShellPresenter>();    // 메뉴 셸 빌드 + 화면 라우팅
+            builder.RegisterEntryPoint<GameSessionPresenter>();  // InGame→Table Additive·매치종료→Result
         }
 
         /// <summary>

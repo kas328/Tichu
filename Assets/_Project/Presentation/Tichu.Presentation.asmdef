@@ -5,7 +5,9 @@
         "Tichu.Core",
         "Tichu.GameFlow",
         "UniTask",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "VContainer",
+        "VContainer.Unity"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

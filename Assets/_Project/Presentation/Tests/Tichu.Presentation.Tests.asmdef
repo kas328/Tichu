@@ -7,6 +7,8 @@
         "Tichu.Presentation",
         "UniTask",
         "R3.Unity",
+        "VContainer",
+        "VContainer.Unity",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

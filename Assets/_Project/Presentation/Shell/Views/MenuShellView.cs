@@ -63,19 +63,26 @@ namespace Tichu.Presentation.Shell
             go.SetActive(false);
             _panels[s] = cg;
 
-            NewAnchoredText($"Title_{s}", (RectTransform)go.transform, PanelTitle(s), 72,
-                new Vector2(0.5f, 1f), new Vector2(0f, -220f), new Vector2(960f, 130f));
-
-            var rowGo = new GameObject("Buttons", typeof(RectTransform), typeof(VerticalLayoutGroup));
-            rowGo.transform.SetParent(go.transform, false);
-            var rt = (RectTransform)rowGo.transform;
+            // 제목 + 버튼을 하나의 중앙 세로 레이아웃에 쌓는다 → 가로/세로 어느 종횡비에서도 겹치지 않는다.
+            // (이전엔 제목=상단앵커·버튼=중앙앵커라 가로 화면(1080 높이)에서 겹쳤음.)
+            var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            content.transform.SetParent(go.transform, false);
+            var rt = (RectTransform)content.transform;
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
-            rt.sizeDelta = new Vector2(480f, 640f); rt.anchoredPosition = Vector2.zero;
-            var v = rowGo.GetComponent<VerticalLayoutGroup>();
+            rt.anchoredPosition = Vector2.zero;
+            var v = content.GetComponent<VerticalLayoutGroup>();
             v.spacing = 28; v.childAlignment = TextAnchor.MiddleCenter;
             v.childControlWidth = true; v.childControlHeight = true;
             v.childForceExpandWidth = false; v.childForceExpandHeight = false;
-            _buttonRoots[s] = rt;
+            var fitter = content.GetComponent<ContentSizeFitter>();
+            fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var title = NewText($"Title_{s}", content.transform, PanelTitle(s), 72);
+            var tle = title.gameObject.AddComponent<LayoutElement>();
+            tle.preferredWidth = 640f; tle.preferredHeight = 150f;
+
+            _buttonRoots[s] = rt;   // 버튼은 제목 뒤로 content에 추가된다
         }
 
         void BuildToast(Transform parent)

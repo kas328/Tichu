@@ -36,8 +36,10 @@ namespace Tichu.Presentation.Shell
             _view.AddButton(ScreenState.MainHub,    "게임 시작", () => _flow.Send(AppFlowEvent.OpenModeSelect));
             _view.AddButton(ScreenState.MainHub,    "게임 방법", () => _flow.Send(AppFlowEvent.OpenHowTo));
             _view.AddButton(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
-            _view.AddButton(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.StartAiMatch));   // → InGame(Table은 C4)
-            _view.AddButton(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));            // 랭킹/친구방 스텁 버튼은 C5
+            _view.AddButton(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.StartAiMatch));   // → InGame
+            _view.AddButton(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
+            _view.AddButton(ScreenState.ModeSelect, "친구방",    () => { _flow.Send(AppFlowEvent.SelectFriendRoomStub); ShowToast("친구방은 Phase 3에서 제공됩니다"); });
+            _view.AddButton(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             _view.AddButton(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             _view.AddButton(ScreenState.Settings,   "뒤로",      () => _flow.Send(AppFlowEvent.Back));            // 볼륨 슬라이더는 D5
         }
@@ -56,6 +58,19 @@ namespace Tichu.Presentation.Shell
                 next.gameObject.SetActive(true);
                 Fade(next, 1f, deactivate: false);
             }
+        }
+
+        /// <summary>전 화면 위에 잠깐 뜨는 알림(Phase3 스텁 안내 등). DoTween 시퀀스로 페이드 인→유지→아웃.</summary>
+        void ShowToast(string msg)
+        {
+            var cg = _view.ToastGroup;
+            _view.ToastText.text = msg;
+            DOTween.Kill(cg);
+            cg.alpha = 0f;
+            DOTween.Sequence().SetTarget(cg)
+                .Append(DOTween.To(() => cg.alpha, a => cg.alpha = a, 1f, 0.2f))
+                .AppendInterval(1.5f)
+                .Append(DOTween.To(() => cg.alpha, a => cg.alpha = a, 0f, 0.35f));
         }
 
         static void Fade(CanvasGroup cg, float to, bool deactivate)

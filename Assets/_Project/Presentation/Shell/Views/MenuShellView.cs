@@ -22,6 +22,8 @@ namespace Tichu.Presentation.Shell
 
         readonly Dictionary<ScreenState, CanvasGroup> _panels = new();
         readonly Dictionary<ScreenState, RectTransform> _buttonRoots = new();
+        CanvasGroup _toast;
+        Text _toastText;
 
         public MenuShellView()
         {
@@ -29,9 +31,14 @@ namespace Tichu.Presentation.Shell
             var canvas = CreateCanvas();
             foreach (var s in MenuStates)
                 BuildPanel(s, canvas.transform);
+            BuildToast(canvas.transform);   // 패널 뒤에 추가 → 같은 캔버스에서 위에 렌더
         }
 
         public IReadOnlyDictionary<ScreenState, CanvasGroup> Panels => _panels;
+
+        /// <summary>토스트(전 화면 위 잠깐 뜨는 알림). 프레젠터가 페이드로 구동.</summary>
+        public CanvasGroup ToastGroup => _toast;
+        public Text ToastText => _toastText;
 
         /// <summary>패널에 네비 버튼을 추가하고 클릭을 배선한다.</summary>
         public void AddButton(ScreenState panel, string label, Action onClick)
@@ -69,6 +76,20 @@ namespace Tichu.Presentation.Shell
             v.childControlWidth = true; v.childControlHeight = true;
             v.childForceExpandWidth = false; v.childForceExpandHeight = false;
             _buttonRoots[s] = rt;
+        }
+
+        void BuildToast(Transform parent)
+        {
+            var go = new GameObject("Toast", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0f);
+            rt.sizeDelta = new Vector2(800f, 120f); rt.anchoredPosition = new Vector2(0f, 280f);
+            go.GetComponent<Image>().color = new Color(0.05f, 0.05f, 0.08f, 0.92f);
+            _toast = go.GetComponent<CanvasGroup>();
+            _toast.alpha = 0f; _toast.interactable = false; _toast.blocksRaycasts = false;  // 입력 막지 않음
+            _toastText = NewAnchoredText("ToastText", rt, "", 38,
+                new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(760f, 110f));
         }
 
         // ── 생성 헬퍼(TableUiView 관례와 동일) ───────────────────────────────────

@@ -19,7 +19,7 @@ namespace Tichu.Presentation.Views
     /// 손패=앞면 클릭 선택, 상대=뒷면(상=가로/좌우=세로), 트릭=중앙 앞면, 결정=우하단(가로 버튼),
     /// 누적점수·소원=좌상단, 최근 플레이 로그=우상단. 마작 포함 시 소원 선택 UI, 교환은 방향 버튼.
     /// </summary>
-    public sealed class TableUiView
+    public sealed class RuntimeTableView : ITableView
     {
         // 시각 위치 기준 이름. seat1=오른쪽, seat2=파트너, seat3=왼쪽.
         private static readonly string[] SeatNames = { "나", "오른쪽", "파트너", "왼쪽" };

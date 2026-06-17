@@ -72,9 +72,15 @@ namespace Tichu.Presentation.Views
         private void BuildLayout(Canvas canvas)
         {
             var root = NewPanel("Root", canvas.transform);
-            var rt = root.GetComponent<RectTransform>();
-            StretchFull(rt);
+            var rootRt = root.GetComponent<RectTransform>();
+            StretchFull(rootRt);
             root.AddComponent<Image>().color = Felt;
+
+            // 콘텐츠 컨테이너 — SafeArea 인셋 대상(펠트 배경은 전체화면 유지, 노치 뒤까지).
+            var content = NewPanel("Content", root.transform);
+            var rt = content.GetComponent<RectTransform>();
+            StretchFull(rt);
+            content.AddComponent<SafeAreaFitter>();
 
             // 좌상단: 누적점수 / 페이즈 / 소원.
             _scoreText = NewAnchoredText("Score", rt, "총점  우리 0 : 상대 0", 28, new Vector2(0, 1), new Vector2(20, -16), new Vector2(560, 38), TextAnchor.UpperLeft);

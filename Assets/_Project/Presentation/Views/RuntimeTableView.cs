@@ -8,6 +8,7 @@ using Tichu.Core.Combinations;
 using Tichu.Core.Game;
 using Tichu.GameFlow.Agents;
 using Tichu.Presentation.ViewModel;
+using Tichu.Presentation.Visuals;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -19,7 +20,7 @@ namespace Tichu.Presentation.Views
     /// 손패=앞면 클릭 선택, 상대=뒷면(상=가로/좌우=세로), 트릭=중앙 앞면, 결정=우하단(가로 버튼),
     /// 누적점수·소원=좌상단, 최근 플레이 로그=우상단. 마작 포함 시 소원 선택 UI, 교환은 방향 버튼.
     /// </summary>
-    public sealed class TableUiView
+    public sealed class RuntimeTableView : ITableView
     {
         // 시각 위치 기준 이름. seat1=오른쪽, seat2=파트너, seat3=왼쪽.
         private static readonly string[] SeatNames = { "나", "오른쪽", "파트너", "왼쪽" };
@@ -30,12 +31,7 @@ namespace Tichu.Presentation.Views
         private static readonly Color BtnOn   = new Color(0.20f, 0.42f, 0.72f);
         private static readonly Color BtnGo   = new Color(0.18f, 0.55f, 0.30f);
         private static readonly Color BtnOff  = new Color(0.35f, 0.35f, 0.38f);
-        private static readonly Color CardBg  = new Color(0.96f, 0.97f, 0.98f);
-        private static readonly Color CardSel = new Color(1.00f, 0.86f, 0.32f);
-        private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정됨
-        private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
-        private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
-        private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
+        private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정(슬롯 버튼)
         private static readonly Color TurnHi  = new Color(0.45f, 0.95f, 0.55f); // 현재 차례 이름 강조
 
         private TableViewModel _vm;
@@ -58,11 +54,15 @@ namespace Tichu.Presentation.Views
         private IReadOnlyList<Card> _hand = new List<Card>();
         private int _cumA, _cumB;
         private CancellationToken _sceneCt;
+        private CardView _cardViewPrefab;
+        private CardSpriteAtlas _atlas;
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
             _vm = vm;
             _sceneCt = sceneCt;
+            _cardViewPrefab = Resources.Load<CardView>("CardView");
+            _atlas = Resources.Load<CardSpriteAtlas>("CardSpriteAtlas");
             BuildLayout(canvas);
             Subscribe();
         }
@@ -72,9 +72,15 @@ namespace Tichu.Presentation.Views
         private void BuildLayout(Canvas canvas)
         {
             var root = NewPanel("Root", canvas.transform);
-            var rt = root.GetComponent<RectTransform>();
-            StretchFull(rt);
+            var rootRt = root.GetComponent<RectTransform>();
+            StretchFull(rootRt);
             root.AddComponent<Image>().color = Felt;
+
+            // 콘텐츠 컨테이너 — SafeArea 인셋 대상(펠트 배경은 전체화면 유지, 노치 뒤까지).
+            var content = NewPanel("Content", root.transform);
+            var rt = content.GetComponent<RectTransform>();
+            StretchFull(rt);
+            content.AddComponent<SafeAreaFitter>();
 
             // 좌상단: 누적점수 / 페이즈 / 소원.
             _scoreText = NewAnchoredText("Score", rt, "총점  우리 0 : 상대 0", 28, new Vector2(0, 1), new Vector2(20, -16), new Vector2(560, 38), TextAnchor.UpperLeft);
@@ -287,21 +293,21 @@ namespace Tichu.Presentation.Views
 
         private void AddHandChip(Card card)
         {
-            Color c = CardBg;
+            var cv = Object.Instantiate(_cardViewPrefab, _handRoot);
+            cv.Set(card, _atlas, faceUp: true);
+            cv.SetSize(66, 100);
+
+            CardView.Highlight h = CardView.Highlight.Normal;
             if (Exchanging)
             {
-                if (_exPick.HasValue && card.Equals(_exPick.Value)) c = CardSel;
-                else if (IsAssigned(card)) c = CardUse;
+                if (_exPick.HasValue && card.Equals(_exPick.Value)) h = CardView.Highlight.Selected;
+                else if (IsAssigned(card)) h = CardView.Highlight.Assigned;
             }
-            else if (_selection.Contains(card)) c = CardSel;
+            else if (_selection.Contains(card)) h = CardView.Highlight.Selected;
+            cv.SetHighlight(h);
 
-            bool lifted = (c == CardSel);
-            var go = NewCardChip("Card", _handRoot, c, 66, lifted ? 112 : 100);
-            var btn = go.AddComponent<Button>();
-            btn.interactable = CardSelectable;
             var cap = card;
-            btn.onClick.AddListener(() => ToggleCard(cap));
-            AddCardLabel(go.transform, CardLabel(card), IsRed(card) ? CardRed : CardInk, 22);
+            cv.SetInteractable(CardSelectable, () => ToggleCard(cap));
         }
 
         private bool IsAssigned(Card c) =>
@@ -339,10 +345,9 @@ namespace Tichu.Presentation.Views
             int show = Mathf.Min(count, 14);
             for (int i = 0; i < show; i++)
             {
-                var b = NewCardChip("Back", rb, Back, w, h);
-                var o = b.AddComponent<Outline>();   // 카드 구분 테두리
-                o.effectColor = new Color(0.04f, 0.06f, 0.14f, 1f);
-                o.effectDistance = new Vector2(2f, 2f);
+                var cv = Object.Instantiate(_cardViewPrefab, rb);
+                cv.Set(default(Card), _atlas, faceUp: false);
+                cv.SetSize(w, h);
             }
         }
 
@@ -354,8 +359,9 @@ namespace Tichu.Presentation.Views
             if (trick?.Top == null) { _trickOwnerText.text = "트릭: (없음)"; return; }
             foreach (var card in trick.Top.Cards.OrderBy(SortKey))
             {
-                var go = NewCardChip("TrickCard", _trickRoot, CardBg, 60, 88);
-                AddCardLabel(go.transform, CardLabel(card), IsRed(card) ? CardRed : CardInk, 20);
+                var cv = Object.Instantiate(_cardViewPrefab, _trickRoot);
+                cv.Set(card, _atlas, faceUp: true);
+                cv.SetSize(60, 88);
             }
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
         }
@@ -591,15 +597,6 @@ namespace Tichu.Presentation.Views
             AddCardLabel(go.transform, label, Ink, 24);
         }
 
-        private static GameObject NewCardChip(string name, RectTransform parent, Color color, float w, float h)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
-            go.transform.SetParent(parent, false);
-            go.GetComponent<Image>().color = color;
-            var le = go.AddComponent<LayoutElement>(); le.preferredWidth = w; le.minWidth = w; le.preferredHeight = h; le.minHeight = h;
-            return go;
-        }
-
         private static void AddCardLabel(Transform parent, string text, Color color, int size)
         {
             var t = NewText("L", parent, text, size);
@@ -651,41 +648,11 @@ namespace Tichu.Presentation.Views
             }
         }
 
-        private static string CardLabel(Card c)
-        {
-            switch (c.Special)
-            {
-                case SpecialKind.Dragon:  return "용";
-                case SpecialKind.Phoenix: return "봉";
-                case SpecialKind.Dog:     return "개";
-                case SpecialKind.Mahjong: return "1";
-                default: return $"{RankLabel(c.Rank)}\n{SuitGlyph(c.Suit)}";
-            }
-        }
-
-        private static string RankLabel(int r)
-        {
-            switch (r) { case 14: return "A"; case 13: return "K"; case 12: return "Q"; case 11: return "J"; default: return r.ToString(); }
-        }
-
-        private static string SuitGlyph(Suit s)
-        {
-            switch (s) { case Suit.Jade: return "♣"; case Suit.Sword: return "♠"; case Suit.Pagoda: return "♦"; case Suit.Star: return "♥"; default: return ""; }
-        }
-
-        private static bool IsRed(Card c) => !c.IsSpecial && (c.Suit == Suit.Pagoda || c.Suit == Suit.Star);
-
-        private static int SortKey(Card c)
-        {
-            switch (c.Special)
-            {
-                case SpecialKind.Dog: return 0;
-                case SpecialKind.Mahjong: return 1;
-                case SpecialKind.Phoenix: return 15;
-                case SpecialKind.Dragon: return 16;
-                default: return c.Rank;
-            }
-        }
+        // 카드 면 포맷은 CardFormat으로 추출(CardView와 공용·DRY). 아래는 호출부 호환 위임.
+        private static string CardLabel(Card c) => CardFormat.Label(c);
+        private static string RankLabel(int r) => CardFormat.RankLabel(r);
+        private static string SuitGlyph(Suit s) => CardFormat.SuitGlyph(s);
+        private static int SortKey(Card c) => CardFormat.SortKey(c);
 
         private static bool CardsMatch(IReadOnlyList<Card> a, IReadOnlyList<Card> b)
         {

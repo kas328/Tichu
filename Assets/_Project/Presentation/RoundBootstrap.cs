@@ -33,6 +33,10 @@ namespace Tichu.Presentation
             _args = args;
             _onComplete = onComplete;
 
+            // 가로 60fps 목표(D1). 방향 잠금은 PlayerSettings(가로만 허용).
+            Application.targetFrameRate = 60;
+            QualitySettings.vSyncCount = 0;
+
             // 1) EventSystem 보장(없으면 생성 — 메뉴 셸이 이미 만들었으면 건너뜀).
             if (EventSystem.current == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
@@ -40,7 +44,8 @@ namespace Tichu.Presentation
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
             var canvas = CreateCanvas();
             var vm = new TableViewModel(args.MySeat);
-            new TableUiView().Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
+            ITableView view = new RuntimeTableView();
+            view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 
             // 3) 매치 루프 기동(여러 라운드, 누적 점수, 목표 점수에서 종료).
             RunMatchAsync(vm).Forget();
@@ -112,8 +117,8 @@ namespace Tichu.Presentation
 
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1080, 1920); // 모바일 세로 기준
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.referenceResolution = new Vector2(1920, 1080); // 모바일 가로 기준
+            scaler.matchWidthOrHeight = 1f;                       // 높이 기준(C-1: 앵커 레이아웃과 동시 전환)
 
             return canvas;
         }

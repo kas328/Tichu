@@ -112,6 +112,7 @@ namespace Tichu.Presentation.Shell
             var go = new GameObject("MenuShellCanvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
             var canvas = go.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 5;   // Table 캔버스(0) 위, Result(10) 아래 — 테이블 언로드 지연 시에도 메뉴가 덮음
             var scaler = go.GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1080, 1920); // 모바일 세로 기준(가로 전환은 D1)

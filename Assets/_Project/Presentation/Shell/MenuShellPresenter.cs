@@ -14,8 +14,6 @@ namespace Tichu.Presentation.Shell
     /// </summary>
     public sealed class MenuShellPresenter : IStartable, IDisposable
     {
-        const float FadeSeconds = 0.2f;
-
         readonly AppFlowMachine _flow;
         MenuShellView _view;
         IDisposable _sub;
@@ -50,7 +48,6 @@ namespace Tichu.Presentation.Shell
         /// </summary>
         void Show(ScreenState s)
         {
-            Debug.Log($"[Shell] {s}");
             var next = _view.Panels.TryGetValue(s, out var cg) ? cg : null;
 
             foreach (var panel in _view.Panels.Values)
@@ -59,11 +56,7 @@ namespace Tichu.Presentation.Shell
                 Hide(panel);
             }
 
-            if (next != null)
-            {
-                next.gameObject.SetActive(true);
-                FadeIn(next);
-            }
+            if (next != null) ShowPanel(next);
         }
 
         /// <summary>전 화면 위에 잠깐 뜨는 알림(Phase3 스텁 안내 등). DoTween 시퀀스로 페이드 인→유지→아웃.</summary>
@@ -90,12 +83,15 @@ namespace Tichu.Presentation.Shell
             cg.gameObject.SetActive(false);
         }
 
-        static void FadeIn(CanvasGroup cg)
+        // 타깃 패널은 즉시(스냅) 표시한다 — 알파 페이드를 쓰지 않으므로 프레임/DOTween이
+        // 안 돌아도(에디터가 느려져도) 항상 보인다. 전환 트윈 연출은 환경이 안정된 P1-D에서 재도입.
+        static void ShowPanel(CanvasGroup cg)
         {
             DOTween.Kill(cg);
+            cg.gameObject.SetActive(true);
+            cg.alpha = 1f;
             cg.interactable = true;
             cg.blocksRaycasts = true;
-            DOTween.To(() => cg.alpha, a => cg.alpha = a, 1f, FadeSeconds).SetTarget(cg);
         }
 
         public void Dispose() => _sub?.Dispose();

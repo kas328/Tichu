@@ -651,41 +651,12 @@ namespace Tichu.Presentation.Views
             }
         }
 
-        private static string CardLabel(Card c)
-        {
-            switch (c.Special)
-            {
-                case SpecialKind.Dragon:  return "용";
-                case SpecialKind.Phoenix: return "봉";
-                case SpecialKind.Dog:     return "개";
-                case SpecialKind.Mahjong: return "1";
-                default: return $"{RankLabel(c.Rank)}\n{SuitGlyph(c.Suit)}";
-            }
-        }
-
-        private static string RankLabel(int r)
-        {
-            switch (r) { case 14: return "A"; case 13: return "K"; case 12: return "Q"; case 11: return "J"; default: return r.ToString(); }
-        }
-
-        private static string SuitGlyph(Suit s)
-        {
-            switch (s) { case Suit.Jade: return "♣"; case Suit.Sword: return "♠"; case Suit.Pagoda: return "♦"; case Suit.Star: return "♥"; default: return ""; }
-        }
-
-        private static bool IsRed(Card c) => !c.IsSpecial && (c.Suit == Suit.Pagoda || c.Suit == Suit.Star);
-
-        private static int SortKey(Card c)
-        {
-            switch (c.Special)
-            {
-                case SpecialKind.Dog: return 0;
-                case SpecialKind.Mahjong: return 1;
-                case SpecialKind.Phoenix: return 15;
-                case SpecialKind.Dragon: return 16;
-                default: return c.Rank;
-            }
-        }
+        // 카드 면 포맷은 CardFormat으로 추출(CardView와 공용·DRY). 아래는 호출부 호환 위임.
+        private static string CardLabel(Card c) => CardFormat.Label(c);
+        private static string RankLabel(int r) => CardFormat.RankLabel(r);
+        private static string SuitGlyph(Suit s) => CardFormat.SuitGlyph(s);
+        private static bool IsRed(Card c) => CardFormat.IsRed(c);
+        private static int SortKey(Card c) => CardFormat.SortKey(c);
 
         private static bool CardsMatch(IReadOnlyList<Card> a, IReadOnlyList<Card> b)
         {

@@ -46,5 +46,20 @@ namespace Tichu.Presentation.Tests
             Assert.AreEqual(card, cv.Card);
             Object.DestroyImmediate(go);
         }
+
+        [Test]
+        public void Selected_highlight_lifts_card_height()
+        {
+            var cv = New(out var go);
+            cv.Set(Card.Normal(5, Suit.Jade), null, faceUp: true);
+            cv.SetSize(66, 100);
+            var le = go.GetComponent<LayoutElement>();
+            Assert.AreEqual(100f, le.preferredHeight, 0.01f);
+            cv.SetHighlight(CardView.Highlight.Selected);
+            Assert.AreEqual(112f, le.preferredHeight, 0.01f);
+            cv.SetHighlight(CardView.Highlight.Assigned);
+            Assert.AreEqual(100f, le.preferredHeight, 0.01f, "교환 배정은 lift 없음");
+            Object.DestroyImmediate(go);
+        }
     }
 }

@@ -13,8 +13,12 @@ namespace Tichu.Presentation.Views
     [RequireComponent(typeof(RectTransform))]
     public sealed class CardView : MonoBehaviour
     {
+        /// <summary>손패 강조: 일반 / 선택(노랑+lift) / 교환배정(초록).</summary>
+        public enum Highlight { Normal, Selected, Assigned }
+
         private static readonly Color CardBg  = new Color(0.96f, 0.97f, 0.98f);
         private static readonly Color CardSel = new Color(1.00f, 0.86f, 0.32f);
+        private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정됨
         private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
         private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
         private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
@@ -31,16 +35,17 @@ namespace Tichu.Presentation.Views
         private Card _card;
         private CardSpriteAtlas _atlas;
         private bool _faceUp = true;
-        private bool _selected;
+        private Highlight _highlight = Highlight.Normal;
 
         public Card Card => _card;
 
-        /// <summary>카드 내용을 설정한다(앞면/뒷면). 스프라이트 없으면 텍스트 폴백.</summary>
+        /// <summary>카드 내용을 설정한다(앞면/뒷면). 스프라이트 없으면 텍스트 폴백. 강조는 Normal로 초기화.</summary>
         public void Set(Card card, CardSpriteAtlas atlas, bool faceUp)
         {
             EnsureBuilt();
-            _card = card; _atlas = atlas; _faceUp = faceUp; _selected = false;
+            _card = card; _atlas = atlas; _faceUp = faceUp; _highlight = Highlight.Normal;
             Refresh();
+            ApplyHeight();
         }
 
         /// <summary>카드 칩 크기(레이아웃 그룹에서 사용). 선택 lift의 기준 높이.</summary>
@@ -52,12 +57,12 @@ namespace Tichu.Presentation.Views
             ApplyHeight();
         }
 
-        /// <summary>선택 강조(노란 배경 + 위로 lift).</summary>
-        public void SetSelected(bool selected)
+        /// <summary>손패 강조 상태. Selected=노랑+lift, Assigned=초록, Normal=기본.</summary>
+        public void SetHighlight(Highlight h)
         {
             EnsureBuilt();
-            _selected = selected;
-            _bg.color = _faceUp ? (_selected ? CardSel : CardBg) : Back;
+            _highlight = h;
+            Refresh();
             ApplyHeight();
         }
 
@@ -74,7 +79,7 @@ namespace Tichu.Presentation.Views
         private void ApplyHeight()
         {
             if (_le == null || _baseH <= 0f) return;
-            float h = _selected ? _baseH + LiftHeight : _baseH;
+            float h = (_faceUp && _highlight == Highlight.Selected) ? _baseH + LiftHeight : _baseH;
             _le.preferredHeight = h; _le.minHeight = h;
         }
 
@@ -91,7 +96,7 @@ namespace Tichu.Presentation.Views
             }
 
             _bg.sprite = null;
-            _bg.color = _selected ? CardSel : CardBg;
+            _bg.color = HighlightColor();
             var sprite = _atlas != null ? _atlas.Face(_card) : null;
             if (sprite != null)
             {
@@ -104,6 +109,16 @@ namespace Tichu.Presentation.Views
                 _label.enabled = true;
                 _label.text = CardFormat.Label(_card);
                 _label.color = CardFormat.IsRed(_card) ? CardRed : CardInk;
+            }
+        }
+
+        private Color HighlightColor()
+        {
+            switch (_highlight)
+            {
+                case Highlight.Selected: return CardSel;
+                case Highlight.Assigned: return CardUse;
+                default: return CardBg;
             }
         }
 

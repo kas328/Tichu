@@ -19,7 +19,6 @@ namespace Tichu.Presentation.Shell
         readonly AppFlowMachine _flow;
         MenuShellView _view;
         IDisposable _sub;
-        CanvasGroup _active;
 
         public MenuShellPresenter(AppFlowMachine flow) => _flow = flow;
 
@@ -44,19 +43,26 @@ namespace Tichu.Presentation.Shell
             _view.AddButton(ScreenState.Settings,   "뒤로",      () => _flow.Send(AppFlowEvent.Back));            // 볼륨 슬라이더는 D5
         }
 
-        /// <summary>현재 화면 패널을 페이드인하고 이전 패널을 페이드아웃한다. 메뉴 밖 상태면 전부 숨김.</summary>
+        /// <summary>
+        /// 타깃 화면 패널만 페이드인하고, 그 외 모든 메뉴 패널은 즉시 숨긴다.
+        /// 비활성화를 DOTween 완료 콜백에 의존하지 않으므로 프레임/페이드 타이밍과 무관하게
+        /// 항상 정확히 한 패널만 보인다(메뉴 밖 InGame/Result면 next=null → 전부 숨김).
+        /// </summary>
         void Show(ScreenState s)
         {
             Debug.Log($"[Shell] {s}");
             var next = _view.Panels.TryGetValue(s, out var cg) ? cg : null;
-            if (next == _active) return;
 
-            if (_active != null) Fade(_active, 0f, deactivate: true);
-            _active = next;
+            foreach (var panel in _view.Panels.Values)
+            {
+                if (panel == next) continue;
+                Hide(panel);
+            }
+
             if (next != null)
             {
                 next.gameObject.SetActive(true);
-                Fade(next, 1f, deactivate: false);
+                FadeIn(next);
             }
         }
 
@@ -73,16 +79,23 @@ namespace Tichu.Presentation.Shell
                 .Append(DOTween.To(() => cg.alpha, a => cg.alpha = a, 0f, 0.35f));
         }
 
-        static void Fade(CanvasGroup cg, float to, bool deactivate)
+        // 타깃이 아닌 패널은 즉시 숨긴다(SetActive false) — 페이드아웃 완료 콜백 누락으로 패널이
+        // 남아 위에 렌더되는 일을 원천 차단. (DOTween 코어 API만 사용 — 모듈 확장은 asmdef에서 안 보임.)
+        static void Hide(CanvasGroup cg)
         {
-            // DOTween 코어(DOTween.dll)만 사용 — CanvasGroup.DOFade는 asmdef 없는 모듈 소스라
-            // 별도 asmdef에서 안 보임. SetTarget(cg)로 Kill(cg)이 이 트윈을 끊게 한다.
             DOTween.Kill(cg);
-            cg.interactable = to > 0.5f;
-            cg.blocksRaycasts = to > 0.5f;
-            var tween = DOTween.To(() => cg.alpha, a => cg.alpha = a, to, FadeSeconds).SetTarget(cg);
-            if (deactivate)
-                tween.OnComplete(() => { if (cg.alpha <= 0.01f) cg.gameObject.SetActive(false); });
+            cg.alpha = 0f;
+            cg.interactable = false;
+            cg.blocksRaycasts = false;
+            cg.gameObject.SetActive(false);
+        }
+
+        static void FadeIn(CanvasGroup cg)
+        {
+            DOTween.Kill(cg);
+            cg.interactable = true;
+            cg.blocksRaycasts = true;
+            DOTween.To(() => cg.alpha, a => cg.alpha = a, 1f, FadeSeconds).SetTarget(cg);
         }
 
         public void Dispose() => _sub?.Dispose();

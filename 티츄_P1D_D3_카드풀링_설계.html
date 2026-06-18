@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 · P1-D / D3 — 카드 풀링 + Canvas 분할 설계</title>
+<style>
+  :root{
+    --ink:#1d2330; --sub:#525c70; --faint:#8b94a6;
+    --line:#e7ebf3; --line2:#d6dcea;
+    --bg:#eef1f8; --surface:#ffffff; --panel:#f5f7fc;
+    --accent:#4f7cff; --accent-d:#3a63e0;
+    --green:#15b187; --gold:#d99a23; --purple:#7c5cff; --red:#e5484d; --orange:#e3892b;
+    --radius:14px; --shadow:0 1px 2px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px 80px}
+  .cover{background:linear-gradient(135deg,#0c7a5b,#15b187 70%);color:#fff;
+    padding:54px 40px 46px;border-radius:0 0 28px 28px;box-shadow:var(--shadow)}
+  .cover .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;opacity:.85;font-weight:700}
+  .cover h1{margin:.3em 0 .25em;font-size:30px;line-height:1.25;letter-spacing:-.01em}
+  .cover p{margin:0;max-width:780px;opacity:.96;font-size:15px}
+  .chips{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+    padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .toc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 22px;margin:26px 0;box-shadow:var(--shadow)}
+  .toc h2{margin:0 0 10px;font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;border:0;padding:0}
+  .toc ol{margin:0;padding-left:0;list-style:none;counter-reset:t;columns:2;column-gap:34px}
+  .toc li{counter-increment:t;margin:5px 0;font-size:14.5px}
+  .toc li::before{content:counter(t);display:inline-block;width:22px;height:22px;margin-right:8px;
+    background:var(--panel);border:1px solid var(--line2);border-radius:6px;text-align:center;
+    font-size:12px;font-weight:700;color:var(--accent);line-height:21px}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:30px 34px;margin:22px 0;box-shadow:var(--shadow)}
+  h2{font-size:23px;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid var(--line);
+    display:flex;align-items:baseline;gap:12px;letter-spacing:-.01em}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;
+    background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border-radius:9px;
+    font-size:15px;font-weight:800}
+  h3{font-size:17px;margin:26px 0 8px;letter-spacing:-.01em}
+  h4{font-size:14.5px;margin:0 0 6px}
+  p{margin:.5em 0}
+  .lead{font-size:15.5px;color:var(--sub)}
+  code{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font-size:12.5px;font-family:'JetBrains Mono','Consolas',monospace;color:#3a4660}
+  .callout{display:flex;gap:12px;padding:14px 16px;border-radius:11px;margin:16px 0;font-size:14px}
+  .callout::before{font-size:18px;line-height:1.4}
+  .callout-note{background:#eef3ff;border:1px solid #d4e0ff}
+  .callout-note::before{content:"ℹ️"}
+  .callout-ok{background:#e9f9f3;border:1px solid #c4ecdd}
+  .callout-ok::before{content:"✅"}
+  .callout-warn{background:#fff6e8;border:1px solid #f6e0b8}
+  .callout-warn::before{content:"⚠️"}
+  .callout-danger{background:#fdeced;border:1px solid #f6c9cc}
+  .callout-danger::before{content:"⛔"}
+  .callout b{color:var(--ink)}
+  .grid{display:grid;gap:14px;margin:16px 0}
+  .grid-2{grid-template-columns:1fr 1fr}
+  .grid-3{grid-template-columns:1fr 1fr 1fr}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .card h4{display:flex;align-items:center;gap:7px}
+  .card p{font-size:13.5px;color:var(--sub);margin:.35em 0}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid}
+  .tag-green{background:#e9f9f3;border-color:#bfe9d8;color:#0c7a5b}
+  .tag-blue{background:#eef3ff;border-color:#cfddff;color:#2f54c9}
+  .tag-gold{background:#fdf3df;border-color:#f0dcae;color:#9c6f12}
+  .tag-red{background:#fdecec;border-color:#f4c7c9;color:#c5363a}
+  .tag-gray{background:#eef1f6;border-color:#dde2ec;color:#5b6678}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line2);padding:9px 11px;text-align:left;vertical-align:top}
+  thead th{background:#2a3550;color:#fff;font-weight:700;border-color:#2a3550}
+  tbody tr:nth-child(even){background:var(--panel)}
+  td .tag{white-space:nowrap}
+  .diagram{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin:18px 0;text-align:center}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:12.5px;color:var(--faint);margin-top:8px;text-align:center}
+  ul.bullets{margin:.4em 0;padding-left:20px}
+  ul.bullets li{margin:5px 0;font-size:14px}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0;margin:.5em 0}
+  ol.steps li{counter-increment:s;position:relative;padding-left:38px;margin:9px 0;font-size:14px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;
+    background:var(--accent);color:#fff;border-radius:7px;text-align:center;line-height:26px;font-weight:700;font-size:13px}
+  .inv{background:#fdeced;border:1px solid #f6c9cc;border-radius:11px;padding:14px 18px;margin:14px 0}
+  .inv h4{color:#c5363a}
+  .inv ul{margin:.4em 0;padding-left:18px}
+  .inv li{font-size:13.5px;margin:4px 0}
+  pre{background:#0f1729;color:#dbe4f5;border-radius:11px;padding:16px 18px;overflow:auto;
+    font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.55;margin:14px 0}
+  pre .c{color:#7c89a8}
+  pre .k{color:#7cc4ff}
+  pre .s{color:#9be7c4}
+  .footer{color:var(--faint);font-size:12.5px;text-align:center;margin-top:30px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;font-size:12.5px;color:var(--sub);margin-top:6px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<header class="cover">
+  <div class="eyebrow">Tichu · Phase 1-D · Design</div>
+  <h1>D3 — 카드 풀링 + Canvas 정적/동적 분리</h1>
+  <p>매 스냅샷마다 카드 뷰를 Destroy + 재생성하던 렌더 핫스팟(RenderHand / RenderBacks / RenderTrick)을, 루트별 CardChipPool(SetActive 토글 + 내용 갱신)과 정적/동적 Canvas 분리로 전환한다. 오라클(onApply=null) 경로는 비트동일로 보존한다. 멀티에이전트 적대적 검증(5차원: 오라클·호출부·Canvas 시맨틱·테스트 가능성·상태 누수)으로 두 결함을 사전 차단했다.</p>
+  <div class="chips">
+    <span class="chip">RuntimeTableView 제자리 진화</span>
+    <span class="chip">루트별 풀 · 5개</span>
+    <span class="chip">EditMode TDD</span>
+    <span class="chip">오라클 회귀 게이트</span>
+    <span class="chip">실측은 D6</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#defects">검증이 잡은 두 결함</a></li>
+    <li><a href="#pool">CardChipPool · 루트별 풀</a></li>
+    <li><a href="#canvas">Canvas 정적/동적 분리</a></li>
+    <li><a href="#cardview">CardView 강화</a></li>
+    <li><a href="#oracle">오라클 보존 불변식</a></li>
+    <li><a href="#verify">검증 · 테스트</a></li>
+    <li><a href="#scope">범위 · 비범위</a></li>
+  </ol>
+</nav>
+
+<!-- ───────────── 0. 결함 ───────────── -->
+<section id="defects">
+  <h2><span class="n">!</span> 검증이 잡은 두 결함</h2>
+  <p class="lead">설계 초안의 두 가정이 적대적 검증에서 <b>거짓(holds:false)</b>으로 판명됐다. 둘 다 구현 전에 잡았다.</p>
+
+  <div class="callout callout-danger"><div>
+    <b>결함 1 — 중첩 Canvas는 자체 GraphicRaycaster가 필요하다.</b><br>
+    "루트 GraphicRaycaster 하나가 자식 캔버스까지 레이캐스트한다"는 가정은 거짓. 서브 캔버스는 자체 <code>GraphicRaycaster</code>가 없으면 그 안의 Button이 클릭을 못 받는다. <code>_handRoot</code>에 Canvas만 붙이면 <b>손패 카드 클릭(ToggleCard)이 조용히 죽어</b> 유일한 조작면이 마비된다. → <code>_handRoot</code>는 Canvas + GraphicRaycaster 둘 다, 트릭·뒷면은 Canvas만.
+  </div></div>
+
+  <div class="callout callout-danger"><div>
+    <b>결함 2 — CardView 버튼 상태가 풀 재사용 시 샌다(잠재 버그).</b><br>
+    <code>_button.interactable</code> / <code>onClick</code>은 <code>Set/SetSize/SetHighlight</code>로 초기화되지 않고 오직 <code>SetInteractable</code>로만 된다. 트릭·뒷면 칩은 <code>Set+SetSize</code>만 부른다. 손패 칩이던 인스턴스가 풀에서 트릭·뒷면으로 재사용되면 <b>옛 카드를 캡처한 onClick 리스너가 살아남아</b> 뒷면 클릭이 엉뚱한 카드를 선택한다. (지금은 풀이 없어 잠복.) → 루트별 토폴로지 + <code>Set()</code> 버튼 중립화로 이중 차단.
+  </div></div>
+
+  <div class="callout callout-ok"><div>
+    <b>나머지 3차원은 holds:true.</b> 오라클은 뷰와 구조적으로 분리(Card=readonly struct 값복사, 방어적 List 복사). 렌더 호출부 8곳·ClearChildren 7곳 전수 확인, 동치 보존. EditMode 테스트는 기존 패턴(<code>CardViewTests</code>·<code>ITableViewContractTests</code>)으로 가능.
+  </div></div>
+</section>
+
+<!-- ───────────── 1. 풀 ───────────── -->
+<section id="pool">
+  <h2><span class="n">1</span> CardChipPool · 루트별 풀</h2>
+  <p>핫스팟은 <code>RenderHand/RenderBacks/RenderTrick</code>이 매 스냅샷마다 자식을 <b>Destroy + Instantiate</b>하는 것(GC 스파이크 · 캔버스 리빌드). 풀은 칩을 파괴하지 않고 <b>SetActive 토글 + 내용 재설정</b>으로 재사용한다.</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 900 210" role="img" font-family="'Pretendard','Malgun Gothic',sans-serif">
+    <rect x="24" y="26" width="392" height="158" rx="12" fill="#fdeced" stroke="#e5484d" stroke-width="1.5"/>
+    <text x="220" y="50" text-anchor="middle" font-size="13" font-weight="bold" fill="#c5363a">AS-IS · 매 스냅샷</text>
+    <rect x="48" y="66" width="344" height="30" rx="7" fill="#fff" stroke="#f0b8bb"/>
+    <text x="220" y="86" text-anchor="middle" font-size="12" fill="#a82a2e">ClearChildren() → Object.Destroy × N</text>
+    <rect x="48" y="104" width="344" height="30" rx="7" fill="#fff" stroke="#f0b8bb"/>
+    <text x="220" y="124" text-anchor="middle" font-size="12" fill="#a82a2e">Object.Instantiate(prefab) × N</text>
+    <text x="220" y="156" text-anchor="middle" font-size="11" fill="#a82a2e">GC 스파이크 · 전체 Canvas 리빌드</text>
+    <text x="220" y="173" text-anchor="middle" font-size="11" fill="#a82a2e">(Destroy 프레임 지연 → 과거 OOM 전력)</text>
+
+    <text x="450" y="113" text-anchor="middle" font-size="26" fill="#8b94a6">→</text>
+
+    <rect x="484" y="26" width="392" height="158" rx="12" fill="#e9f9f3" stroke="#15b187" stroke-width="1.6"/>
+    <text x="680" y="50" text-anchor="middle" font-size="13" font-weight="bold" fill="#0c7a5b">TO-BE · 풀 재사용</text>
+    <rect x="508" y="66" width="344" height="30" rx="7" fill="#fff" stroke="#bfe9d8"/>
+    <text x="680" y="86" text-anchor="middle" font-size="12" fill="#0c7a5b">Begin() → Next() (비활성 재사용 / 없으면 1회 생성)</text>
+    <rect x="508" y="104" width="344" height="30" rx="7" fill="#fff" stroke="#bfe9d8"/>
+    <text x="680" y="124" text-anchor="middle" font-size="12" fill="#0c7a5b">Set/SetSize/… 로 내용만 재설정</text>
+    <text x="680" y="156" text-anchor="middle" font-size="11" fill="#0c7a5b">End() → 잉여 SetActive(false)</text>
+    <text x="680" y="173" text-anchor="middle" font-size="11" fill="#0c7a5b">풀링 경로에서 Object.Destroy 0</text>
+  </svg>
+  <p class="caption">추측이 아니라 측정된 핫스팟 대응. 풀링 경로에서 Destroy/Instantiate를 완전히 제거한다.</p>
+  </div>
+
+  <h3>토폴로지 — 루트별 풀 5개</h3>
+  <p>칩이 제 루트에 머물러 <code>SetParent</code>(레이아웃 dirty) 없이 재사용된다. 좌석0(=나)은 뒷면이 없어 뒷면 풀은 3개.</p>
+  <div class="diagram">
+  <svg viewBox="0 0 900 150" role="img" font-family="'Pretendard','Malgun Gothic',sans-serif">
+    <g font-size="12">
+      <rect x="40"  y="40" width="150" height="64" rx="10" fill="#eef3ff" stroke="#4f7cff" stroke-width="1.5"/>
+      <text x="115" y="64" text-anchor="middle" font-weight="bold" fill="#2f54c9">손패 풀</text>
+      <text x="115" y="84" text-anchor="middle" fill="#52607a">_handRoot · 클릭 O</text>
+
+      <rect x="210" y="40" width="150" height="64" rx="10" fill="#fdf3df" stroke="#d99a23" stroke-width="1.5"/>
+      <text x="285" y="64" text-anchor="middle" font-weight="bold" fill="#9c6f12">트릭 풀</text>
+      <text x="285" y="84" text-anchor="middle" fill="#52607a">_trickRoot · 표시만</text>
+
+      <rect x="380" y="40" width="160" height="64" rx="10" fill="#f1f3f8" stroke="#8b94a6" stroke-width="1.3"/>
+      <text x="460" y="64" text-anchor="middle" font-weight="bold" fill="#5b6678">뒷면 풀 ×3</text>
+      <text x="460" y="84" text-anchor="middle" fill="#52607a">_backRoots[1·2·3]</text>
+    </g>
+    <text x="660" y="60" font-size="12.5" fill="#52607a" font-weight="bold">공통 규약</text>
+    <text x="660" y="80" font-size="11.5" fill="#52607a">· 칩은 제 루트에 머묾(reparent 0)</text>
+    <text x="660" y="98" font-size="11.5" fill="#52607a">· 잉여 정리=역인덱스/추적리스트</text>
+    <text x="660" y="116" font-size="11.5" fill="#c5363a">· while(childCount&gt;N) 금지</text>
+  </svg>
+  </div>
+
+  <h3>API 형태</h3>
+  <pre><span class="c">// CardView 전용(범용 제네릭은 단일 타입이라 YAGNI). 루트당 1 인스턴스.</span>
+<span class="k">sealed class</span> CardChipPool {
+  CardChipPool(RectTransform root, CardView prefab) { … }
+  <span class="k">void</span> Begin();                 <span class="c">// 커서 0</span>
+  CardView Next();              <span class="c">// 비활성 칩 재사용; 없으면 Instantiate+추가; SetActive(true)</span>
+  <span class="k">void</span> End();                   <span class="c">// 커서 이후 칩 SetActive(false)</span>
+
+  <span class="c">// 테스트 시임(read-only) — Destroy 프레임 지연 탓에 childCount로는 단언 불가</span>
+  <span class="k">int</span> CreatedCount { get; }     <span class="c">// 총 Instantiate 횟수</span>
+  <span class="k">int</span> ActiveCount  { get; }
+  <span class="k">int</span> FreeCount    { get; }
+}</pre>
+  <p>소비자(<code>RenderHand</code> 등)는 <code>Begin()</code> 후 카드마다 <code>var cv = pool.Next();</code> 받아 기존 <code>Set/SetSize/SetHighlight/SetInteractable</code>를 그대로 호출하고 끝에 <code>End()</code>. 커서 순서 = 형제 순서 = 정렬(<code>OrderBy(SortKey)</code>) 순서라 sibling 재정렬 불필요.</p>
+</section>
+
+<!-- ───────────── 2. Canvas ───────────── -->
+<section id="canvas">
+  <h2><span class="n">2</span> Canvas 정적/동적 분리</h2>
+  <p>단일 Canvas에선 어떤 Graphic이 dirty돼도 캔버스 전체가 리빌드된다. 자주 바뀌는 동적 루트(손패·트릭·뒷면)를 서브 캔버스로 격리해, 카드 탭 시 <b>손패 서브캔버스만</b> 리빌드되고 점수판·프로필 정적 캔버스는 안 건드리게 한다. 이 이득은 <b>풀링과 결합돼야</b> 실현된다(풀링이 destroy/instantiate churn을 없애므로).</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 900 300" role="img" font-family="'Pretendard','Malgun Gothic',sans-serif">
+    <!-- root canvas -->
+    <rect x="24" y="24" width="852" height="252" rx="14" fill="#ffffff" stroke="#2a3550" stroke-width="1.6"/>
+    <text x="44" y="48" font-size="13" font-weight="bold" fill="#2a3550">Root Canvas — ScreenSpaceOverlay + GraphicRaycaster (단 1개)</text>
+    <text x="44" y="66" font-size="11" fill="#8b94a6">RoundBootstrap.cs:114</text>
+
+    <!-- static -->
+    <rect x="44" y="84" width="360" height="170" rx="11" fill="#f1f3f8" stroke="#8b94a6" stroke-width="1.3" stroke-dasharray="5 4"/>
+    <text x="224" y="106" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#5b6678">정적 (Root 캔버스에 잔류)</text>
+    <g font-size="11" fill="#52607a">
+      <text x="224" y="130" text-anchor="middle">점수판 · 페이즈 · 소원</text>
+      <text x="224" y="150" text-anchor="middle">상대 프로필 박스 ×3</text>
+      <text x="224" y="170" text-anchor="middle">결정 패널 · 액션/교환/소원UI</text>
+      <text x="224" y="190" text-anchor="middle">결과 배너 · 플레이 로그</text>
+      <text x="224" y="226" text-anchor="middle" fill="#0c7a5b">탭마다 리빌드 안 됨 ✓</text>
+    </g>
+
+    <!-- dynamic sub-canvases -->
+    <text x="650" y="106" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#0c7a5b">동적 (각자 서브 Canvas)</text>
+
+    <rect x="430" y="120" width="200" height="40" rx="8" fill="#eef3ff" stroke="#4f7cff" stroke-width="1.6"/>
+    <text x="530" y="138" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#2f54c9">_handRoot</text>
+    <text x="530" y="153" text-anchor="middle" font-size="10.5" fill="#2f54c9">Canvas + GraphicRaycaster</text>
+
+    <rect x="650" y="120" width="206" height="40" rx="8" fill="#fdf3df" stroke="#d99a23" stroke-width="1.4"/>
+    <text x="753" y="138" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#9c6f12">_trickRoot</text>
+    <text x="753" y="153" text-anchor="middle" font-size="10.5" fill="#9c6f12">Canvas (버튼 없음→레이캐스터 X)</text>
+
+    <rect x="430" y="172" width="426" height="38" rx="8" fill="#f1f3f8" stroke="#8b94a6" stroke-width="1.3"/>
+    <text x="643" y="190" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#5b6678">_backRoots[1·2·3]</text>
+    <text x="643" y="204" text-anchor="middle" font-size="10.5" fill="#5b6678">Canvas (버튼 없음→레이캐스터 X)</text>
+
+    <rect x="430" y="222" width="426" height="32" rx="8" fill="#fff6e8" stroke="#d99a23" stroke-dasharray="4 3"/>
+    <text x="643" y="242" text-anchor="middle" font-size="11" fill="#9c6f12">전부 overrideSorting=false — 드로 순서 보존(결과배너 ＞ 트릭)</text>
+  </svg>
+  <p class="caption">손패만 GraphicRaycaster 추가(필수). 트릭·뒷면은 Button이 없어 Canvas만. overrideSorting은 기본값(false) 유지.</p>
+  </div>
+
+  <div class="callout callout-warn"><div>
+    <b>이 섹션은 선택적으로 미룰 수 있다.</b> 풀링만으로도 GC·instantiate 비용의 큰 부분이 사라진다. Canvas 분할은 리배칭 격리라는 추가 이득이지만, placeholder 뷰가 PrefabTableView로 교체되면 재정리 대상이다. <b>분할을 D6(실측) 이후로 미루는 선택</b>도 유효 — 의사결정 항목.
+  </div></div>
+</section>
+
+<!-- ───────────── 3. CardView ───────────── -->
+<section id="cardview">
+  <h2><span class="n">3</span> CardView 강화 (결함 2 방어)</h2>
+  <p>루트별 토폴로지가 이미 교차 재사용(손패↔트릭/뒷면)을 막지만, 소비자 규율과 무관하게 안전을 보장하도록 <code>CardView</code>를 소폭 강화한다(이중 차단).</p>
+  <ul class="bullets">
+    <li><b><code>Set()</code> 버튼 중립화:</b> <code>if (_button != null) { _button.onClick.RemoveAllListeners(); _button.interactable = false; }</code>. <code>Set+SetSize</code>만 부르는 트릭·뒷면 칩이 풀 이력과 무관하게 깨끗해진다.</li>
+    <li><b><code>HasClickListener</code> 플래그(거동 테스트용):</b> UnityEvent의 런타임 AddListener 클로저는 public API로 셀 수 없어, <code>SetInteractable</code>에서 set / <code>Set()</code> 중립화에서 clear하는 bool 플래그로 리스너 상태를 단언 가능하게 한다.</li>
+    <li><b>오해 소지 주석 수정:</b> "풀 재사용 안전을 위해…"는 소비자가 <code>SetInteractable</code>을 부를 때만 성립 → 버튼 리셋을 <code>Set()</code>로 옮겼음을 반영.</li>
+  </ul>
+  <div class="callout callout-note"><div>
+    <code>_face.sprite</code> / <code>_label.text</code> 잔존은 해당 요소가 <code>enabled=false</code>라 <b>시각 누수가 없다</b> → YAGNI, 손대지 않는다(검증 dim5 확인).
+  </div></div>
+</section>
+
+<!-- ───────────── 4. 오라클 ───────────── -->
+<section id="oracle">
+  <h2><span class="n">4</span> 오라클 보존 불변식</h2>
+  <p>풀링은 순수 뷰 레이어 변경이다. Card는 readonly struct(값복사)이고 <code>ApplySnapshot</code>이 손패를 방어적 복사(<code>TableViewModel.cs:132</code>)하므로, 풀이 게임 상태로 샐 수 없다(검증 dim1 확인).</p>
+  <div class="inv">
+    <h4>⛔ 건드리지 않는다 (D3 불변식)</h4>
+    <ul>
+      <li><code>AsyncGameDriver</code> · <code>onApply</code> 콜백 배선 — <code>onApply=null</code> 경로 비트동일</li>
+      <li><code>TableViewModel.ApplySnapshot</code> 및 <code>cs:132</code>의 방어적 <code>new List&lt;Card&gt;(...)</code> 복사 ("최적화" 명목으로도 제거 금지 — 이게 aliasing을 막는다)</li>
+      <li><code>RenderTrick</code>이 읽는 <code>trick.Top.Cards</code> 등 읽기전용 컬렉션 — in-place 정렬/변형 금지</li>
+    </ul>
+  </div>
+  <p>변경 범위는 <code>RenderHand/RenderBacks/RenderTrick</code> 내부의 GameObject 수명뿐이다. <b>회귀 게이트:</b> 기존 오라클 교차검증 테스트(동기 GameDriver vs 비동기, 다중 시드 ComputeHash)를 D3 전후로 그린 확인.</p>
+</section>
+
+<!-- ───────────── 5. 검증 ───────────── -->
+<section id="verify">
+  <h2><span class="n">5</span> 검증 · 테스트 (EditMode)</h2>
+  <p>실측 수치(60fps/GC/드로콜)는 D6 실기기 게이트의 몫. D3는 <b>동치 + 풀 불변식 + 구조</b>를 EditMode로 못박는다. 모두 기존 패턴(<code>new GameObject + AddComponent&lt;CardView&gt;</code>, <code>Object.DestroyImmediate</code> teardown, Editor-only asmdef) 준수.</p>
+  <table>
+    <thead><tr><th>테스트</th><th>단언</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td><b>풀 불변식</b></td><td>N개 빌드→<code>CreatedCount==N</code>; 축소(M&lt;N)→여전히 N(신규 할당 0); 재확장→여전히 N. release된 칩 <code>activeSelf==false</code>.</td><td><code>childCount</code> 금지(Destroy 프레임 지연) → 풀 카운터로</td></tr>
+      <tr><td><b>리스너 누수</b></td><td>콜백 arm→release→다른 카드로 re-Get(재무장 X)→onClick 호출→옛 콜백 안 불림.</td><td>거동 단언(또는 <code>HasClickListener</code>)</td></tr>
+      <tr><td><b>렌더 동치</b></td><td>Bind→스냅샷 적용→활성 자식 수·라벨이 손패와 일치. 동일 크기 반복 렌더에 <code>CreatedCount</code> 불변.</td><td><code>ITableViewContractTests</code> 확장</td></tr>
+      <tr><td><b>구조</b></td><td><code>_handRoot</code>=Canvas+GraphicRaycaster; <code>_trickRoot</code>·<code>_backRoots[1..3]</code>=Canvas.</td><td>Bind 후 컴포넌트 존재 확인</td></tr>
+      <tr><td><b>오라클 회귀</b></td><td>동기==비동기 ComputeHash(다중 시드) — D3 전후 그린.</td><td><span class="tag tag-red">게이트</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ───────────── 6. 범위 ───────────── -->
+<section id="scope">
+  <h2><span class="n">6</span> 범위 · 비범위</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>✅ 범위</h4>
+      <p>· <code>CardChipPool</code> 신규 + 루트별 5개 배선</p>
+      <p>· <code>RenderHand/RenderBacks/RenderTrick</code> 풀 전환</p>
+      <p>· 동적 루트 3종 Canvas 분리(+손패 raycaster)</p>
+      <p>· <code>CardView</code> 버튼 중립화 + <code>HasClickListener</code></p>
+      <p>· EditMode 테스트 5종</p>
+    </div>
+    <div class="card">
+      <h4>🚫 비범위 (그대로)</h4>
+      <p>· <code>_actionRoot/_wishPickRoot/_exchangeRoot</code> ClearChildren+Destroy</p>
+      <p>· 플레이 로그 Text(<code>_playEntries</code>, 5초 페이드)</p>
+      <p>· DoTween 트윈 풀 → <span class="tag tag-gold">D4</span></p>
+      <p>· 실 스프라이트 아트 · 60fps 실측 → <span class="tag tag-gold">D6</span></p>
+      <p>· PrefabTableView 전환 → P1-D 후속</p>
+    </div>
+  </div>
+  <p class="caption" style="text-align:left">의존: D3 ⊃ {D0 ITableView, D1·D2 가로/CardView}. 다음 = D4(ICardAnimator)·D5(Audio)·D6(실기기 게이트).</p>
+</section>
+
+<div class="footer">티츄 Phase 1-D / D3 설계 · 멀티에이전트 적대적 검증 반영 · 2026-06-18</div>
+
+</div>
+</body>
+</html>

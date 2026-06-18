@@ -56,6 +56,9 @@ namespace Tichu.Presentation.Views
         private CancellationToken _sceneCt;
         private CardView _cardViewPrefab;
         private CardSpriteAtlas _atlas;
+        private CardChipPool _handPool;
+        private CardChipPool _trickPool;
+        private readonly CardChipPool[] _backPools = new CardChipPool[4]; // 좌석0(나)=null
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -97,6 +100,7 @@ namespace Tichu.Presentation.Views
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
+            _trickPool = MakeDynamicPool(_trickRoot, interactive: false);
             _trickOwnerText = NewAnchoredText("TrickOwner", rt, "트릭: (없음)", 24, new Vector2(0.5f, 0.5f), new Vector2(0, -30), new Vector2(700, 34), TextAnchor.MiddleCenter);
             // 중앙: 라운드 결과 배너(결과 있을 때만 표시; 트릭 위 레이어).
             _resultPanel = NewPanel("ResultPanel", rt);
@@ -122,6 +126,7 @@ namespace Tichu.Presentation.Views
             _exchangeRoot = NewRow("ExchangeRow", rt, new Vector2(0.5f, 0), new Vector2(0, 180), new Vector2(900, 70), TextAnchor.MiddleCenter, false);
             _handRoot = NewRow("Hand", rt, new Vector2(0.5f, 0), new Vector2(0, 16), new Vector2(1060, 150), TextAnchor.MiddleCenter, false);
             AnchorBottomStretch(_handRoot, height: 150, bottom: 16, sideInset: 8);
+            _handPool = MakeDynamicPool(_handRoot, interactive: true);
 
             // 결정 패널 — 손패 옆(우하단), 라벨(위) + 가로 버튼(아래). 힌트 라벨 없음.
             var panel = NewPanel("Decision", rt);
@@ -195,6 +200,7 @@ namespace Tichu.Presentation.Views
 
             _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, TextAnchor.MiddleCenter, cardsVertical);
             _backRoots[seat].GetComponent<HorizontalOrVerticalLayoutGroup>().spacing = 8; // 파트너·측면 동일 간격(비겹침)
+            _backPools[seat] = MakeDynamicPool(_backRoots[seat], interactive: false);
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────
@@ -286,28 +292,26 @@ namespace Tichu.Presentation.Views
 
         private void RenderHand()
         {
-            ClearChildren(_handRoot);
+            _handPool.Begin();
             foreach (var card in _hand.OrderBy(SortKey))
-                AddHandChip(card);
-        }
-
-        private void AddHandChip(Card card)
-        {
-            var cv = Object.Instantiate(_cardViewPrefab, _handRoot);
-            cv.Set(card, _atlas, faceUp: true);
-            cv.SetSize(66, 100);
-
-            CardView.Highlight h = CardView.Highlight.Normal;
-            if (Exchanging)
             {
-                if (_exPick.HasValue && card.Equals(_exPick.Value)) h = CardView.Highlight.Selected;
-                else if (IsAssigned(card)) h = CardView.Highlight.Assigned;
-            }
-            else if (_selection.Contains(card)) h = CardView.Highlight.Selected;
-            cv.SetHighlight(h);
+                var cv = _handPool.Next();
+                cv.Set(card, _atlas, faceUp: true);
+                cv.SetSize(66, 100);
 
-            var cap = card;
-            cv.SetInteractable(CardSelectable, () => ToggleCard(cap));
+                CardView.Highlight h = CardView.Highlight.Normal;
+                if (Exchanging)
+                {
+                    if (_exPick.HasValue && card.Equals(_exPick.Value)) h = CardView.Highlight.Selected;
+                    else if (IsAssigned(card)) h = CardView.Highlight.Assigned;
+                }
+                else if (_selection.Contains(card)) h = CardView.Highlight.Selected;
+                cv.SetHighlight(h);
+
+                var cap = card;
+                cv.SetInteractable(CardSelectable, () => ToggleCard(cap));
+            }
+            _handPool.End();
         }
 
         private bool IsAssigned(Card c) =>
@@ -337,32 +341,39 @@ namespace Tichu.Presentation.Views
 
         private void RenderBacks(int seat, int count)
         {
-            var rb = _backRoots[seat];
-            if (rb == null) return;
-            ClearChildren(rb);
+            var pool = _backPools[seat];
+            if (pool == null) return; // 좌석0(나)은 뒷면 없음
             bool side = (seat == 1 || seat == 3);
             float w = side ? 44 : 30, h = side ? 30 : 44; // 측면도 파트너와 같은 카드 치수(눕힌 44×30)
             int show = Mathf.Min(count, 14);
+            pool.Begin();
             for (int i = 0; i < show; i++)
             {
-                var cv = Object.Instantiate(_cardViewPrefab, rb);
+                var cv = pool.Next();
                 cv.Set(default(Card), _atlas, faceUp: false);
                 cv.SetSize(w, h);
             }
+            pool.End();
         }
 
         // ── 트릭(중앙 앞면) ───────────────────────────────────────────────────
 
         private void RenderTrick(Trick? trick)
         {
-            ClearChildren(_trickRoot);
-            if (trick?.Top == null) { _trickOwnerText.text = "트릭: (없음)"; return; }
+            if (trick?.Top == null)
+            {
+                _trickPool.Begin(); _trickPool.End(); // 모든 칩 비활성화
+                _trickOwnerText.text = "트릭: (없음)";
+                return;
+            }
+            _trickPool.Begin();
             foreach (var card in trick.Top.Cards.OrderBy(SortKey))
             {
-                var cv = Object.Instantiate(_cardViewPrefab, _trickRoot);
+                var cv = _trickPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(60, 88);
             }
+            _trickPool.End();
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
         }
 
@@ -726,6 +737,15 @@ namespace Tichu.Presentation.Views
         private static void ClearChildren(RectTransform root)
         {
             for (int i = root.childCount - 1; i >= 0; i--) Object.Destroy(root.GetChild(i).gameObject);
+        }
+
+        // 동적 루트를 서브 Canvas 로 격리(리배칭 분리)하고 풀을 만든다. interactive=손패만(버튼 클릭용 레이캐스터).
+        private CardChipPool MakeDynamicPool(RectTransform root, bool interactive)
+        {
+            var canvas = root.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = false; // 드로 순서 보존(결과배너 > 트릭)
+            if (interactive) root.gameObject.AddComponent<GraphicRaycaster>();
+            return new CardChipPool(root, _cardViewPrefab);
         }
 
         private static Font DefaultFont()

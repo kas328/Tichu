@@ -61,5 +61,36 @@ namespace Tichu.Presentation.Tests
             Assert.AreEqual(100f, le.preferredHeight, 0.01f, "교환 배정은 lift 없음");
             Object.DestroyImmediate(go);
         }
+
+        [Test]
+        public void Set_neutralizes_button_for_pool_reuse()
+        {
+            var cv = New(out var go);
+            bool fired = false;
+            cv.SetInteractable(true, () => fired = true);
+            Assert.IsTrue(cv.HasClickListener);
+
+            // 풀에서 다른 카드로 재사용 — Set 만 호출.
+            cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
+
+            Assert.IsFalse(cv.HasClickListener, "Set 은 풀 재사용 위해 버튼을 중립화해야 한다");
+            var btn = go.GetComponent<Button>();
+            Assert.IsFalse(btn.interactable);
+            btn.onClick.Invoke();
+            Assert.IsFalse(fired, "옛 리스너가 Set 이후 발화하면 안 된다");
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void SetInteractable_tracks_HasClickListener()
+        {
+            var cv = New(out var go);
+            Assert.IsFalse(cv.HasClickListener);
+            cv.SetInteractable(true, () => { });
+            Assert.IsTrue(cv.HasClickListener);
+            cv.SetInteractable(false, null);
+            Assert.IsFalse(cv.HasClickListener);
+            Object.DestroyImmediate(go);
+        }
     }
 }

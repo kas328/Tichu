@@ -37,6 +37,9 @@ namespace Tichu.Presentation.Views
         private bool _faceUp = true;
         private Highlight _highlight = Highlight.Normal;
 
+        /// <summary>현재 활성 onClick 리스너가 걸려 있는지(풀 재사용 안전 단언용).</summary>
+        public bool HasClickListener { get; private set; }
+
         public Card Card => _card;
 
         /// <summary>카드 내용을 설정한다(앞면/뒷면). 스프라이트 없으면 텍스트 폴백. 강조는 Normal로 초기화.</summary>
@@ -46,6 +49,9 @@ namespace Tichu.Presentation.Views
             _card = card; _atlas = atlas; _faceUp = faceUp; _highlight = Highlight.Normal;
             Refresh();
             ApplyHeight();
+            // 풀 재사용 안전: Set+SetSize 만 부르는 소비자(트릭/뒷면)에서도 옛 리스너/상호작용을 비운다.
+            if (_button != null) { _button.onClick.RemoveAllListeners(); _button.interactable = false; }
+            HasClickListener = false;
         }
 
         /// <summary>카드 칩 크기(레이아웃 그룹에서 사용). 선택 lift의 기준 높이.</summary>
@@ -66,14 +72,15 @@ namespace Tichu.Presentation.Views
             ApplyHeight();
         }
 
-        /// <summary>클릭 가능 토글. 풀 재사용 안전을 위해 리스너를 항상 비우고 다시 건다.</summary>
+        /// <summary>클릭 가능 토글. 리스너를 항상 비우고 다시 건다(중립화는 Set 도 수행).</summary>
         public void SetInteractable(bool on, Action onClick)
         {
             EnsureBuilt();
             if (_button == null) _button = gameObject.GetComponent<Button>() ?? gameObject.AddComponent<Button>();
             _button.onClick.RemoveAllListeners();
             _button.interactable = on;
-            if (on && onClick != null) _button.onClick.AddListener(() => onClick());
+            HasClickListener = on && onClick != null;
+            if (HasClickListener) _button.onClick.AddListener(() => onClick());
         }
 
         private void ApplyHeight()

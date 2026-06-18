@@ -57,6 +57,8 @@ namespace Tichu.Presentation.Views
         private CardView _cardViewPrefab;
         private CardSpriteAtlas _atlas;
         private CardChipPool _handPool;
+        private CardChipPool _trickPool;
+        private readonly CardChipPool[] _backPools = new CardChipPool[4]; // 좌석0(나)=null
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -98,6 +100,7 @@ namespace Tichu.Presentation.Views
 
             // 중앙 트릭(앞면) + 소유자.
             _trickRoot = NewRow("TrickRow", rt, new Vector2(0.5f, 0.5f), new Vector2(0, 60), new Vector2(940, 120), TextAnchor.MiddleCenter, false);
+            _trickPool = MakeDynamicPool(_trickRoot, interactive: false);
             _trickOwnerText = NewAnchoredText("TrickOwner", rt, "트릭: (없음)", 24, new Vector2(0.5f, 0.5f), new Vector2(0, -30), new Vector2(700, 34), TextAnchor.MiddleCenter);
             // 중앙: 라운드 결과 배너(결과 있을 때만 표시; 트릭 위 레이어).
             _resultPanel = NewPanel("ResultPanel", rt);
@@ -197,6 +200,7 @@ namespace Tichu.Presentation.Views
 
             _backRoots[seat] = NewRow($"Backs{seat}", rt, anchor, cardsPos, cardsSize, TextAnchor.MiddleCenter, cardsVertical);
             _backRoots[seat].GetComponent<HorizontalOrVerticalLayoutGroup>().spacing = 8; // 파트너·측면 동일 간격(비겹침)
+            _backPools[seat] = MakeDynamicPool(_backRoots[seat], interactive: false);
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────
@@ -337,32 +341,39 @@ namespace Tichu.Presentation.Views
 
         private void RenderBacks(int seat, int count)
         {
-            var rb = _backRoots[seat];
-            if (rb == null) return;
-            ClearChildren(rb);
+            var pool = _backPools[seat];
+            if (pool == null) return; // 좌석0(나)은 뒷면 없음
             bool side = (seat == 1 || seat == 3);
             float w = side ? 44 : 30, h = side ? 30 : 44; // 측면도 파트너와 같은 카드 치수(눕힌 44×30)
             int show = Mathf.Min(count, 14);
+            pool.Begin();
             for (int i = 0; i < show; i++)
             {
-                var cv = Object.Instantiate(_cardViewPrefab, rb);
+                var cv = pool.Next();
                 cv.Set(default(Card), _atlas, faceUp: false);
                 cv.SetSize(w, h);
             }
+            pool.End();
         }
 
         // ── 트릭(중앙 앞면) ───────────────────────────────────────────────────
 
         private void RenderTrick(Trick? trick)
         {
-            ClearChildren(_trickRoot);
-            if (trick?.Top == null) { _trickOwnerText.text = "트릭: (없음)"; return; }
+            if (trick?.Top == null)
+            {
+                _trickPool.Begin(); _trickPool.End(); // 모든 칩 비활성화
+                _trickOwnerText.text = "트릭: (없음)";
+                return;
+            }
+            _trickPool.Begin();
             foreach (var card in trick.Top.Cards.OrderBy(SortKey))
             {
-                var cv = Object.Instantiate(_cardViewPrefab, _trickRoot);
+                var cv = _trickPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(60, 88);
             }
+            _trickPool.End();
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
         }
 

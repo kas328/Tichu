@@ -56,6 +56,7 @@ namespace Tichu.Presentation.Views
         private CancellationToken _sceneCt;
         private CardView _cardViewPrefab;
         private CardSpriteAtlas _atlas;
+        private CardChipPool _handPool;
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -122,6 +123,7 @@ namespace Tichu.Presentation.Views
             _exchangeRoot = NewRow("ExchangeRow", rt, new Vector2(0.5f, 0), new Vector2(0, 180), new Vector2(900, 70), TextAnchor.MiddleCenter, false);
             _handRoot = NewRow("Hand", rt, new Vector2(0.5f, 0), new Vector2(0, 16), new Vector2(1060, 150), TextAnchor.MiddleCenter, false);
             AnchorBottomStretch(_handRoot, height: 150, bottom: 16, sideInset: 8);
+            _handPool = MakeDynamicPool(_handRoot, interactive: true);
 
             // 결정 패널 — 손패 옆(우하단), 라벨(위) + 가로 버튼(아래). 힌트 라벨 없음.
             var panel = NewPanel("Decision", rt);
@@ -286,28 +288,26 @@ namespace Tichu.Presentation.Views
 
         private void RenderHand()
         {
-            ClearChildren(_handRoot);
+            _handPool.Begin();
             foreach (var card in _hand.OrderBy(SortKey))
-                AddHandChip(card);
-        }
-
-        private void AddHandChip(Card card)
-        {
-            var cv = Object.Instantiate(_cardViewPrefab, _handRoot);
-            cv.Set(card, _atlas, faceUp: true);
-            cv.SetSize(66, 100);
-
-            CardView.Highlight h = CardView.Highlight.Normal;
-            if (Exchanging)
             {
-                if (_exPick.HasValue && card.Equals(_exPick.Value)) h = CardView.Highlight.Selected;
-                else if (IsAssigned(card)) h = CardView.Highlight.Assigned;
-            }
-            else if (_selection.Contains(card)) h = CardView.Highlight.Selected;
-            cv.SetHighlight(h);
+                var cv = _handPool.Next();
+                cv.Set(card, _atlas, faceUp: true);
+                cv.SetSize(66, 100);
 
-            var cap = card;
-            cv.SetInteractable(CardSelectable, () => ToggleCard(cap));
+                CardView.Highlight h = CardView.Highlight.Normal;
+                if (Exchanging)
+                {
+                    if (_exPick.HasValue && card.Equals(_exPick.Value)) h = CardView.Highlight.Selected;
+                    else if (IsAssigned(card)) h = CardView.Highlight.Assigned;
+                }
+                else if (_selection.Contains(card)) h = CardView.Highlight.Selected;
+                cv.SetHighlight(h);
+
+                var cap = card;
+                cv.SetInteractable(CardSelectable, () => ToggleCard(cap));
+            }
+            _handPool.End();
         }
 
         private bool IsAssigned(Card c) =>
@@ -726,6 +726,15 @@ namespace Tichu.Presentation.Views
         private static void ClearChildren(RectTransform root)
         {
             for (int i = root.childCount - 1; i >= 0; i--) Object.Destroy(root.GetChild(i).gameObject);
+        }
+
+        // 동적 루트를 서브 Canvas 로 격리(리배칭 분리)하고 풀을 만든다. interactive=손패만(버튼 클릭용 레이캐스터).
+        private CardChipPool MakeDynamicPool(RectTransform root, bool interactive)
+        {
+            var canvas = root.gameObject.AddComponent<Canvas>();
+            canvas.overrideSorting = false; // 드로 순서 보존(결과배너 > 트릭)
+            if (interactive) root.gameObject.AddComponent<GraphicRaycaster>();
+            return new CardChipPool(root, _cardViewPrefab);
         }
 
         private static Font DefaultFont()

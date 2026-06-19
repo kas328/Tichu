@@ -390,7 +390,7 @@ namespace Tichu.Presentation.Views
         {
             _resultPanel.SetActive(r != null);
             _resultText.text = r == null ? "" :
-                $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}  (카드 {r.TeamACardPoints}/{r.TeamBCardPoints}, 티츄 {r.TeamATichuDelta}/{r.TeamBTichuDelta})";
+                $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}";
             if (r != null) _anim.ResultShown((RectTransform)_resultPanel.transform);
         }
 

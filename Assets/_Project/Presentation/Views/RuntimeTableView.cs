@@ -251,10 +251,10 @@ namespace Tichu.Presentation.Views
 
         private void BuildCallBadges(RectTransform rt)
         {
-            BuildCallBadge(0, rt, new Vector2(0.5f, 0), new Vector2(0, 195));    // 나: 손패 위(중앙)
+            BuildCallBadge(0, rt, new Vector2(0.5f, 0), new Vector2(0, 285));    // 나: 손패 위(교환 버튼 행보다 위로)
             BuildCallBadge(2, rt, new Vector2(0.5f, 1), new Vector2(0, -235));   // 파트너: 14장 카드 아래(중앙)
-            BuildCallBadge(3, rt, new Vector2(0, 0.5f), new Vector2(22, 105));   // 왼쪽: 프로필 위(카드 비겹침)
-            BuildCallBadge(1, rt, new Vector2(1, 0.5f), new Vector2(-22, 105));  // 오른쪽: 프로필 위(카드 비겹침)
+            BuildCallBadge(3, rt, new Vector2(0, 0.5f), new Vector2(43, 105));   // 왼쪽: 프로필 바로 위(중앙 정렬)
+            BuildCallBadge(1, rt, new Vector2(1, 0.5f), new Vector2(-43, 105));  // 오른쪽: 프로필 바로 위(중앙 정렬)
         }
 
         // ── 구독 ─────────────────────────────────────────────────────────────

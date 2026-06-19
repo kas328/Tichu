@@ -110,6 +110,22 @@ namespace Tichu.Presentation.Tests
         }
 
         /// <summary>
+        /// ApplySnapshot 이 각 좌석의 TichuCall 을 SeatCall ReactiveProperty 에 투영한다.
+        /// </summary>
+        [Test]
+        public void ApplySnapshot_projects_seat_calls()
+        {
+            var vm = new TableViewModel(0);
+            var state = GameEngine.NewRound(123UL);
+            state.Seats[2].Call = TichuCall.GrandTichu;
+            state.Seats[1].Call = TichuCall.Tichu;
+            vm.ApplySnapshot(state);
+            Assert.AreEqual(TichuCall.GrandTichu, vm.SeatCall(2).CurrentValue);
+            Assert.AreEqual(TichuCall.Tichu, vm.SeatCall(1).CurrentValue);
+            Assert.AreEqual(TichuCall.None, vm.SeatCall(0).CurrentValue);
+        }
+
+        /// <summary>
         /// 불법 제출(리드에서 패스)은 거부되고 task 가 완료되지 않으며 PendingDecision 도 유지된다.
         /// </summary>
         [Test]

@@ -33,6 +33,12 @@ namespace Tichu.Presentation.Views
         private static readonly Color BtnOff  = new Color(0.35f, 0.35f, 0.38f);
         private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정(슬롯 버튼)
         private static readonly Color TurnHi  = new Color(0.45f, 0.95f, 0.55f); // 현재 차례 이름 강조
+        private static readonly Color TichuPurple = new Color(0.55f, 0.35f, 0.78f);
+        private static readonly Color GrandGold   = new Color(0.85f, 0.66f, 0.22f);
+
+        private readonly Image[] _callBadgeBg = new Image[4];
+        private readonly Text[] _callBadgeText = new Text[4];
+        private readonly TichuCall[] _prevCalls = new TichuCall[4]; // 초기 None
 
         private TableViewModel _vm;
         private readonly CompositeDisposable _subs = new CompositeDisposable();
@@ -52,6 +58,7 @@ namespace Tichu.Presentation.Views
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
         private IReadOnlyList<Card> _hand = new List<Card>();
+        private HashSet<Card> _bombCards = new HashSet<Card>();
         private int _cumA, _cumB;
         private CancellationToken _sceneCt;
         private CardView _cardViewPrefab;
@@ -59,6 +66,10 @@ namespace Tichu.Presentation.Views
         private CardChipPool _handPool;
         private CardChipPool _trickPool;
         private readonly CardChipPool[] _backPools = new CardChipPool[4]; // 좌석0(나)=null
+        private readonly IPlayAnimator _anim;
+        private readonly List<CardView> _trickChips = new List<CardView>(); // PlayedIn 전달용(GC 회피 재사용)
+
+        public RuntimeTableView(IPlayAnimator anim = null) => _anim = anim ?? new NoOpPlayAnimator();
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -170,6 +181,7 @@ namespace Tichu.Presentation.Views
             AddCardLabel(skip.transform, "▶▶ 스킵", Ink, 24);
             skip.SetActive(false);
             _skipButton = skip;
+            BuildCallBadges(rt);
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -203,6 +215,48 @@ namespace Tichu.Presentation.Views
             _backPools[seat] = MakeDynamicPool(_backRoots[seat], interactive: false);
         }
 
+        private void UpdateCallBadge(int seat, TichuCall call)
+        {
+            var prev = _prevCalls[seat];
+            _prevCalls[seat] = call; // 항상 갱신(라운드 리셋 None 반영)
+
+            var bg = _callBadgeBg[seat];
+            if (bg == null) return;
+            bool active = call != TichuCall.None;
+            bg.gameObject.SetActive(active);
+            if (active)
+            {
+                bool grand = call == TichuCall.GrandTichu;
+                bg.color = grand ? GrandGold : TichuPurple;
+                _callBadgeText[seat].text = grand ? "大 티츄" : "티츄";
+            }
+            if (call != TichuCall.None && call != prev)
+                _anim.TichuDeclared((RectTransform)bg.transform);
+        }
+
+        private void BuildCallBadge(int seat, RectTransform parent, Vector2 anchor, Vector2 pos)
+        {
+            var go = new GameObject($"CallBadge{seat}", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = rt.pivot = anchor;
+            rt.sizeDelta = new Vector2(96, 34); rt.anchoredPosition = pos;
+            _callBadgeBg[seat] = go.GetComponent<Image>();
+            var t = NewText($"CallBadgeTxt{seat}", go.transform, "", 22);
+            t.alignment = TextAnchor.MiddleCenter; t.color = Ink;
+            StretchFull(t.rectTransform);
+            _callBadgeText[seat] = t;
+            go.SetActive(false);
+        }
+
+        private void BuildCallBadges(RectTransform rt)
+        {
+            BuildCallBadge(0, rt, new Vector2(0.5f, 0), new Vector2(0, 285));    // 나: 손패 위(교환 버튼 행보다 위로)
+            BuildCallBadge(2, rt, new Vector2(0.5f, 1), new Vector2(0, -235));   // 파트너: 14장 카드 아래(중앙)
+            BuildCallBadge(3, rt, new Vector2(0, 0.5f), new Vector2(43, 105));   // 왼쪽: 프로필 바로 위(중앙 정렬)
+            BuildCallBadge(1, rt, new Vector2(1, 0.5f), new Vector2(-43, 105));  // 오른쪽: 프로필 바로 위(중앙 정렬)
+        }
+
         // ── 구독 ─────────────────────────────────────────────────────────────
 
         private void Subscribe()
@@ -218,7 +272,7 @@ namespace Tichu.Presentation.Views
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
             // 손패 갱신 시, 손에서 빠진 카드만 선택에서 제거(상대 턴 중 폭탄 선택은 유지).
-            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.RemoveAll(c => !_hand.Contains(c)); RenderHand(); }).AddTo(_subs);
+            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.RemoveAll(c => !_hand.Contains(c)); _bombCards = BombScanner.BombCards(_hand); RenderHand(); }).AddTo(_subs);
             for (int i = 0; i < 4; i++)
             {
                 int seat = i;
@@ -233,6 +287,11 @@ namespace Tichu.Presentation.Views
                 }).AddTo(_subs);
             }
             _vm.PendingDecision.Subscribe(RenderPrompt).AddTo(_subs);
+            for (int i = 0; i < 4; i++)
+            {
+                int seat = i;
+                _vm.SeatCall(seat).Subscribe(call => UpdateCallBadge(seat, call)).AddTo(_subs);
+            }
         }
 
         private void UpdateScore() => _scoreText.text = $"총점  우리(A) {_cumA} : 상대(B) {_cumB}";
@@ -298,6 +357,7 @@ namespace Tichu.Presentation.Views
                 var cv = _handPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(66, 100);
+                cv.SetBombMember(_bombCards.Contains(card));
 
                 CardView.Highlight h = CardView.Highlight.Normal;
                 if (Exchanging)
@@ -367,21 +427,25 @@ namespace Tichu.Presentation.Views
                 return;
             }
             _trickPool.Begin();
+            _trickChips.Clear();
             foreach (var card in trick.Top.Cards.OrderBy(SortKey))
             {
                 var cv = _trickPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(60, 88);
+                _trickChips.Add(cv);
             }
             _trickPool.End();
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
+            _anim.PlayedIn(_trickChips, _vm.FastForward);
         }
 
         private void RenderResult(RoundResult? r)
         {
             _resultPanel.SetActive(r != null);
             _resultText.text = r == null ? "" :
-                $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}  (카드 {r.TeamACardPoints}/{r.TeamBCardPoints}, 티츄 {r.TeamATichuDelta}/{r.TeamBTichuDelta})";
+                $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}";
+            if (r != null) _anim.ResultShown((RectTransform)_resultPanel.transform);
         }
 
         // 현재 차례 좌석 이름을 강조색으로(나머지는 기본).
@@ -390,6 +454,8 @@ namespace Tichu.Presentation.Views
             for (int i = 0; i < 4; i++)
                 if (_seatTexts[i] != null)
                     _seatTexts[i].color = (i == turn) ? TurnHi : Ink;
+            if (turn >= 0 && turn < 4 && _seatTexts[turn] != null)
+                _anim.TurnChanged(_seatTexts[turn]);
         }
 
         // 빠른 진행 버튼: 내가 out(0장)·Play 중·아직 스킵 안 눌렀을 때만 표시.
@@ -654,7 +720,7 @@ namespace Tichu.Presentation.Views
                 case CombinationType.Straight: return "스트레이트";
                 case CombinationType.ConsecutivePairs: return "연속페어";
                 case CombinationType.FourBomb: return "폭탄";
-                case CombinationType.StraightFlushBomb: return "스플폭탄";
+                case CombinationType.StraightFlushBomb: return "스티플 폭탄";
                 default: return t.ToString();
             }
         }

@@ -71,6 +71,11 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>좌석 i 의 손패 수 ReactiveProperty.</summary>
         public ReactiveProperty<int> HandCount(int seat) => _handCounts[seat];
 
+        private readonly ReactiveProperty<TichuCall>[] _calls = new ReactiveProperty<TichuCall>[4];
+
+        /// <summary>좌석 i 의 티츄 콜 상태(None/Tichu/GrandTichu).</summary>
+        public ReactiveProperty<TichuCall> SeatCall(int seat) => _calls[seat];
+
         // ── 진행 중인 결정 TCS ───────────────────────────────────────────────
         // 각 결정 종류별로 최대 1개의 대기 TCS 를 보관한다.
         private UniTaskCompletionSource<bool>? _grandTichuTcs;
@@ -103,7 +108,10 @@ namespace Tichu.Presentation.ViewModel
         {
             _mySeat = mySeat;
             for (int i = 0; i < 4; i++)
+            {
                 _handCounts[i] = new ReactiveProperty<int>(0);
+                _calls[i] = new ReactiveProperty<TichuCall>(TichuCall.None);
+            }
         }
 
         // ── 상태 투영 ────────────────────────────────────────────────────────
@@ -120,7 +128,10 @@ namespace Tichu.Presentation.ViewModel
             CurrentTrick.Value = null;                              // 트릭 Top 갱신 반영: null→값으로 강제 통지
             CurrentTrick.Value = s.CurrentTrick;
             for (int i = 0; i < 4; i++)
+            {
                 _handCounts[i].Value = s.Seats[i].Hand.Count;
+                _calls[i].Value = s.Seats[i].Call;
+            }
             // 작은 티츄 상시 버튼: Play 중 내가 첫 패 전(14장)·미콜·미예약이면 표시.
             TichuAvailable.Value = s.Phase == RoundPhase.Play
                 && s.Seats[_mySeat].Call == TichuCall.None

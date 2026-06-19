@@ -7,6 +7,7 @@ using Tichu.GameFlow;
 using Tichu.Presentation.Shell;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
+using Tichu.Presentation.Visuals;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -44,7 +45,7 @@ namespace Tichu.Presentation
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
             var canvas = CreateCanvas();
             var vm = new TableViewModel(args.MySeat);
-            ITableView view = new RuntimeTableView();
+            ITableView view = new RuntimeTableView(new DoTweenPlayAnimator());
             view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 
             // 3) 매치 루프 기동(여러 라운드, 누적 점수, 목표 점수에서 종료).

@@ -95,6 +95,42 @@ namespace Tichu.Presentation.Tests
             Object.DestroyImmediate(go);
         }
 
+        [Test]
+        public void BombMember_tints_background_red_when_not_selected()
+        {
+            var cv = New(out var go);
+            cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
+            cv.SetBombMember(true);
+            var bg = go.GetComponent<Image>();
+            Assert.AreEqual(new Color(0.96f, 0.55f, 0.52f), bg.color);
+            Assert.IsTrue(cv.IsBombMember);
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Selected_wins_over_bomb_member()
+        {
+            var cv = New(out var go);
+            cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
+            cv.SetBombMember(true);
+            cv.SetHighlight(CardView.Highlight.Selected);
+            var bg = go.GetComponent<Image>();
+            Assert.AreEqual(new Color(1.00f, 0.86f, 0.32f), bg.color); // CardSel
+            Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void Set_neutralizes_bomb_member_for_pool_reuse()
+        {
+            var cv = New(out var go);
+            cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
+            cv.SetBombMember(true);
+            Assert.IsTrue(cv.IsBombMember);
+            cv.Set(Card.Normal(8, Suit.Jade), null, faceUp: true);
+            Assert.IsFalse(cv.IsBombMember, "Set 은 풀 재사용 위해 폭탄 멤버를 중립화");
+            Object.DestroyImmediate(go);
+        }
+
         private static CardSpriteAtlas GeneratingAtlas()
         {
             var a = ScriptableObject.CreateInstance<CardSpriteAtlas>();

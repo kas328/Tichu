@@ -59,6 +59,10 @@ namespace Tichu.Presentation.Views
         private CardChipPool _handPool;
         private CardChipPool _trickPool;
         private readonly CardChipPool[] _backPools = new CardChipPool[4]; // 좌석0(나)=null
+        private readonly IPlayAnimator _anim;
+        private readonly List<CardView> _trickChips = new List<CardView>(); // PlayedIn 전달용(GC 회피 재사용)
+
+        public RuntimeTableView(IPlayAnimator anim = null) => _anim = anim ?? new NoOpPlayAnimator();
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -367,14 +371,17 @@ namespace Tichu.Presentation.Views
                 return;
             }
             _trickPool.Begin();
+            _trickChips.Clear();
             foreach (var card in trick.Top.Cards.OrderBy(SortKey))
             {
                 var cv = _trickPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(60, 88);
+                _trickChips.Add(cv);
             }
             _trickPool.End();
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
+            _anim.PlayedIn(_trickChips, _vm.FastForward);
         }
 
         private void RenderResult(RoundResult? r)
@@ -382,6 +389,7 @@ namespace Tichu.Presentation.Views
             _resultPanel.SetActive(r != null);
             _resultText.text = r == null ? "" :
                 $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}  (카드 {r.TeamACardPoints}/{r.TeamBCardPoints}, 티츄 {r.TeamATichuDelta}/{r.TeamBTichuDelta})";
+            if (r != null) _anim.ResultShown((RectTransform)_resultPanel.transform);
         }
 
         // 현재 차례 좌석 이름을 강조색으로(나머지는 기본).
@@ -390,6 +398,8 @@ namespace Tichu.Presentation.Views
             for (int i = 0; i < 4; i++)
                 if (_seatTexts[i] != null)
                     _seatTexts[i].color = (i == turn) ? TurnHi : Ink;
+            if (turn >= 0 && turn < 4 && _seatTexts[turn] != null)
+                _anim.TurnChanged(_seatTexts[turn]);
         }
 
         // 빠른 진행 버튼: 내가 out(0장)·Play 중·아직 스킵 안 눌렀을 때만 표시.

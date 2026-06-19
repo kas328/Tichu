@@ -11,7 +11,7 @@ namespace Tichu.Presentation.Visuals
     /// </summary>
     public sealed class CardArtFactory
     {
-        public enum FrameStyle { Black, Red, Special }
+        public enum FrameStyle { Normal, Special }
 
         private const int W = 132;   // 칩 66×100 의 2배 해상도(0.66 비율 유지)
         private const int H = 200;
@@ -20,7 +20,6 @@ namespace Tichu.Presentation.Visuals
 
         private static readonly Color Paper   = new Color(0.97f, 0.98f, 0.99f);
         private static readonly Color EdgeBlk  = new Color(0.16f, 0.18f, 0.22f);
-        private static readonly Color EdgeRed  = new Color(0.78f, 0.12f, 0.14f);
         private static readonly Color EdgeGold = new Color(0.85f, 0.66f, 0.22f);
         private static readonly Color BackBg   = new Color(0.13f, 0.20f, 0.42f);
         private static readonly Color BackInk  = new Color(0.30f, 0.42f, 0.72f);
@@ -38,14 +37,11 @@ namespace Tichu.Presentation.Visuals
 
         public Sprite Back => _back != null ? _back : (_back = BuildBack());
 
-        public static FrameStyle StyleFor(Card card)
-        {
-            if (card.IsSpecial) return FrameStyle.Special;
-            return CardFormat.IsRed(card) ? FrameStyle.Red : FrameStyle.Black;
-        }
+        public static FrameStyle StyleFor(Card card) =>
+            card.IsSpecial ? FrameStyle.Special : FrameStyle.Normal;
 
         private static Color EdgeFor(FrameStyle s) =>
-            s == FrameStyle.Red ? EdgeRed : s == FrameStyle.Special ? EdgeGold : EdgeBlk;
+            s == FrameStyle.Special ? EdgeGold : EdgeBlk;
 
         private static Sprite BuildFrame(Color edge)
         {

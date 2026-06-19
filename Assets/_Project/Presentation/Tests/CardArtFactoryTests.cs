@@ -31,13 +31,13 @@ namespace Tichu.Presentation.Tests
         public void Frame_is_nonnull_and_cached_per_style()
         {
             var f = new CardArtFactory();
-            foreach (var s in new[] { CardArtFactory.FrameStyle.Black, CardArtFactory.FrameStyle.Red, CardArtFactory.FrameStyle.Special })
+            foreach (var s in new[] { CardArtFactory.FrameStyle.Normal, CardArtFactory.FrameStyle.Special })
             {
                 var sp = f.Frame(s);
                 Assert.IsNotNull(sp, $"{s} 프레임 non-null");
                 Assert.AreSame(sp, f.Frame(s), $"{s} 프레임 캐시");
             }
-            Assert.AreNotSame(f.Frame(CardArtFactory.FrameStyle.Black), f.Frame(CardArtFactory.FrameStyle.Red),
+            Assert.AreNotSame(f.Frame(CardArtFactory.FrameStyle.Normal), f.Frame(CardArtFactory.FrameStyle.Special),
                 "스타일이 다르면 다른 스프라이트");
         }
 
@@ -45,17 +45,17 @@ namespace Tichu.Presentation.Tests
         public void Frame_has_transparent_rounded_corner()
         {
             var f = new CardArtFactory();
-            var tex = f.Frame(CardArtFactory.FrameStyle.Black).texture;
+            var tex = f.Frame(CardArtFactory.FrameStyle.Normal).texture;
             Assert.AreEqual(0f, tex.GetPixel(0, 0).a, 0.01f, "프레임 모서리도 둥글어 투명");
         }
 
         [Test]
         public void StyleFor_maps_color_and_special()
         {
-            Assert.AreEqual(CardArtFactory.FrameStyle.Red, CardArtFactory.StyleFor(Card.Normal(14, Suit.Star)));   // 하트=빨강
-            Assert.AreEqual(CardArtFactory.FrameStyle.Red, CardArtFactory.StyleFor(Card.Normal(7, Suit.Pagoda)));  // 다이아=빨강
-            Assert.AreEqual(CardArtFactory.FrameStyle.Black, CardArtFactory.StyleFor(Card.Normal(13, Suit.Sword))); // 스페이드=검정
-            Assert.AreEqual(CardArtFactory.FrameStyle.Black, CardArtFactory.StyleFor(Card.Normal(2, Suit.Jade)));   // 클럽=검정
+            Assert.AreEqual(CardArtFactory.FrameStyle.Normal, CardArtFactory.StyleFor(Card.Normal(14, Suit.Star)));
+            Assert.AreEqual(CardArtFactory.FrameStyle.Normal, CardArtFactory.StyleFor(Card.Normal(7, Suit.Pagoda)));
+            Assert.AreEqual(CardArtFactory.FrameStyle.Normal, CardArtFactory.StyleFor(Card.Normal(13, Suit.Sword)));
+            Assert.AreEqual(CardArtFactory.FrameStyle.Normal, CardArtFactory.StyleFor(Card.Normal(2, Suit.Jade)));
             Assert.AreEqual(CardArtFactory.FrameStyle.Special, CardArtFactory.StyleFor(Card.Dragon));
             Assert.AreEqual(CardArtFactory.FrameStyle.Special, CardArtFactory.StyleFor(Card.Mahjong));
         }

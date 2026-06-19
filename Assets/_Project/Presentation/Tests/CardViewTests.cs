@@ -96,26 +96,31 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
-        public void BombMember_tints_background_red_when_not_selected()
+        public void BombMember_enables_red_outline()
         {
             var cv = New(out var go);
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
+            var outline = go.GetComponent<Outline>();
+            Assert.IsNotNull(outline, "폭탄 표시는 Outline 컴포넌트");
+            Assert.IsFalse(outline.enabled, "기본은 아웃라인 꺼짐");
             cv.SetBombMember(true);
-            var bg = go.GetComponent<Image>();
-            Assert.AreEqual(new Color(0.96f, 0.55f, 0.52f), bg.color);
+            Assert.IsTrue(outline.enabled, "폭탄 멤버 → 빨강 아웃라인 켜짐");
+            Assert.AreEqual(new Color(0.92f, 0.20f, 0.18f), outline.effectColor);
             Assert.IsTrue(cv.IsBombMember);
             Object.DestroyImmediate(go);
         }
 
         [Test]
-        public void Selected_wins_over_bomb_member()
+        public void Selected_fill_and_bomb_outline_coexist()
         {
             var cv = New(out var go);
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
             cv.SetBombMember(true);
             cv.SetHighlight(CardView.Highlight.Selected);
             var bg = go.GetComponent<Image>();
-            Assert.AreEqual(new Color(1.00f, 0.86f, 0.32f), bg.color); // CardSel
+            var outline = go.GetComponent<Outline>();
+            Assert.AreEqual(new Color(1.00f, 0.86f, 0.32f), bg.color, "선택은 노랑 채움(CardSel)");
+            Assert.IsTrue(outline.enabled, "폭탄 아웃라인은 선택과 무관하게 유지");
             Object.DestroyImmediate(go);
         }
 
@@ -126,8 +131,10 @@ namespace Tichu.Presentation.Tests
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
             cv.SetBombMember(true);
             Assert.IsTrue(cv.IsBombMember);
+            Assert.IsTrue(go.GetComponent<Outline>().enabled);
             cv.Set(Card.Normal(8, Suit.Jade), null, faceUp: true);
             Assert.IsFalse(cv.IsBombMember, "Set 은 풀 재사용 위해 폭탄 멤버를 중립화");
+            Assert.IsFalse(go.GetComponent<Outline>().enabled, "Set 은 아웃라인도 끈다");
             Object.DestroyImmediate(go);
         }
 

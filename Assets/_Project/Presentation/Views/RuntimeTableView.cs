@@ -720,7 +720,7 @@ namespace Tichu.Presentation.Views
                 case CombinationType.Straight: return "스트레이트";
                 case CombinationType.ConsecutivePairs: return "연속페어";
                 case CombinationType.FourBomb: return "폭탄";
-                case CombinationType.StraightFlushBomb: return "스플폭탄";
+                case CombinationType.StraightFlushBomb: return "스티플 폭탄";
                 default: return t.ToString();
             }
         }

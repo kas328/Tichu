@@ -19,7 +19,7 @@ namespace Tichu.Presentation.Views
         private static readonly Color CardBg  = new Color(0.96f, 0.97f, 0.98f);
         private static readonly Color CardSel = new Color(1.00f, 0.86f, 0.32f);
         private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정됨
-        private static readonly Color CardBomb = new Color(0.96f, 0.55f, 0.52f); // 폭탄 보유 글로우
+        private static readonly Color CardBombBorder = new Color(0.92f, 0.20f, 0.18f); // 폭탄 보유 테두리(빨강 아웃라인)
         private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
         private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
         private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
@@ -30,6 +30,7 @@ namespace Tichu.Presentation.Views
         private Text _label;
         private LayoutElement _le;
         private Button _button;
+        private Outline _bombOutline;
         private bool _built;
         private float _baseH;
 
@@ -42,12 +43,12 @@ namespace Tichu.Presentation.Views
         /// <summary>이 카드가 내 손패의 폭탄 조합에 속하는지(빨강 글로우).</summary>
         public bool IsBombMember => _bombMember;
 
-        /// <summary>폭탄 멤버 표시 토글(선택보다 낮은 우선순위 빨강 글로우).</summary>
+        /// <summary>폭탄 멤버 표시 토글(빨강 테두리 아웃라인. 선택 채움과 공존).</summary>
         public void SetBombMember(bool on)
         {
             EnsureBuilt();
             _bombMember = on;
-            Refresh();
+            _bombOutline.enabled = on;
         }
 
         /// <summary>현재 활성 onClick 리스너가 걸려 있는지(풀 재사용 안전 단언용).</summary>
@@ -60,6 +61,7 @@ namespace Tichu.Presentation.Views
         {
             EnsureBuilt();
             _card = card; _atlas = atlas; _faceUp = faceUp; _highlight = Highlight.Normal; _bombMember = false;
+            _bombOutline.enabled = false;
             Refresh();
             ApplyHeight();
             // 풀 재사용 안전: Set+SetSize 만 부르는 소비자(트릭/뒷면)에서도 옛 리스너/상호작용을 비운다.
@@ -135,7 +137,6 @@ namespace Tichu.Presentation.Views
         private Color HighlightColor()
         {
             if (_highlight == Highlight.Selected) return CardSel;
-            if (_bombMember) return CardBomb;
             if (_highlight == Highlight.Assigned) return CardUse;
             return CardBg;
         }
@@ -146,6 +147,10 @@ namespace Tichu.Presentation.Views
             _rt = (RectTransform)transform;
             _bg = GetComponent<Image>(); if (_bg == null) _bg = gameObject.AddComponent<Image>();
             _bg.color = CardBg;
+            _bombOutline = gameObject.GetComponent<Outline>() ?? gameObject.AddComponent<Outline>();
+            _bombOutline.effectColor = CardBombBorder;
+            _bombOutline.effectDistance = new Vector2(3f, 3f);
+            _bombOutline.enabled = false;
             _le = GetComponent<LayoutElement>(); if (_le == null) _le = gameObject.AddComponent<LayoutElement>();
 
             _face = NewChildImage("Face");

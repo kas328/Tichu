@@ -7,7 +7,7 @@ namespace Tichu.Presentation.Visuals
 {
     /// <summary>
     /// 카드 면 프레임/뒷면 스프라이트를 코드로 생성(외부 에셋·폰트 불필요). 생성 시 1회 그리고 캐시.
-    /// 면 = 둥근 흰 카드 + 무늬색 테두리(랭크/무늬는 CardView 라벨이 위에 얹는다). 뒷면 = 대각 격자 패턴.
+    /// 면 = 둥근 흰 카드 + 중립/금색 테두리(일반/특수, 랭크·무늬는 CardView 라벨이 위에 얹는다). 뒷면 = 대각 격자 패턴.
     /// </summary>
     public sealed class CardArtFactory
     {

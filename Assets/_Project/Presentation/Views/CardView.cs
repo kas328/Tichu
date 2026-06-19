@@ -102,9 +102,9 @@ namespace Tichu.Presentation.Views
                 return;
             }
 
-            _bg.sprite = null;
+            _bg.sprite = _atlas != null ? _atlas.Frame(_card) : null; // 생성 프레임(없으면 납작 사각형=기존)
             _bg.color = HighlightColor();
-            var sprite = _atlas != null ? _atlas.Face(_card) : null;
+            var sprite = _atlas != null ? _atlas.Face(_card) : null;   // PNG 풀아트 우선
             if (sprite != null)
             {
                 _face.enabled = true; _face.sprite = sprite;

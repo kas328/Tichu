@@ -1,6 +1,8 @@
+using System.Reflection;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Presentation.Views;
+using Tichu.Presentation.Visuals;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -91,6 +93,44 @@ namespace Tichu.Presentation.Tests
             cv.SetInteractable(false, null);
             Assert.IsFalse(cv.HasClickListener);
             Object.DestroyImmediate(go);
+        }
+
+        private static CardSpriteAtlas GeneratingAtlas()
+        {
+            var a = ScriptableObject.CreateInstance<CardSpriteAtlas>();
+            typeof(CardSpriteAtlas).GetField("generateArt", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(a, true);
+            return a;
+        }
+
+        [Test]
+        public void FaceUp_generating_atlas_uses_frame_background_and_keeps_label()
+        {
+            var cv = New(out var go);
+            var atlas = GeneratingAtlas();
+            cv.Set(Card.Normal(14, Suit.Star), atlas, faceUp: true);
+
+            var bg = go.GetComponent<Image>();
+            var label = go.transform.Find("Label").GetComponent<Text>();
+            Assert.IsNotNull(bg.sprite, "면 배경에 생성 프레임 스프라이트");
+            Assert.IsTrue(label.enabled, "PNG 풀아트가 없으면 랭크/무늬 라벨은 위에 유지");
+            Assert.AreEqual("A\n♥", label.text);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
+        }
+
+        [Test]
+        public void FaceDown_generating_atlas_uses_back_sprite()
+        {
+            var cv = New(out var go);
+            var atlas = GeneratingAtlas();
+            cv.Set(Card.Normal(14, Suit.Star), atlas, faceUp: false);
+
+            var bg = go.GetComponent<Image>();
+            Assert.IsNotNull(bg.sprite, "뒷면 스프라이트가 배경에 설정");
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
         }
     }
 }

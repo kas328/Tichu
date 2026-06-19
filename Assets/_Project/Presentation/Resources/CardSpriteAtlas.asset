@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tichu.Presentation::Tichu.Presentation.Visuals.CardSpriteAtlas
   back: {fileID: 0}
   faces: []
+  generateArt: 1

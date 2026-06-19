@@ -40,5 +40,13 @@ namespace Tichu.Presentation.Visuals
             banner.localScale = new Vector3(0.85f, 0.85f, 1f);
             banner.DOScale(1f, AnimTiming.BannerPop).SetEase(Ease.OutBack).SetAutoKill(true);
         }
+
+        public void TichuDeclared(RectTransform badge)
+        {
+            if (badge == null) return;
+            badge.DOKill();
+            badge.localScale = Vector3.one;
+            badge.DOPunchScale(new Vector3(0.4f, 0.4f, 0f), AnimTiming.TurnPulse, 1, 0.5f).SetAutoKill(true);
+        }
     }
 }

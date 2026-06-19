@@ -19,6 +19,9 @@ namespace Tichu.Presentation.Views
 
         /// <summary>라운드 결과 배너가 표시될 때(배너 RectTransform).</summary>
         void ResultShown(RectTransform banner);
+
+        /// <summary>티츄 콜이 새로 선언됐을 때(좌석 배지). null이면 무시.</summary>
+        void TichuDeclared(RectTransform badge);
     }
 
     /// <summary>연출 없음(테스트·헤드리스 기본). 모든 호출 무시.</summary>
@@ -27,5 +30,6 @@ namespace Tichu.Presentation.Views
         public void PlayedIn(IReadOnlyList<CardView> trickChips, bool fastForward) { }
         public void TurnChanged(Text activeSeatLabel) { }
         public void ResultShown(RectTransform banner) { }
+        public void TichuDeclared(RectTransform badge) { }
     }
 }

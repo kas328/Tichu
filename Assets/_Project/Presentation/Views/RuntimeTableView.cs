@@ -33,6 +33,12 @@ namespace Tichu.Presentation.Views
         private static readonly Color BtnOff  = new Color(0.35f, 0.35f, 0.38f);
         private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정(슬롯 버튼)
         private static readonly Color TurnHi  = new Color(0.45f, 0.95f, 0.55f); // 현재 차례 이름 강조
+        private static readonly Color TichuPurple = new Color(0.55f, 0.35f, 0.78f);
+        private static readonly Color GrandGold   = new Color(0.85f, 0.66f, 0.22f);
+
+        private readonly Image[] _callBadgeBg = new Image[4];
+        private readonly Text[] _callBadgeText = new Text[4];
+        private readonly TichuCall[] _prevCalls = new TichuCall[4]; // 초기 None
 
         private TableViewModel _vm;
         private readonly CompositeDisposable _subs = new CompositeDisposable();
@@ -175,6 +181,7 @@ namespace Tichu.Presentation.Views
             AddCardLabel(skip.transform, "▶▶ 스킵", Ink, 24);
             skip.SetActive(false);
             _skipButton = skip;
+            BuildCallBadges(rt);
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -208,6 +215,48 @@ namespace Tichu.Presentation.Views
             _backPools[seat] = MakeDynamicPool(_backRoots[seat], interactive: false);
         }
 
+        private void UpdateCallBadge(int seat, TichuCall call)
+        {
+            var prev = _prevCalls[seat];
+            _prevCalls[seat] = call; // 항상 갱신(라운드 리셋 None 반영)
+
+            var bg = _callBadgeBg[seat];
+            if (bg == null) return;
+            bool active = call != TichuCall.None;
+            bg.gameObject.SetActive(active);
+            if (active)
+            {
+                bool grand = call == TichuCall.GrandTichu;
+                bg.color = grand ? GrandGold : TichuPurple;
+                _callBadgeText[seat].text = grand ? "大 티츄" : "티츄";
+            }
+            if (call != TichuCall.None && call != prev)
+                _anim.TichuDeclared((RectTransform)bg.transform);
+        }
+
+        private void BuildCallBadge(int seat, RectTransform parent, Vector2 anchor, Vector2 pos)
+        {
+            var go = new GameObject($"CallBadge{seat}", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = rt.anchorMax = rt.pivot = anchor;
+            rt.sizeDelta = new Vector2(96, 34); rt.anchoredPosition = pos;
+            _callBadgeBg[seat] = go.GetComponent<Image>();
+            var t = NewText($"CallBadgeTxt{seat}", go.transform, "", 22);
+            t.alignment = TextAnchor.MiddleCenter; t.color = Ink;
+            StretchFull(t.rectTransform);
+            _callBadgeText[seat] = t;
+            go.SetActive(false);
+        }
+
+        private void BuildCallBadges(RectTransform rt)
+        {
+            BuildCallBadge(0, rt, new Vector2(0.5f, 0), new Vector2(250, 320)); // 나(남쪽 라벨 옆)
+            BuildCallBadge(2, rt, new Vector2(0.5f, 1), new Vector2(110, -40));  // 파트너(상)
+            BuildCallBadge(3, rt, new Vector2(0, 0.5f), new Vector2(150, 70));   // 왼쪽
+            BuildCallBadge(1, rt, new Vector2(1, 0.5f), new Vector2(-150, 70));  // 오른쪽
+        }
+
         // ── 구독 ─────────────────────────────────────────────────────────────
 
         private void Subscribe()
@@ -238,6 +287,11 @@ namespace Tichu.Presentation.Views
                 }).AddTo(_subs);
             }
             _vm.PendingDecision.Subscribe(RenderPrompt).AddTo(_subs);
+            for (int i = 0; i < 4; i++)
+            {
+                int seat = i;
+                _vm.SeatCall(seat).Subscribe(call => UpdateCallBadge(seat, call)).AddTo(_subs);
+            }
         }
 
         private void UpdateScore() => _scoreText.text = $"총점  우리(A) {_cumA} : 상대(B) {_cumB}";

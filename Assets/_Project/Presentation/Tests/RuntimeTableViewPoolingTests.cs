@@ -1,5 +1,6 @@
 using System.Threading;
 using NUnit.Framework;
+using Tichu.Core.Cards;
 using Tichu.Core.Game;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
@@ -84,6 +85,35 @@ namespace Tichu.Presentation.Tests
                     Assert.IsNotNull(backs.GetComponent<Canvas>(), $"Backs{seat} 는 서브 Canvas");
                     Assert.IsNull(backs.GetComponent<GraphicRaycaster>(), $"Backs{seat} 는 레이캐스터 불필요");
                 }
+            }
+            finally { Object.DestroyImmediate(canvasGo); }
+        }
+
+        [Test]
+        public void Hand_marks_bomb_cards()
+        {
+            var canvasGo = new GameObject("TestCanvas", typeof(Canvas));
+            try
+            {
+                var vm = new TableViewModel(0);
+                ITableView view = new RuntimeTableView();
+                view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
+
+                vm.MyHand.Value = new System.Collections.Generic.List<Card>
+                {
+                    Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Sword),
+                    Card.Normal(7, Suit.Pagoda), Card.Normal(7, Suit.Star), Card.Normal(2, Suit.Jade),
+                };
+
+                var hand = FindByName(canvasGo, "Hand");
+                int total = 0, bombMarked = 0;
+                foreach (var cv in hand.GetComponentsInChildren<CardView>(false))
+                {
+                    total++;
+                    if (cv.IsBombMember) bombMarked++;
+                }
+                Assert.AreEqual(5, total, "손패 5장 렌더");
+                Assert.AreEqual(4, bombMarked, "네 장의 7 = 폭탄 멤버");
             }
             finally { Object.DestroyImmediate(canvasGo); }
         }

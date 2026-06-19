@@ -52,6 +52,7 @@ namespace Tichu.Presentation.Views
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
         private DecisionRequest _activeReq;
         private IReadOnlyList<Card> _hand = new List<Card>();
+        private HashSet<Card> _bombCards = new HashSet<Card>();
         private int _cumA, _cumB;
         private CancellationToken _sceneCt;
         private CardView _cardViewPrefab;
@@ -222,7 +223,7 @@ namespace Tichu.Presentation.Views
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
             // 손패 갱신 시, 손에서 빠진 카드만 선택에서 제거(상대 턴 중 폭탄 선택은 유지).
-            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.RemoveAll(c => !_hand.Contains(c)); RenderHand(); }).AddTo(_subs);
+            _vm.MyHand.Subscribe(h => { _hand = h ?? new List<Card>(); _selection.RemoveAll(c => !_hand.Contains(c)); _bombCards = BombScanner.BombCards(_hand); RenderHand(); }).AddTo(_subs);
             for (int i = 0; i < 4; i++)
             {
                 int seat = i;
@@ -302,6 +303,7 @@ namespace Tichu.Presentation.Views
                 var cv = _handPool.Next();
                 cv.Set(card, _atlas, faceUp: true);
                 cv.SetSize(66, 100);
+                cv.SetBombMember(_bombCards.Contains(card));
 
                 CardView.Highlight h = CardView.Highlight.Normal;
                 if (Exchanging)

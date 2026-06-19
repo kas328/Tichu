@@ -16,10 +16,17 @@ namespace Tichu.Presentation.Visuals
 
         [SerializeField] private Sprite back;
         [SerializeField] private Entry[] faces = new Entry[0];
+        [SerializeField] private bool generateArt; // true면 미할당 면/뒷면을 CardArtFactory로 생성
 
         private Dictionary<string, Sprite> _map;
+        private CardArtFactory _factory;
+        private CardArtFactory Factory => _factory ?? (_factory = new CardArtFactory());
 
-        public Sprite Back => back;
+        public Sprite Back => back != null ? back : (generateArt ? Factory.Back : null);
+
+        /// <summary>면 배경 프레임(생성 아트). PNG 면(Face)이 있으면 CardView가 그쪽을 우선한다.</summary>
+        public Sprite Frame(Card card) =>
+            generateArt ? Factory.Frame(CardArtFactory.StyleFor(card)) : null;
 
         public Sprite Face(Card card)
         {

@@ -17,6 +17,7 @@ namespace Tichu.Presentation.Shell
         readonly AppFlowMachine _flow;
         MenuShellView _view;
         IDisposable _sub;
+        AudioSource _bgm;   // 메뉴 BGM(앱-수명, App 씬 상주). 인게임에선 정지.
 
         public MenuShellPresenter(AppFlowMachine flow) => _flow = flow;
 
@@ -24,7 +25,28 @@ namespace Tichu.Presentation.Shell
         {
             _view = new MenuShellView();
             WireButtons();
+            SetupBgm();
             _sub = _flow.State.Subscribe(Show);   // 구독 즉시 현재 화면(Intro) 발화 → 첫 패널 표시
+        }
+
+        // 메뉴 BGM 소스 생성(루프). 클립은 Resources에서 로드 — 부재 시 무음(무예외).
+        void SetupBgm()
+        {
+            var clip = Resources.Load<AudioClip>("music_fun_funky_whistle_groove_loop");
+            if (clip == null) return;
+            _bgm = new GameObject("MenuBgm").AddComponent<AudioSource>();
+            _bgm.clip = clip;
+            _bgm.loop = true;
+            _bgm.playOnAwake = false;
+            _bgm.volume = 0.5f;
+        }
+
+        // 화면 상태에 따라 BGM 토글: 메뉴/결과면 재생(이미 재생 중이면 유지), 인게임이면 정지.
+        void ToggleBgm(ScreenState s)
+        {
+            if (_bgm == null) return;
+            if (MenuBgm.PlaysIn(s)) { if (!_bgm.isPlaying) _bgm.Play(); }
+            else if (_bgm.isPlaying) _bgm.Stop();
         }
 
         void WireButtons()
@@ -57,6 +79,8 @@ namespace Tichu.Presentation.Shell
             }
 
             if (next != null) ShowPanel(next);
+
+            ToggleBgm(s);
         }
 
         /// <summary>전 화면 위에 잠깐 뜨는 알림(Phase3 스텁 안내 등). DoTween 시퀀스로 페이드 인→유지→아웃.</summary>
@@ -94,6 +118,10 @@ namespace Tichu.Presentation.Shell
             cg.blocksRaycasts = true;
         }
 
-        public void Dispose() => _sub?.Dispose();
+        public void Dispose()
+        {
+            _sub?.Dispose();
+            if (_bgm != null) UnityEngine.Object.Destroy(_bgm.gameObject);
+        }
     }
 }

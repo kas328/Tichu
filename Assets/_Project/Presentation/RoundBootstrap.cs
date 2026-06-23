@@ -37,6 +37,8 @@ namespace Tichu.Presentation
             // 가로 60fps 목표(D1). 방향 잠금은 PlayerSettings(가로만 허용).
             Application.targetFrameRate = 60;
             QualitySettings.vSyncCount = 0;
+            // D6: 디버그 빌드 한정 FPS 오버레이(실기기 60fps 측정). 릴리스 빌드에선 미생성(no-op).
+            if (Debug.isDebugBuild) Diagnostics.FpsOverlay.Create();
 
             // 1) EventSystem 보장(없으면 생성 — 메뉴 셸이 이미 만들었으면 건너뜀).
             if (EventSystem.current == null)

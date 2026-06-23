@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 · P1-D / D5 — 사운드(IAudioService + AudioBank + SFX 훅) 설계 + 구현계획</title>
+<style>
+  :root{
+    --ink:#1d2330; --sub:#525c70; --faint:#8b94a6;
+    --line:#e7ebf3; --line2:#d6dcea;
+    --bg:#eef1f8; --surface:#ffffff; --panel:#f5f7fc;
+    --accent:#4f7cff; --accent-d:#3a63e0;
+    --green:#15b187; --gold:#d99a23; --purple:#7c5cff; --red:#e5484d; --orange:#e3892b;
+    --radius:14px; --shadow:0 1px 2px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px 80px}
+  .cover{background:linear-gradient(135deg,#5b3fd6,#7c5cff 70%);color:#fff;
+    padding:54px 40px 46px;border-radius:0 0 28px 28px;box-shadow:var(--shadow)}
+  .cover .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;opacity:.85;font-weight:700}
+  .cover h1{margin:.3em 0 .25em;font-size:30px;line-height:1.25;letter-spacing:-.01em}
+  .cover p{margin:0;max-width:820px;opacity:.96;font-size:15px}
+  .chips{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+    padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .toc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 22px;margin:26px 0;box-shadow:var(--shadow)}
+  .toc h2{margin:0 0 10px;font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;border:0;padding:0}
+  .toc ol{margin:0;padding-left:0;list-style:none;counter-reset:t;columns:2;column-gap:34px}
+  .toc li{counter-increment:t;margin:5px 0;font-size:14.5px}
+  .toc li::before{content:counter(t);display:inline-block;width:22px;height:22px;margin-right:8px;
+    background:var(--panel);border:1px solid var(--line2);border-radius:6px;text-align:center;
+    font-size:12px;font-weight:700;color:var(--accent);line-height:21px}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:30px 34px;margin:22px 0;box-shadow:var(--shadow)}
+  h2{font-size:23px;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid var(--line);
+    display:flex;align-items:baseline;gap:12px;letter-spacing:-.01em}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;
+    background:linear-gradient(135deg,var(--purple),var(--accent));color:#fff;border-radius:9px;
+    font-size:15px;font-weight:800}
+  h3{font-size:17px;margin:26px 0 8px;letter-spacing:-.01em}
+  h4{font-size:14.5px;margin:0 0 6px}
+  p{margin:.5em 0}
+  .lead{font-size:15.5px;color:var(--sub)}
+  code{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font-size:12.5px;font-family:'JetBrains Mono','Consolas',monospace;color:#3a4660}
+  .callout{display:flex;gap:12px;padding:14px 16px;border-radius:11px;margin:16px 0;font-size:14px}
+  .callout::before{font-size:18px;line-height:1.4}
+  .callout-note{background:#eef3ff;border:1px solid #d4e0ff}
+  .callout-note::before{content:"ℹ️"}
+  .callout-ok{background:#e9f9f3;border:1px solid #c4ecdd}
+  .callout-ok::before{content:"✅"}
+  .callout-warn{background:#fff6e8;border:1px solid #f6e0b8}
+  .callout-warn::before{content:"⚠️"}
+  .callout-danger{background:#fdeced;border:1px solid #f6c9cc}
+  .callout-danger::before{content:"⛔"}
+  .callout b{color:var(--ink)}
+  .grid{display:grid;gap:14px;margin:16px 0}
+  .grid-2{grid-template-columns:1fr 1fr}
+  .grid-3{grid-template-columns:1fr 1fr 1fr}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .card h4{display:flex;align-items:center;gap:7px}
+  .card p{font-size:13.5px;color:var(--sub);margin:.35em 0}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid}
+  .tag-green{background:#e9f9f3;border-color:#bfe9d8;color:#0c7a5b}
+  .tag-blue{background:#eef3ff;border-color:#cfddff;color:#2f54c9}
+  .tag-gold{background:#fdf3df;border-color:#f0dcae;color:#9c6f12}
+  .tag-red{background:#fdecec;border-color:#f4c7c9;color:#c5363a}
+  .tag-purple{background:#f1ecff;border-color:#ddd0fb;color:#5b3fd6}
+  .tag-gray{background:#eef1f6;border-color:#dde2ec;color:#5b6678}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line2);padding:9px 11px;text-align:left;vertical-align:top}
+  thead th{background:#2a3550;color:#fff;font-weight:700;border-color:#2a3550}
+  tbody tr:nth-child(even){background:var(--panel)}
+  td .tag{white-space:nowrap}
+  .diagram{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin:18px 0;text-align:center}
+  .diagram svg{max-width:100%;height:auto}
+  .caption{font-size:12.5px;color:var(--faint);margin-top:8px;text-align:center}
+  ul.bullets{margin:.4em 0;padding-left:20px}
+  ul.bullets li{margin:5px 0;font-size:14px}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0;margin:.5em 0}
+  ol.steps li{counter-increment:s;position:relative;padding-left:38px;margin:9px 0;font-size:14px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;
+    background:var(--accent);color:#fff;border-radius:7px;text-align:center;line-height:26px;font-weight:700;font-size:13px}
+  .inv{background:#fdeced;border:1px solid #f6c9cc;border-radius:11px;padding:14px 18px;margin:14px 0}
+  .inv h4{color:#c5363a}
+  .inv ul{margin:.4em 0;padding-left:18px}
+  .inv li{font-size:13.5px;margin:4px 0}
+  pre{background:#0f1729;color:#dbe4f5;border-radius:11px;padding:16px 18px;overflow:auto;
+    font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.55;margin:14px 0}
+  pre .c{color:#7c89a8}
+  pre .k{color:#7cc4ff}
+  pre .s{color:#9be7c4}
+  .footer{color:var(--faint);font-size:12.5px;text-align:center;margin-top:30px}
+  .pros-cons{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  .pros,.cons{border-radius:11px;padding:14px 17px;border:1px solid}
+  .pros{background:#e9f9f3;border-color:#c4ecdd}
+  .cons{background:#fff6e8;border-color:#f6e0b8}
+  .pros h4,.cons h4{margin:0 0 8px}
+  .pros ul,.cons ul{margin:0;padding-left:18px;font-size:13.5px}
+  .pros li,.cons li{margin:4px 0}
+</style>
+</head>
+<body>
+<header class="cover">
+  <div class="eyebrow">Tichu · Phase 1-D · D5 · Design + Implementation Plan</div>
+  <h1>D5 — 사운드: IAudioService + AudioBank + 인게임 SFX 훅</h1>
+  <p>D4의 <code>IPlayAnimator</code> 시임을 1:1 미러링해 <code>IAudioService</code>(SFX 단일 훅)를 만들고, 별도 리액터 클래스 없이 <code>RuntimeTableView.Subscribe()</code>의 기존 vm 관측(<code>Played</code>/<code>RoundResult</code>/<code>SeatCall</code>)에 한 겹 더 얹는다 — 애니와 "동일 소스". 폭탄/콜 분류는 순수 정적 <code>SfxMap</code>으로 격리해 EditMode 전수 검증한다. AudioBank 미할당이면 무음(no-op 3중 가드)이라 사운드 에셋 0개여도 컴파일·런타임·테스트 통과. 진실/연출 분리로 오라클 비트동일성은 그대로 보존한다.</p>
+  <div class="chips">
+    <span class="chip">신규 asmdef 0</span>
+    <span class="chip">RoundBootstrap diff 0줄</span>
+    <span class="chip">SfxMap 순수 매핑 · EditMode</span>
+    <span class="chip">오라클 비침범</span>
+    <span class="chip">멀티에이전트 적대 검증</span>
+    <span class="chip">실재생 청취는 D6</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#why">D5 목표 · 한눈에</a></li>
+    <li><a href="#verify-first">적대적 검증이 잡은 것</a></li>
+    <li><a href="#arch">아키텍처 · 데이터 흐름</a></li>
+    <li><a href="#components">컴포넌트 · API 명세</a></li>
+    <li><a href="#safety">no-op 3중 가드 · 오라클 보존</a></li>
+    <li><a href="#tdd">TDD 구현 계획(T1~T6)</a></li>
+    <li><a href="#scope">범위 · 비범위(D5.1 이월)</a></li>
+    <li><a href="#decisions">열린 결정 · 리스크</a></li>
+  </ol>
+</nav>
+
+<!-- ───────────── 0. 목표 ───────────── -->
+<section id="why">
+  <h2><span class="n">0</span> D5 목표 · 한눈에</h2>
+  <p class="lead">기획 잔여 아키텍처 §6.5의 사운드 묶음을 구현한다. D5 코어 = <b>인게임 SFX 훅 + no-op 가드</b>. 손맛의 대부분(카드·폭탄·패스·티츄 콜·라운드 종료)은 이미 화면에 흐르는 vm 관측만으로 도출된다.</p>
+
+  <div class="grid grid-3">
+    <div class="card">
+      <h4>① 시임 미러링 <span class="tag tag-purple">진실/연출 분리</span></h4>
+      <p><code>IAudioService.PlaySfx(SfxId)</code> + <code>NoOpAudioService</code> 1파일 2형 — <code>IPlayAnimator</code> 컨벤션 정확 복제. 실 구현 <code>UnityAudioService</code>는 <code>DoTweenPlayAnimator</code>가 트윈만 다루듯 AudioSource만 다룬다.</p>
+    </div>
+    <div class="card">
+      <h4>② 동일 소스 훅 <span class="tag tag-blue">리액터 미신설</span></h4>
+      <p><code>IPlayAnimator</code>가 별도 리액터 없이 <code>_anim</code> 인라인 호출로 끝나는 것과 똑같이, <code>Subscribe()</code>의 <code>Played</code>/<code>RoundResult</code>/<code>SeatCall</code> 구독에 <code>_audio</code> 한 겹을 더 얹는다.</p>
+    </div>
+    <div class="card">
+      <h4>③ 순수 매핑 격리 <span class="tag tag-green">EditMode</span></h4>
+      <p>폭탄/콜 분류를 Subscribe 람다에 묻지 않고 <code>SfxMap.For(GameAction)</code> / <code>ForCall(TichuCall)</code> 순수 정적 함수로 뺀다 → UnityEngine 무의존, 전수 단위테스트.</p>
+    </div>
+  </div>
+
+  <div class="callout callout-note"><div>
+    이 설계는 <b>멀티에이전트 설계 패널(최소-수술 / 테스트우선 / 모바일성능 3안)</b> → 5축 심사 → 단일 종합 → <b>적대적 검증 4렌즈(오라클·no-op·수술적/YAGNI·EditMode 커버)</b>로 도출했다. 베이스=최소-수술 골격, 여기에 테스트우선안의 <code>SfxMap</code> 순수 매핑을 이식하고, 모바일성능안의 보이스 풀 N=6 근거만 차용했다. 검증이 적출한 minor 11건은 모두 본 설계에 반영됐다(§1).
+  </div></div>
+</section>
+
+<!-- ───────────── 1. 검증 ───────────── -->
+<section id="verify-first">
+  <h2><span class="n">1</span> 적대적 검증이 잡은 것</h2>
+  <p class="lead">핵심 안전 주장은 코드 사실로 <b>전부 입증(반증 실패)</b>됐고, critical/major 0건. 대신 minor 결함·축소 여지 11건을 구현 전에 적출해 설계에 선반영했다.</p>
+
+  <div class="callout callout-ok"><div>
+    <b>입증된 안전(반증 실패):</b> ⑴ 오라클/헤드리스는 <code>AsyncGameDriver.RunRoundAsync(onApply=null)</code> 경로라 vm을 건드리지 않음 → vm 구독에만 얹힌 오디오 훅이 <b>코드패스에 물리적으로 부재</b>(비트동일성 무영향). ⑵ 헤드리스 Simulator는 vm 무참조 → 10만판 무결성 그대로 유효. ⑶ 신규 asmdef 0(audio 모듈 자동 참조)·<code>RoundBootstrap</code> 0줄·additive 훅. ⑷ AudioReactor 미신설이 기존 <code>IPlayAnimator</code> 패턴과 대칭.
+  </div></div>
+
+  <div class="inv">
+    <h4>구현 전에 선반영한 minor 수정 (검증 4렌즈 종합)</h4>
+    <ul>
+      <li><b>S1 · <code>SfxMap.For</code> null/빈 Cards 가드</b> — <code>GameAction.Cards</code>는 nullable. <code>FormatAction(L691)</code>처럼 <code>Kind</code> 우선 라우팅 + Play 분기에서만 <code>Cards != null &amp;&amp; Count &gt; 0</code> 검사 후 <code>Recognize</code>. (NRE 차단)</li>
+      <li><b>S2 · <code>_audio</code>를 ctor에서 즉시 NoOp 초기화</b> — <code>_anim = anim ?? NoOp</code>과 대칭. Bind에서만 폴백하면 ctor~Bind 사이 null-window가 생긴다. → 어떤 시점에도 <code>_audio != null</code>.</li>
+      <li><b>S3 · <code>UnityAudioService</code> bank+clip 이중 가드</b> — <code>PlaySfx</code> 첫 줄에 <code>if(_bank==null) return; clip=_bank.Clip(id); if(clip==null) return;</code> (명시 주입으로 bank=null이 와도 무예외).</li>
+      <li><b>S4 · RoundEnd SFX는 <code>RenderResult</code>의 <code>r!=null</code> 가드 안에</b> — <code>RoundBootstrap.cs:71</code>이 매 라운드 <code>RoundResult.Value=null</code>로 능동 재대입한다. 무가드 구독은 라운드마다 오발 → 가드 안에 두고 "리셋 null→발화 0"을 테스트로 못박음.</li>
+      <li><b>S5 · TichuCall SFX는 전이 가드 안에</b> — <code>UpdateCallBadge</code>의 <code>call != None &amp;&amp; call != prev</code> 분기 안에서만 발화(전이당 1회, None 진입 자체 차단).</li>
+      <li><b>S6 · Default_ctor 무예외 테스트는 3 소스 모두 푸시</b> — <code>Played(Play/Pass)</code> + <code>RoundResult</code> + <code>SeatCall</code>까지 밀어야 NoOp 폴백 안전을 실제로 증명.</li>
+      <li><b>S7 · AudioBankTests 인스턴스 분리 + AreSame</b> — <code>Clip</code>의 <code>_map</code> 지연빌드 stale 함정 회피. 빈뱅크/등록뱅크를 별도 <code>CreateInstance</code>로, 등록→non-null은 참조동일성(<code>AreSame</code>)으로 단언.</li>
+    </ul>
+    <h4 style="margin-top:12px">YAGNI 축소(더 작게)</h4>
+    <ul>
+      <li><b>S8 · <code>IAudioService</code>는 <code>PlaySfx</code> 단일 멤버</b> — D5는 PlaySfx만 발화한다. <code>PlayBgm/StopBgm/Volume</code> 빈 스텁 선반영은 §2(speculative)·"실사용 메서드만 둔 <code>IPlayAnimator</code> 미러링" 논리와도 모순 → 제거. D5.1에서 인터페이스 멤버 추가는 비파괴적.</li>
+      <li><b>S9 · <code>SfxId</code> enum을 <code>SfxMap.cs</code>에 통합</b> — 별도 <code>SfxId.cs</code> 제거(파일 1개 감축).</li>
+      <li><b>S10 · DOFade 컴파일 추정 주석 제거</b> — D5엔 BGM 미구현이라 죽은 주석 + 검증 불가 추정. D5.1 착수 시 실컴파일로 확인. <code>UnityAudioService</code> 주석은 보이스 풀 N=6 근거만 간결히.</li>
+      <li><b>S11 · 폭탄 분류 중복 비용</b> — <code>FormatAction</code>이 이미 매 Played마다 <code>Recognize</code>를 호출. SfxMap이 한 번 더 부르면 플레이당 2회지만 핫스팟 아님(플레이당 1이벤트). 테스트가능성 이득이 우선 → 현행 유지.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ───────────── 2. 아키텍처 ───────────── -->
+<section id="arch">
+  <h2><span class="n">2</span> 아키텍처 · 데이터 흐름</h2>
+  <p>진실(<code>ApplySnapshot</code>/<code>RecordPlay</code>)은 즉시 vm을 갱신하고, 그 vm 관측을 화면(애니)과 사운드가 <b>같은 소스로</b> 구독한다. 오디오는 어디에도 끼어들지 않는 순수 additive 소비자다.</p>
+
+  <div class="diagram">
+  <svg viewBox="0 0 920 330" role="img" font-family="'Pretendard','Malgun Gothic',sans-serif">
+    <!-- 진실 -->
+    <rect x="20" y="24" width="240" height="92" rx="11" fill="#eef3ff" stroke="#4f7cff" stroke-width="1.5"/>
+    <text x="140" y="48" text-anchor="middle" font-size="13" font-weight="bold" fill="#2f54c9">진실(라이브 경로)</text>
+    <text x="140" y="70" text-anchor="middle" font-size="11.5" fill="#3a4660">RoundBootstrap.RunMatchAsync</text>
+    <text x="140" y="88" text-anchor="middle" font-size="11.5" fill="#3a4660">onApply=(st,act)=&gt;</text>
+    <text x="140" y="105" text-anchor="middle" font-size="11.5" fill="#3a4660">ApplySnapshot · RecordPlay</text>
+
+    <!-- vm 관측 -->
+    <rect x="340" y="14" width="240" height="112" rx="11" fill="#fff" stroke="#7c5cff" stroke-width="1.6"/>
+    <text x="460" y="38" text-anchor="middle" font-size="13" font-weight="bold" fill="#5b3fd6">TableViewModel (R3)</text>
+    <text x="460" y="60" text-anchor="middle" font-size="11.5" fill="#3a4660">Played (Observable&lt;GameAction&gt;)</text>
+    <text x="460" y="78" text-anchor="middle" font-size="11.5" fill="#3a4660">RoundResult (RP&lt;RoundResult?&gt;)</text>
+    <text x="460" y="96" text-anchor="middle" font-size="11.5" fill="#3a4660">SeatCall(i) (RP&lt;TichuCall&gt;)</text>
+    <text x="460" y="115" text-anchor="middle" font-size="11" fill="#8b94a6">Phase · CurrentTurn · MyHand …</text>
+
+    <line x1="260" y1="70" x2="338" y2="70" stroke="#8b94a6" stroke-width="1.8" marker-end="url(#a5)"/>
+
+    <!-- 두 소비자 -->
+    <rect x="650" y="14" width="250" height="50" rx="11" fill="#f1ecff" stroke="#7c5cff" stroke-width="1.4"/>
+    <text x="775" y="35" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#5b3fd6">_anim : IPlayAnimator</text>
+    <text x="775" y="53" text-anchor="middle" font-size="11" fill="#5b3fd6">PlayedIn · ResultShown · TichuDeclared</text>
+
+    <rect x="650" y="76" width="250" height="50" rx="11" fill="#e9f9f3" stroke="#15b187" stroke-width="1.6"/>
+    <text x="775" y="97" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#0c7a5b">_audio : IAudioService  ★D5</text>
+    <text x="775" y="115" text-anchor="middle" font-size="11" fill="#0c7a5b">PlaySfx(SfxMap.For / ForCall / RoundEnd)</text>
+
+    <line x1="580" y1="55" x2="648" y2="40" stroke="#8b94a6" stroke-width="1.6" marker-end="url(#a5)"/>
+    <line x1="580" y1="85" x2="648" y2="100" stroke="#15b187" stroke-width="1.8" marker-end="url(#a5g)"/>
+    <text x="610" y="74" font-size="10.5" fill="#8b94a6">RuntimeTableView.Subscribe()</text>
+
+    <!-- SfxMap + bank/pool -->
+    <rect x="650" y="150" width="250" height="44" rx="10" fill="#fff" stroke="#15b187" stroke-width="1.3"/>
+    <text x="775" y="168" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#0c7a5b">SfxMap (순수 · EditMode)</text>
+    <text x="775" y="185" text-anchor="middle" font-size="10.5" fill="#0c7a5b">GameAction/TichuCall → SfxId</text>
+    <rect x="650" y="204" width="250" height="44" rx="10" fill="#fff" stroke="#15b187" stroke-width="1.3"/>
+    <text x="775" y="222" text-anchor="middle" font-size="11.5" font-weight="bold" fill="#0c7a5b">AudioBank(SO) → UnityAudioService</text>
+    <text x="775" y="239" text-anchor="middle" font-size="10.5" fill="#0c7a5b">SfxId→Clip · AudioSource[6] 라운드로빈</text>
+    <line x1="775" y1="126" x2="775" y2="148" stroke="#15b187" stroke-width="1.4" marker-end="url(#a5g)"/>
+    <line x1="775" y1="194" x2="775" y2="202" stroke="#15b187" stroke-width="1.4" marker-end="url(#a5g)"/>
+
+    <!-- 오라클 -->
+    <rect x="20" y="240" width="560" height="70" rx="11" fill="#fdf3df" stroke="#d99a23" stroke-width="1.4"/>
+    <text x="40" y="264" font-size="12.5" font-weight="bold" fill="#9c6f12">오라클/헤드리스 (onApply=null)</text>
+    <text x="40" y="285" font-size="11.5" fill="#7a5a12">AsyncGameDriver.RunRoundAsync(…, onApply=null) → vm 미발화 → RuntimeTableView Bind 자체 없음</text>
+    <text x="40" y="303" font-size="11.5" fill="#7a5a12">⇒ _audio 인스턴스조차 부재 · SFX 코드 물리적 부재 · 동기 GameDriver와 비트동일</text>
+
+    <defs>
+      <marker id="a5" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#8b94a6"/></marker>
+      <marker id="a5g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#15b187"/></marker>
+    </defs>
+  </svg>
+  <p class="caption">vm 관측을 애니(_anim)와 사운드(_audio)가 동일 소스로 구독한다. 오라클 경로는 vm을 발화시키지 않으므로 오디오가 닿지 않는다.</p>
+  </div>
+
+  <h3>2.1 배선 — RoundBootstrap 0줄, RuntimeTableView self-new 폴백</h3>
+  <p>오디오 조립은 <code>RuntimeTableView.Bind()</code> 내부의 self-new로 처리해 DI/생성자 표면을 0 증가시킨다 — <code>CardView</code>/<code>CardSpriteAtlas</code>의 <code>Resources.Load</code> 폴백(L78-79)과 동일 컨벤션이다. 테스트만 스파이를 명시 주입한다(<code>PlayAnimatorWiringTests</code> 패턴).</p>
+<pre><span class="c">// RuntimeTableView — ctor: _anim과 대칭으로 _audio도 즉시 NoOp(널-윈도 제거, 수정 S2)</span>
+<span class="k">public</span> RuntimeTableView(IPlayAnimator anim = <span class="k">null</span>, IAudioService audio = <span class="k">null</span>)
+{
+    _anim = anim ?? <span class="k">new</span> NoOpPlayAnimator();
+    _audio = audio ?? <span class="k">new</span> NoOpAudioService();
+    _audioExplicit = audio != <span class="k">null</span>;   <span class="c">// 명시 주입(테스트 스파이)이면 Bind 폴백 생략</span>
+}
+
+<span class="c">// Bind(): CardView/Atlas Resources.Load 직후 — 라이브에서만 뱅크가 있으면 실 서비스로 교체</span>
+<span class="k">if</span> (!_audioExplicit)
+{
+    <span class="k">var</span> bank = Resources.Load&lt;AudioBank&gt;(<span class="s">"AudioBank"</span>);
+    <span class="k">if</span> (bank != <span class="k">null</span>) _audio = <span class="k">new</span> UnityAudioService(bank);  <span class="c">// 없으면 NoOp 유지</span>
+}
+
+<span class="c">// Subscribe(): 기존 vm 구독에 _audio 한 겹 (애니와 동일 소스)</span>
+_vm.Played.Subscribe(a =&gt; _audio.PlaySfx(SfxMap.For(a))).AddTo(_subs);   <span class="c">// L270 옆</span>
+<span class="c">// RenderResult 내부 r!=null 가드 안 (수정 S4):  _anim.ResultShown(...); _audio.PlaySfx(SfxId.RoundEnd);</span>
+<span class="c">// UpdateCallBadge 전이 가드 안 (수정 S5): _anim.TichuDeclared(...); _audio.PlaySfx(SfxMap.ForCall(call));</span></pre>
+  <div class="callout callout-ok"><div><b>git diff 예상:</b> <code>RoundBootstrap.cs</code> <b>0줄</b> · <code>RuntimeTableView.cs</code> = 필드 2개(<code>_audio</code>·<code>_audioExplicit</code>) + ctor 인자 1개 + Bind 폴백 ~4줄 + Subscribe/RenderResult/UpdateCallBadge 훅 3줄. 진실 경로(<code>ApplySnapshot</code>/<code>RecordPlay</code>/<code>AsyncGameDriver</code>/<code>MatchRunner.Decide</code>)는 한 줄도 안 건드림.</div></div>
+</section>
+
+<!-- ───────────── 3. 컴포넌트 ───────────── -->
+<section id="components">
+  <h2><span class="n">3</span> 컴포넌트 · API 명세</h2>
+
+  <h3>3.1 파일 목록 (신규 4 prod + 3 test · 수정 1 · asmdef 0)</h3>
+  <table>
+    <thead><tr><th>파일</th><th>종류</th><th>역할</th></tr></thead>
+    <tbody>
+      <tr><td><code>Presentation/Audio/SfxMap.cs</code></td><td><span class="tag tag-green">신규</span></td><td><code>enum SfxId</code> + 순수 정적 <code>For(GameAction)</code>/<code>ForCall(TichuCall)</code>. UnityEngine 무의존 → EditMode 전수. (S9: SfxId 통합)</td></tr>
+      <tr><td><code>Presentation/Audio/IAudioService.cs</code></td><td><span class="tag tag-green">신규</span></td><td><code>interface IAudioService { void PlaySfx(SfxId); }</code> + <code>sealed NoOpAudioService</code>(빈 본문). <code>IPlayAnimator.cs</code> 1파일 2형 미러. (S8: 단일 멤버)</td></tr>
+      <tr><td><code>Presentation/Audio/AudioBank.cs</code></td><td><span class="tag tag-green">신규</span></td><td><code>[CreateAssetMenu] sealed ScriptableObject</code>. <code>SfxId→AudioClip</code> 룩업, 미등록/미할당=null. <code>CardSpriteAtlas.Face</code> 패턴.</td></tr>
+      <tr><td><code>Presentation/Audio/UnityAudioService.cs</code></td><td><span class="tag tag-green">신규</span></td><td>실 구현. hideFlags 호스트 GO + <code>AudioSource[6]</code> 라운드로빈 <code>PlayOneShot</code>. bank+clip 이중 가드(S3).</td></tr>
+      <tr><td><code>Presentation/Views/RuntimeTableView.cs</code></td><td><span class="tag tag-gold">수정</span></td><td>ctor 인자 + <code>_audio</code>/<code>_audioExplicit</code> 필드 + Bind 폴백 + Subscribe/RenderResult/UpdateCallBadge 훅 3곳.</td></tr>
+      <tr><td><code>Presentation/RoundBootstrap.cs</code></td><td><span class="tag tag-gray">무변경</span></td><td>0줄. L48 <code>new RuntimeTableView(new DoTweenPlayAnimator())</code>는 audio 인자 생략(기본값).</td></tr>
+      <tr><td><code>Presentation/Tests/SfxMapTests.cs</code></td><td><span class="tag tag-green">신규</span></td><td>EditMode 순수 매핑 전수(<code>AnimTimingTests</code> 골격).</td></tr>
+      <tr><td><code>Presentation/Tests/AudioWiringTests.cs</code></td><td><span class="tag tag-green">신규</span></td><td>EditMode 라우팅(<code>PlayAnimatorWiringTests</code> 미러, 스파이 <code>RecordingAudioService</code>).</td></tr>
+      <tr><td><code>Presentation/Tests/AudioBankTests.cs</code></td><td><span class="tag tag-green">신규</span></td><td>EditMode SO 룩업/널가드(<code>CardSpriteAtlasTests</code> 골격, 인스턴스 분리+AreSame S7).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.2 SfxId 분류 — vm 관측으로 도출 가능한 이벤트만</h3>
+  <table>
+    <thead><tr><th>SfxId</th><th>소스(구독 지점)</th><th>발화 조건</th></tr></thead>
+    <tbody>
+      <tr><td><code>CardPlay</code></td><td><code>Played</code> (Subscribe L270)</td><td><code>Kind==Play</code> &amp;&amp; <b>!</b><code>IsBomb</code> (또는 Cards 비어있음 폴백)</td></tr>
+      <tr><td><code>Bomb</code></td><td><code>Played</code></td><td><code>Kind==Play</code> &amp;&amp; <code>Recognize(Cards, Lead).IsBomb</code> (FormatAction L693 동일)</td></tr>
+      <tr><td><code>Pass</code></td><td><code>Played</code></td><td><code>Kind==Pass</code></td></tr>
+      <tr><td><code>GiveDragon</code></td><td><code>Played</code></td><td><code>Kind==GiveDragon</code></td></tr>
+      <tr><td><code>TichuCall</code></td><td><code>SeatCall(i)</code> (UpdateCallBadge L293)</td><td>전이 <code>None→Tichu</code> (가드 안, 전이당 1회)</td></tr>
+      <tr><td><code>GrandTichuCall</code></td><td><code>SeatCall(i)</code></td><td>전이 <code>None→GrandTichu</code> (가드 안, 전이당 1회)</td></tr>
+      <tr><td><code>RoundEnd</code></td><td><code>RoundResult</code> (RenderResult L273)</td><td><code>r != null</code> 가드 안 (Win/Lose 분기는 D5.1)</td></tr>
+      <tr><td><code>None</code></td><td>—</td><td>명시적 no-op 분기(그 외 액션·콜 없음). <code>Clip(None)==null→무음</code></td></tr>
+    </tbody>
+  </table>
+
+  <h3>3.3 SfxMap — 순수 매핑(수정 S1 가드 포함)</h3>
+<pre><span class="k">public enum</span> SfxId { None = 0, CardPlay, Pass, Bomb, GiveDragon, TichuCall, GrandTichuCall, RoundEnd }
+
+<span class="k">public static class</span> SfxMap
+{
+    <span class="c">// 진실 로그(이미 적용된 불변 GameAction)→SFX. Kind 우선 라우팅 — Play 분기에서만 Cards 접근.</span>
+    <span class="k">public static</span> SfxId For(GameAction a)
+    {
+        <span class="k">switch</span> (a.Kind)
+        {
+            <span class="k">case</span> GameActionKind.Pass:       <span class="k">return</span> SfxId.Pass;
+            <span class="k">case</span> GameActionKind.GiveDragon: <span class="k">return</span> SfxId.GiveDragon;
+            <span class="k">case</span> GameActionKind.Play:
+                <span class="k">if</span> (a.Cards == <span class="k">null</span> || a.Cards.Count == 0) <span class="k">return</span> SfxId.CardPlay;  <span class="c">// S1: nullable 가드</span>
+                <span class="k">var</span> c = CombinationRecognizer.Recognize(a.Cards.ToArray(), TrickContext.Lead);
+                <span class="k">return</span> c.IsBomb ? SfxId.Bomb : SfxId.CardPlay;
+            <span class="k">default</span>:                        <span class="k">return</span> SfxId.None;
+        }
+    }
+
+    <span class="k">public static</span> SfxId ForCall(TichuCall call) =&gt; call <span class="k">switch</span>
+    {
+        TichuCall.Tichu      =&gt; SfxId.TichuCall,
+        TichuCall.GrandTichu =&gt; SfxId.GrandTichuCall,
+        _                    =&gt; SfxId.None,
+    };
+}</pre>
+
+  <h3>3.4 AudioBank · UnityAudioService</h3>
+<pre><span class="c">// CardSpriteAtlas.Face 패턴 — 미할당/미등록=null=소비자 무음. _map 지연 빌드.</span>
+[CreateAssetMenu(menuName = <span class="s">"Tichu/Audio Bank"</span>, fileName = <span class="s">"AudioBank"</span>)]
+<span class="k">public sealed class</span> AudioBank : ScriptableObject
+{
+    [System.Serializable] <span class="k">public struct</span> Entry { <span class="k">public</span> SfxId id; <span class="k">public</span> AudioClip clip; }
+    [SerializeField] <span class="k">private</span> Entry[] clips = <span class="k">new</span> Entry[0];
+    <span class="k">private</span> Dictionary&lt;SfxId, AudioClip&gt; _map;
+
+    <span class="k">public</span> AudioClip Clip(SfxId id)
+    {
+        <span class="k">if</span> (clips == <span class="k">null</span> || clips.Length == 0) <span class="k">return null</span>;
+        <span class="k">if</span> (_map == <span class="k">null</span>) { _map = <span class="k">new</span>(clips.Length); <span class="k">foreach</span> (<span class="k">var</span> e <span class="k">in</span> clips) _map[e.id] = e.clip; }
+        <span class="k">return</span> _map.TryGetValue(id, <span class="k">out var</span> c) ? c : <span class="k">null</span>;
+    }
+}
+
+<span class="c">// 보이스 풀 N=6: 4인 동시 연출(폭탄+차례+결과) 여유. 스틸링/동적확장 미도입(YAGNI)·D6 프로파일러 조정.</span>
+<span class="k">public sealed class</span> UnityAudioService : IAudioService
+{
+    <span class="k">private const float</span> Vol = 1f;
+    <span class="k">private readonly</span> AudioBank _bank;
+    <span class="k">private readonly</span> AudioSource[] _voices;
+    <span class="k">private int</span> _next;
+
+    <span class="k">public</span> UnityAudioService(AudioBank bank, <span class="k">int</span> sfxVoices = 6)
+    {
+        _bank = bank;
+        <span class="k">var</span> host = <span class="k">new</span> GameObject(<span class="s">"AudioRoot"</span>) { hideFlags = HideFlags.HideAndDontSave };
+        _voices = <span class="k">new</span> AudioSource[Mathf.Max(1, sfxVoices)];
+        <span class="k">for</span> (<span class="k">int</span> i = 0; i &lt; _voices.Length; i++) _voices[i] = host.AddComponent&lt;AudioSource&gt;();
+    }
+
+    <span class="k">public void</span> PlaySfx(SfxId id)
+    {
+        <span class="k">if</span> (_bank == <span class="k">null</span>) <span class="k">return</span>;                         <span class="c">// S3: bank 널가드</span>
+        <span class="k">var</span> clip = _bank.Clip(id);
+        <span class="k">if</span> (clip == <span class="k">null</span>) <span class="k">return</span>;                         <span class="c">// S3: 미할당 → 무음</span>
+        _voices[_next++ % _voices.Length].PlayOneShot(clip, Vol);
+    }
+}</pre>
+  <div class="callout callout-note"><div>AudioListener는 <code>App.unity</code> 카메라의 기존 1개를 재사용(추가 생성 0). <code>PlayOneShot(clip, volumeScale)</code>은 per-call 제로 할당. 짧은 SFX는 임포트 <code>Decompress On Load</code>로 첫 재생 디코드 힉업을 줄인다(D6 프로파일러 확인).</div></div>
+</section>
+
+<!-- ───────────── 4. 안전 ───────────── -->
+<section id="safety">
+  <h2><span class="n">4</span> no-op 3중 가드 · 오라클 보존</h2>
+
+  <h3>4.1 no-op 3중 가드 — 사운드 에셋 0개여도 통과</h3>
+  <ol class="steps">
+    <li><b>뱅크 부재</b> — <code>AudioBank.asset</code> 미생성 → <code>Resources.Load&lt;AudioBank&gt;("AudioBank")==null</code> → <code>_audio</code>가 NoOp 유지. (<code>CardView</code>/<code>Atlas</code> null 폴백과 동일 컨벤션)</li>
+    <li><b>클립 미할당</b> — 뱅크는 있으나 <code>SfxId</code> 미등록 → <code>Clip(id)==null</code> → <code>UnityAudioService.PlaySfx</code>가 <code>return</code>으로 무음(<code>PlayOneShot</code> 미호출 → 예외 경로 없음).</li>
+    <li><b>테스트/헤드리스</b> — <code>NoOpAudioService</code> 명시 주입(빈 본문) 또는 자동 폴백 → AudioSource 미생성.</li>
+  </ol>
+  <div class="callout callout-warn"><div><b>D5에서 <code>AudioBank.asset</code> 생성은 보류 권장.</b> 빈 .asset이 로드되면 <code>Resources.Load!=null</code>→<code>UnityAudioService</code> 경로를 타되 clip null로 무음이라 "왜 소리 안 나지" 혼동이 생긴다. 실제 <code>.wav</code> 도입 시 생성하면 "뱅크 부재→NoOp" 폴백이 더 명확하다. (무예외/무음은 어느 쪽이든 보장)</div></div>
+
+  <h3>4.2 오라클 보존 불변식 (이중 안전)</h3>
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>구조적 부재</h4>
+      <ul>
+        <li>오라클/헤드리스 = <code>AsyncGameDriver.RunRoundAsync(onApply=null)</code> → <code>_onApply?.Invoke</code> 단락 → vm 미호출.</li>
+        <li><code>RoundBootstrap.RunMatchAsync</code>만 non-null onApply(L86) 전달 = 라이브.</li>
+        <li>헤드리스엔 <code>RuntimeTableView</code> Bind 자체가 없음 → <code>_audio</code> 인스턴스조차 부재.</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>코어 불가침 + 컴파일 가드</h4>
+      <ul>
+        <li><code>SfxMap.For</code>가 부르는 <code>CombinationRecognizer.Recognize</code>는 순수 읽기(<code>FormatAction</code> L693이 이미 동일 호출) → GameState 변형 0.</li>
+        <li>테스트는 <code>NoOpAudioService</code>(빈 본문).</li>
+        <li><code>IPlayAnimator</code> XML 주석(L9-10)의 불변식을 <code>_audio</code>가 동일 수명으로 상속.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout callout-ok"><div>결론: <code>GameDriver</code>(동기) / <code>AsyncGameDriver</code>(onApply=null)의 <b>비트동일성에 오디오는 한 비트도 닿지 않는다.</b> 기존 Sim 10만판 무결성 테스트가 그 경로를 이미 커버하며, D5는 그 경로에 코드 추가 0이다.</div></div>
+</section>
+
+<!-- ───────────── 5. TDD ───────────── -->
+<section id="tdd">
+  <h2><span class="n">5</span> TDD 구현 계획 (T1~T6)</h2>
+  <p class="lead">의존순 정렬. T1~T5는 EditMode 전수 검증, T6(실재생)만 PlayMode/수동 — <code>IPlayAnimator</code>의 DoTween 연출이 PlayMode 육안인 것과 동일 한계. 각 태스크는 <b>테스트 먼저 작성 → 실패 확인 → 구현 → 통과</b>.</p>
+  <table>
+    <thead><tr><th>태스크</th><th>테스트(먼저)</th><th>구현</th><th>커버</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>T1</b><br>SfxId + SfxMap</td>
+        <td><code>SfxMapTests</code>: <code>For</code>(일반 Play→CardPlay, 폭탄 4매 동랭크/스플→Bomb, Pass→Pass, GiveDragon→GiveDragon, <b>null/빈 Cards→CardPlay</b>, 그 외→None); <code>ForCall</code>(None/Tichu/GrandTichu→None/TichuCall/GrandTichuCall)</td>
+        <td><code>Audio/SfxMap.cs</code> 순수 정적. 폭탄=<code>Recognize(...).IsBomb</code>.</td>
+        <td><span class="tag tag-green">EditMode</span></td>
+      </tr>
+      <tr>
+        <td><b>T2</b><br>IAudioService + NoOp + 시임 배선</td>
+        <td><code>AudioWiringTests.Default_ctor_noop_does_not_throw</code>: <code>new RuntimeTableView()</code>+Bind 후 <b>3 소스 모두 푸시</b>(RecordPlay Play/Pass + RoundResult + SeatCall)에 <code>DoesNotThrow</code> (수정 S6)</td>
+        <td><code>Audio/IAudioService.cs</code>(PlaySfx 단일+NoOp). RuntimeTableView ctor <code>_audio=NoOp</code>+<code>_audioExplicit</code>+Bind 폴백.</td>
+        <td><span class="tag tag-green">EditMode</span></td>
+      </tr>
+      <tr>
+        <td><b>T3</b><br>AudioBank SO</td>
+        <td><code>AudioBankTests</code>: 빈뱅크 <code>Clip(CardPlay)==null</code>; <b>별도 인스턴스</b>에 리플렉션으로 등록 후 <code>Clip(CardPlay)</code> <code>AreSame</code> 더미, <code>Clip(Pass)==null</code> (수정 S7)</td>
+        <td><code>Audio/AudioBank.cs</code>(CreateAssetMenu SO, 지연 <code>_map</code>). 등록 더미는 <code>AudioClip.Create</code>.</td>
+        <td><span class="tag tag-green">EditMode</span></td>
+      </tr>
+      <tr>
+        <td><b>T4</b><br>Played→SFX 라우팅</td>
+        <td><code>AudioWiringTests</code>: 스파이 주입, <code>RecordPlay(일반 Play)→Last==CardPlay</code>; <code>Pass→Pass</code>; 폭탄세트→<code>Bomb</code>; 카운트 단언</td>
+        <td><code>Subscribe()</code> L270에 <code>_vm.Played.Subscribe(a=&gt;_audio.PlaySfx(SfxMap.For(a))).AddTo(_subs)</code></td>
+        <td><span class="tag tag-green">EditMode</span></td>
+      </tr>
+      <tr>
+        <td><b>T5</b><br>RoundEnd + TichuCall(전이 1회)</td>
+        <td><code>AudioWiringTests</code>: <code>RoundResult.Value=결과→RoundEnd 1회</code>·<b>리셋 null→발화 0</b>(S4); <code>SeatCall(2)=GrandTichu</code> 두 번→<code>GrandTichuCall 1회</code>(재투영 0, <code>PlayAnimatorWiringTests.TichuCall</code> 미러)</td>
+        <td><code>RenderResult</code> <code>r!=null</code> 가드 안 <code>PlaySfx(RoundEnd)</code>; <code>UpdateCallBadge</code> 전이 가드 안 <code>PlaySfx(ForCall(call))</code> (S4·S5)</td>
+        <td><span class="tag tag-green">EditMode</span></td>
+      </tr>
+      <tr>
+        <td><b>T6</b><br>UnityAudioService 실재생</td>
+        <td>PlayMode/실기기: 카드·폭탄·패스·콜·결과 SFX 들림, 라운드로빈 미끊김, 뱅크 미할당 무예외. D6 60fps·GC 게이트와 함께 청취/프로파일러</td>
+        <td><code>Audio/UnityAudioService.cs</code>(AudioSource[6] 풀, bank+clip 가드 S3, N=6 주석)</td>
+        <td><span class="tag tag-gold">PlayMode/수동</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="callout callout-warn"><div><b>테스트 실행 규율(메모리 반영):</b> <code>run_tests</code> 전 PlayMode 정지 필수. <b>전체 <code>Tichu.Core.Tests</code> 실행 금지</b>(Sim 10만판→메인스레드 점유). 클래스 필터로 — 예: <code>run_tests(test_names=["…SfxMapTests","…AudioWiringTests","…AudioBankTests"])</code>.</div></div>
+</section>
+
+<!-- ───────────── 6. 범위 ───────────── -->
+<section id="scope">
+  <h2><span class="n">6</span> 범위 · 비범위(D5.1 이월)</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>✅ D5 범위</h4>
+      <ul class="bullets">
+        <li>인게임 SFX 훅: 카드·폭탄·패스·용양도·티츄/큰티츄 콜·라운드 종료</li>
+        <li><code>IAudioService.PlaySfx</code> 시임 + <code>NoOpAudioService</code></li>
+        <li><code>SfxMap</code> 순수 분류 + <code>AudioBank</code>(SO) + <code>UnityAudioService</code> 풀</li>
+        <li>no-op 3중 가드 · 오라클 보존 · EditMode 테스트 3종</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4>⏭️ D5.1 이월 (DoD 부분 충족 명시)</h4>
+      <ul class="bullets">
+        <li><b>버튼 클릭 SFX</b> — 버튼이 <code>AddAction/AddSlot/AddWishBtn/스몰티츄/스킵</code> 여러 곳에 흩어져 한 줄씩 다 건드리면 diff 폭증(§3 위반)</li>
+        <li><b>BGM</b>(메뉴/인게임) + 크로스페이드 — AppScope DI·단일 인스턴스 공유·씬전이 정지 필요</li>
+        <li><b>설정 볼륨 패널</b> + PlayerPrefs — 패널 빌드·MenuShellPresenter 배선</li>
+        <li><b>OnApplicationPause→BGM 음소거</b> — D6(빌드/실기기 게이트)</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout callout-warn"><div>기획 §6.5 DoD 문구 "카드/트릭/<b>버튼</b> 사운드 훅 · <b>설정 볼륨 패널</b> · <b>OnApplicationPause BGM 음소거</b>" 중 버튼/볼륨/Pause는 D5에서 <b>부분 충족</b>이다. 머지 커밋·리뷰에 <b>"D5.1 이월"</b> 근거를 명시하고, 셸 코드에 'D5' 주석이 있으면 'D5.1'로 정정한다.</div></div>
+</section>
+
+<!-- ───────────── 7. 결정/리스크 ───────────── -->
+<section id="decisions">
+  <h2><span class="n">7</span> 열린 결정 · 리스크</h2>
+
+  <h3>7.1 확정 권장(검증으로 명확)</h3>
+  <table>
+    <thead><tr><th>결정</th><th>권장</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr><td>폴더 배치</td><td><code>Presentation/Audio/</code></td><td>기획 §6.5 권장 폴더. 오디오 응집. asmdef는 <code>Tichu.Presentation</code> 그대로(신규 0).</td></tr>
+      <tr><td>AudioReactor</td><td>미신설 — Subscribe 내부 훅</td><td><code>IPlayAnimator</code>도 별도 리액터 없이 <code>_anim</code> 인라인 호출. 별도 클래스는 코드가 입증 않는 표면.</td></tr>
+      <tr><td>버튼/BGM/볼륨/Pause</td><td>D5.1 이월</td><td>표면 급증(§2/§3). vm 관측 SFX가 손맛의 대부분.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>7.2 사용자 확인 필요</h3>
+  <div class="grid grid-2">
+    <div class="card">
+      <h4>결정 A — IAudioService 멤버 범위</h4>
+      <p><b>권장: PlaySfx 단일 멤버</b>(YAGNI). D5는 PlaySfx만 발화하고, <code>IPlayAnimator</code>도 실사용 메서드만 둔다. BGM/Volume은 D5.1에서 인터페이스 멤버 추가(구현체 2개만 손대는 비파괴 변경).<br><span class="tag tag-gray">대안</span> PlayBgm/StopBgm/Volume을 빈 스텁으로 선반영(후속 무수정 확장, 단 speculative).</p>
+    </div>
+    <div class="card">
+      <h4>결정 B — D5 분할 단위</h4>
+      <p><b>권장: T1~T6 한 PR</b>(D4가 7태스크 한 머지였던 것과 동형). T1~T5 EditMode 먼저, T6 실재생은 마지막·수동.<br><span class="tag tag-gray">대안</span> 순수 SFX(T1~T5) 선출시 + 실재생(T6+AudioBank/UnityAudioService)을 실 <code>.wav</code> 도입 시점에 D5.1로 분리(더 점진적).</p>
+    </div>
+  </div>
+
+  <h3>7.3 리스크</h3>
+  <ul class="bullets">
+    <li><b>실재생 EditMode 불가</b> — 분류(T1)·라우팅(T4/T5)·뱅크 가드(T3)는 EditMode 100%, 실제 소리·지연·풀은 D6 실기기 청취/프로파일러. (IPlayAnimator DoTween과 동일 한계)</li>
+    <li><b>첫 SFX 디코드 힉업/GC</b> — 완화: 짧은 SFX <code>Decompress On Load</code>, <code>PlayOneShot</code> 제로 할당. D6 확인.</li>
+    <li><b>SfxId 8종 고정</b> — 후속 버튼/BGM id 추가 시 enum 끝에 추가(비파괴적).</li>
+    <li><b>AudioRoot 정리</b> — hideFlags 호스트 GO는 Table 씬 언로드 시 파기(매치 수명). RoundBootstrap 캔버스와 동일 수명 가정.</li>
+  </ul>
+
+  <div class="callout callout-ok"><div><b>다음 단계:</b> 결정 A·B 확인 → T1부터 TDD 착수(<code>feat/p1d-d5</code> 브랜치). 완료 후 D5는 Phase 1의 마지막 손맛 묶음, 이어 <b>D6</b>(Android 빌드·60fps 실측·가독성 체크리스트)로 Phase 1 DoD를 닫는다.</div></div>
+</section>
+
+<div class="footer">
+  티츄 · Phase 1-D · D5 사운드 설계 + 구현계획 · 멀티에이전트 패널(3안)→심사→종합→적대검증(4렌즈) 도출 · minor 11건 선반영
+</div>
+
+</div>
+</body>
+</html>

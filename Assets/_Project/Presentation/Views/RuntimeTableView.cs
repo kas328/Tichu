@@ -7,6 +7,7 @@ using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
 using Tichu.GameFlow.Agents;
+using Tichu.Presentation.Audio;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Visuals;
 using UnityEngine;
@@ -67,9 +68,16 @@ namespace Tichu.Presentation.Views
         private CardChipPool _trickPool;
         private readonly CardChipPool[] _backPools = new CardChipPool[4]; // 좌석0(나)=null
         private readonly IPlayAnimator _anim;
+        private IAudioService _audio;
+        private readonly bool _audioExplicit;            // 명시 주입(테스트 스파이)이면 Bind 폴백 생략
         private readonly List<CardView> _trickChips = new List<CardView>(); // PlayedIn 전달용(GC 회피 재사용)
 
-        public RuntimeTableView(IPlayAnimator anim = null) => _anim = anim ?? new NoOpPlayAnimator();
+        public RuntimeTableView(IPlayAnimator anim = null, IAudioService audio = null)
+        {
+            _anim = anim ?? new NoOpPlayAnimator();
+            _audio = audio ?? new NoOpAudioService();    // ctor 즉시 비-null(_anim과 대칭, 널-윈도 제거)
+            _audioExplicit = audio != null;
+        }
 
         public void Bind(TableViewModel vm, Canvas canvas, CancellationToken sceneCt)
         {
@@ -77,6 +85,11 @@ namespace Tichu.Presentation.Views
             _sceneCt = sceneCt;
             _cardViewPrefab = Resources.Load<CardView>("CardView");
             _atlas = Resources.Load<CardSpriteAtlas>("CardSpriteAtlas");
+            if (!_audioExplicit)
+            {
+                var bank = Resources.Load<AudioBank>("AudioBank");      // CardView/Atlas와 동일 폴백 컨벤션
+                if (bank != null) _audio = new UnityAudioService(bank);  // 뱅크 없으면 NoOp 유지
+            }
             BuildLayout(canvas);
             Subscribe();
         }
@@ -231,7 +244,10 @@ namespace Tichu.Presentation.Views
                 _callBadgeText[seat].text = grand ? "大 티츄" : "티츄";
             }
             if (call != TichuCall.None && call != prev)
+            {
                 _anim.TichuDeclared((RectTransform)bg.transform);
+                _audio.PlaySfx(SfxMap.ForCall(call));    // 전이 가드 안 — 전이당 1회
+            }
         }
 
         private void BuildCallBadge(int seat, RectTransform parent, Vector2 anchor, Vector2 pos)
@@ -268,6 +284,7 @@ namespace Tichu.Presentation.Views
             _vm.CumulativeA.Subscribe(a => { _cumA = a; UpdateScore(); }).AddTo(_subs);
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
             _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
+            _vm.Played.Subscribe(a => _audio.PlaySfx(SfxMap.For(a))).AddTo(_subs);   // 애니와 동일 소스(SFX)
             _vm.PlaysCleared.Subscribe(_ => { ClearChildren(_playsRoot); _playEntries.Clear(); }).AddTo(_subs);
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
@@ -445,7 +462,11 @@ namespace Tichu.Presentation.Views
             _resultPanel.SetActive(r != null);
             _resultText.text = r == null ? "" :
                 $"라운드 종료 — 우리 {r.TeamATotal} : 상대 {r.TeamBTotal}";
-            if (r != null) _anim.ResultShown((RectTransform)_resultPanel.transform);
+            if (r != null)
+            {
+                _anim.ResultShown((RectTransform)_resultPanel.transform);
+                _audio.PlaySfx(SfxId.RoundEnd);          // r!=null 가드 안 — 리셋 null은 무발화
+            }
         }
 
         // 현재 차례 좌석 이름을 강조색으로(나머지는 기본).

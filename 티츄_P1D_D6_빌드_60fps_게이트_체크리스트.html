@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 · P1-D / D6 — Android 빌드 · 60fps · 가독성 게이트 체크리스트</title>
+<style>
+  :root{
+    --ink:#1d2330; --sub:#525c70; --faint:#8b94a6;
+    --line:#e7ebf3; --line2:#d6dcea;
+    --bg:#eef1f8; --surface:#ffffff; --panel:#f5f7fc;
+    --accent:#4f7cff; --accent-d:#3a63e0;
+    --green:#15b187; --gold:#d99a23; --purple:#7c5cff; --red:#e5484d; --orange:#e3892b;
+    --radius:14px; --shadow:0 1px 2px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.06);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+    line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 20px 80px}
+  .cover{background:linear-gradient(135deg,#0c7a5b,#15b187 70%);color:#fff;
+    padding:54px 40px 46px;border-radius:0 0 28px 28px;box-shadow:var(--shadow)}
+  .cover .eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:12px;opacity:.85;font-weight:700}
+  .cover h1{margin:.3em 0 .25em;font-size:30px;line-height:1.25;letter-spacing:-.01em}
+  .cover p{margin:0;max-width:820px;opacity:.96;font-size:15px}
+  .chips{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);
+    padding:5px 11px;border-radius:999px;font-size:12.5px;font-weight:600}
+  .toc{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 22px;margin:26px 0;box-shadow:var(--shadow)}
+  .toc h2{margin:0 0 10px;font-size:14px;color:var(--sub);text-transform:uppercase;letter-spacing:.08em;border:0;padding:0}
+  .toc ol{margin:0;padding-left:0;list-style:none;counter-reset:t;columns:2;column-gap:34px}
+  .toc li{counter-increment:t;margin:5px 0;font-size:14.5px}
+  .toc li::before{content:counter(t);display:inline-block;width:22px;height:22px;margin-right:8px;
+    background:var(--panel);border:1px solid var(--line2);border-radius:6px;text-align:center;
+    font-size:12px;font-weight:700;color:var(--green);line-height:21px}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--green)}
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:30px 34px;margin:22px 0;box-shadow:var(--shadow)}
+  h2{font-size:23px;margin:0 0 16px;padding-bottom:12px;border-bottom:2px solid var(--line);
+    display:flex;align-items:baseline;gap:12px;letter-spacing:-.01em}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;
+    background:linear-gradient(135deg,var(--green),var(--accent));color:#fff;border-radius:9px;
+    font-size:15px;font-weight:800}
+  h3{font-size:17px;margin:26px 0 8px;letter-spacing:-.01em}
+  h4{font-size:14.5px;margin:0 0 6px}
+  p{margin:.5em 0}
+  .lead{font-size:15.5px;color:var(--sub)}
+  code{background:var(--panel);border:1px solid var(--line);border-radius:5px;
+    padding:1px 6px;font-size:12.5px;font-family:'JetBrains Mono','Consolas',monospace;color:#3a4660}
+  .callout{display:flex;gap:12px;padding:14px 16px;border-radius:11px;margin:16px 0;font-size:14px}
+  .callout::before{font-size:18px;line-height:1.4}
+  .callout-note{background:#eef3ff;border:1px solid #d4e0ff}
+  .callout-note::before{content:"ℹ️"}
+  .callout-ok{background:#e9f9f3;border:1px solid #c4ecdd}
+  .callout-ok::before{content:"✅"}
+  .callout-warn{background:#fff6e8;border:1px solid #f6e0b8}
+  .callout-warn::before{content:"⚠️"}
+  .callout-danger{background:#fdeced;border:1px solid #f6c9cc}
+  .callout-danger::before{content:"⛔"}
+  .callout b{color:var(--ink)}
+  .grid{display:grid;gap:14px;margin:16px 0}
+  .grid-2{grid-template-columns:1fr 1fr}
+  .grid-3{grid-template-columns:1fr 1fr 1fr}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px}
+  .card h4{display:flex;align-items:center;gap:7px}
+  .card p{font-size:13.5px;color:var(--sub);margin:.35em 0}
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;border:1px solid}
+  .tag-green{background:#e9f9f3;border-color:#bfe9d8;color:#0c7a5b}
+  .tag-blue{background:#eef3ff;border-color:#cfddff;color:#2f54c9}
+  .tag-gold{background:#fdf3df;border-color:#f0dcae;color:#9c6f12}
+  .tag-red{background:#fdecec;border-color:#f4c7c9;color:#c5363a}
+  .tag-purple{background:#f1ecff;border-color:#ddd0fb;color:#5b3fd6}
+  .tag-gray{background:#eef1f6;border-color:#dde2ec;color:#5b6678}
+  table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line2);padding:9px 11px;text-align:left;vertical-align:top}
+  thead th{background:#2a3550;color:#fff;font-weight:700;border-color:#2a3550}
+  tbody tr:nth-child(even){background:var(--panel)}
+  td .tag{white-space:nowrap}
+  .diagram{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:18px;margin:18px 0;text-align:center}
+  ul.bullets{margin:.4em 0;padding-left:20px}
+  ul.bullets li{margin:5px 0;font-size:14px}
+  ul.check{list-style:none;margin:.4em 0;padding-left:4px}
+  ul.check li{margin:7px 0;font-size:14px;padding-left:26px;position:relative}
+  ul.check li::before{content:"☐";position:absolute;left:0;top:-1px;font-size:16px;color:var(--green)}
+  ol.steps{counter-reset:s;list-style:none;padding-left:0;margin:.5em 0}
+  ol.steps li{counter-increment:s;position:relative;padding-left:38px;margin:9px 0;font-size:14px}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;
+    background:var(--green);color:#fff;border-radius:7px;text-align:center;line-height:26px;font-weight:700;font-size:13px}
+  pre{background:#0f1729;color:#dbe4f5;border-radius:11px;padding:16px 18px;overflow:auto;
+    font-family:'JetBrains Mono','Consolas',monospace;font-size:12.5px;line-height:1.55;margin:14px 0}
+  pre .c{color:#7c89a8}
+  .footer{color:var(--faint);font-size:12.5px;text-align:center;margin-top:30px}
+</style>
+</head>
+<body>
+<header class="cover">
+  <div class="eyebrow">Tichu · Phase 1-D · D6 · Release Gate</div>
+  <h1>D6 — Android 빌드 · 60fps · 가독성 게이트 체크리스트</h1>
+  <p>Phase 1 MVP의 완료 기준(DoD)을 닫는 게이트. 코드·EditMode로는 커버 불가한 <b>실기기 60fps 실측</b>과 <b>가독성·"한 판 더" 정성 평가</b>를 체크리스트로 정의한다. 빌드 식별자는 D6에서 정리했고(productName=Tichu·com.kas328.tichu·minSdk26), 측정용 <code>FpsOverlay</code>(디버그 빌드 한정)를 추가했다. 실측·플레이테스트는 사람+중저가 Android 기기로 수행한다.</p>
+  <div class="chips">
+    <span class="chip">Phase 1 DoD 종료 게이트</span>
+    <span class="chip">중저가 Android 60fps</span>
+    <span class="chip">가독성 체크리스트</span>
+    <span class="chip">손맛 · 한 판 더</span>
+    <span class="chip">Development Build 측정</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>목차</h2>
+  <ol>
+    <li><a href="#dod">게이트 = Phase 1 DoD</a></li>
+    <li><a href="#build">빌드 준비 · 설정 감사</a></li>
+    <li><a href="#perf">성능 게이트(60fps)</a></li>
+    <li><a href="#read">가독성 게이트</a></li>
+    <li><a href="#feel">손맛 게이트(정성)</a></li>
+    <li><a href="#verdict">최종 판정</a></li>
+  </ol>
+</nav>
+
+<!-- 0 DoD -->
+<section id="dod">
+  <h2><span class="n">0</span> 게이트 = Phase 1 DoD</h2>
+  <p class="lead">기획서 §12.3 Phase 1 완료 기준 3조건을 D6가 검증한다. 셋 다 통과해야 Phase 1 종료 → Phase 2(AI) 게이트.</p>
+  <table>
+    <thead><tr><th>#</th><th>DoD(기획서)</th><th>검증 방식</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>vs AI 한 판(1000점) 크래시 없이 완주, 모든 룰 인터랙션이 UI에서 정상 동작</td><td>실기기 1판 완주(§5 가독성과 병행)</td></tr>
+      <tr><td>2</td><td>중저가 안드로이드 60fps 유지, 애니메이션 끊김/입력 지연 체감 없음</td><td>§3 성능 게이트(FpsOverlay + 프로파일러)</td></tr>
+      <tr><td>3</td><td>내부 플레이테스트 "한 판 더" 의향 등 손맛 정성 지표 합격(가독성 체크리스트 통과)</td><td>§4 가독성 + §5 손맛 게이트</td></tr>
+    </tbody>
+  </table>
+  <div class="callout callout-note"><div>코드·EditMode가 커버한 것: 룰 정확성(Core 297 + 10만판), 프레젠테이션 117/117(D0~D5), 카드 풀링·Canvas 분리(D3), DoTween 애니(D4), SFX 훅(D5). <b>D6는 이 위에서 "실기기 체감"만 검증</b>한다.</div></div>
+</section>
+
+<!-- 1 빌드 -->
+<section id="build">
+  <h2><span class="n">1</span> 빌드 준비 · 설정 감사</h2>
+
+  <h3>1.1 감사 결과 (D6 감사 + 정리)</h3>
+  <table>
+    <thead><tr><th>항목</th><th>값</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td>화면 방향</td><td>Landscape L/R만 허용(Portrait off)</td><td><span class="tag tag-green">OK</span> 가로 잠금(D1)</td></tr>
+      <tr><td>Scripting Backend</td><td>IL2CPP</td><td><span class="tag tag-green">OK</span></td></tr>
+      <tr><td>Target Arch</td><td>ARM64</td><td><span class="tag tag-green">OK</span> 64bit</td></tr>
+      <tr><td>Color Space</td><td>Linear</td><td><span class="tag tag-green">OK</span> URP</td></tr>
+      <tr><td>vSync / FrameRate</td><td>vSync=0 · <code>targetFrameRate=60</code></td><td><span class="tag tag-green">OK</span></td></tr>
+      <tr><td>카드 풀링·Canvas 분리</td><td>D3 완료</td><td><span class="tag tag-green">OK</span> 핫스팟 선제</td></tr>
+      <tr><td>productName / company</td><td>Tichu / kas328</td><td><span class="tag tag-green">정리됨</span> (was Move/DefaultCompany)</td></tr>
+      <tr><td>Bundle ID</td><td><code>com.kas328.tichu</code></td><td><span class="tag tag-green">정리됨</span> (was URP 템플릿) · 정식 도메인 확정 시 교체</td></tr>
+      <tr><td>min SDK</td><td>API 26 (Android 8.0)</td><td><span class="tag tag-green">정리됨</span> 기획 "8.0+" 부합 (was 25)</td></tr>
+      <tr><td><b>Active Build Target</b></td><td><b>StandaloneWindows64</b></td><td><span class="tag tag-gold">대기</span> 빌드 시 Android 전환</td></tr>
+    </tbody>
+  </table>
+
+  <h3>1.2 측정용 FPS 오버레이</h3>
+  <p><code>Presentation/Diagnostics/FpsOverlay</code> — <b>Development Build에서만</b> 표시(<code>RoundBootstrap</code>이 <code>Debug.isDebugBuild</code> 게이트로 생성, 릴리스 no-op). 평활화는 EditMode 검증된 <code>FpsSampler</code>(0.5s 윈도). 색: <span class="tag tag-green">녹 ≥55</span> <span class="tag tag-gold">황 30~55</span> <span class="tag tag-red">적 &lt;30</span>.</p>
+
+  <h3>1.3 APK 빌드 단계 (사람)</h3>
+  <ol class="steps">
+    <li>Android Build Support(SDK·NDK·JDK) 설치 확인 — Unity Hub 모듈.</li>
+    <li>File → Build Settings → Platform = <b>Android</b>로 Switch(첫 전환은 에셋 reimport로 수분 소요).</li>
+    <li><b>Development Build</b> 체크(FpsOverlay·프로파일러 연결용) → Build And Run(또는 APK 빌드 후 설치).</li>
+    <li>중저가 기기에 설치(가능하면 저가·구형 1대 + 중급 1대).</li>
+  </ol>
+  <div class="callout callout-warn"><div>이번 D6 작업에서 <b>APK 빌드는 수행하지 않았다</b>(로컬 Android SDK/NDK 설치 여부 미확인·범위 제외). 위 단계는 사람이 실행한다. 빌드 자동화가 필요하면 별도 요청.</div></div>
+</section>
+
+<!-- 2 성능 -->
+<section id="perf">
+  <h2><span class="n">2</span> 성능 게이트 — 60fps (DoD #2)</h2>
+  <p class="lead">중저가 Android에서 한 판 전 구간 60fps 유지·끊김/입력지연 체감 없음. FpsOverlay 상시 관찰 + 프로파일러(Deep 아님, GC/드로콜) 병행.</p>
+  <ul class="check">
+    <li>딜링·교환·플레이 전 구간 <b>FPS 오버레이 녹색(≥55)</b> 유지, 적색 스파이크 없음</li>
+    <li>카드 플레이 팝/차례 펄스/결과 팝(DoTween) 시 <b>프레임 드랍 체감 없음</b></li>
+    <li>손패 선택·드래그·버튼 입력 → 화면 반응 <b>지연 체감 없음</b></li>
+    <li>여러 라운드 연속 진행 시 <b>GC 스파이크로 인한 끊김 없음</b>(풀링 D3 효과 확인)</li>
+    <li>프로파일러: 프레임당 GC Alloc <b>지속 증가 없음</b>(라운드 전환 제외), 드로콜 안정</li>
+    <li>발열/배터리 — 수 분 플레이에 과도한 발열 없음(정성)</li>
+  </ul>
+  <div class="callout callout-note"><div>측정 팁: Build Settings <b>Autoconnect Profiler</b> 또는 기기 연결 후 Window → Analysis → Profiler. SFX(D5)는 <code>AudioBank.asset</code> 미할당 시 무음이므로 오디오 부하는 실 클립 도입(D5.1) 후 재측정.</div></div>
+</section>
+
+<!-- 3 가독성 -->
+<section id="read">
+  <h2><span class="n">3</span> 가독성 게이트 (DoD #3)</h2>
+  <p class="lead">"좁은 모바일 가로 화면에 4인의 손패 수·콤보·점수·선언을 한눈에"(기획 §1.2). 팔 길이에서 중저가 기기 화면을 보며 아래를 확인한다.</p>
+
+  <div class="grid grid-2">
+    <div class="card"><h4>내 손패 / 조작</h4>
+      <ul class="check" style="margin-top:4px">
+        <li>손패 카드 랭크·무늬가 또렷이 읽힘(아트·라벨)</li>
+        <li>선택 하이라이트(노랑)·폭탄 글로우(빨강 테두리)가 구분됨</li>
+        <li>버튼(내기/패스/스몰티츄/스킵) 터치 타깃 충분·오탭 없음</li>
+        <li>교환·소원·용 양도 UI가 명확</li>
+      </ul>
+    </div>
+    <div class="card"><h4>상대 3인 / 테이블</h4>
+      <ul class="check" style="margin-top:4px">
+        <li>좌/우/상 좌석 손패 장수·프로필이 겹침 없이 읽힘</li>
+        <li>현재 차례 좌석 이름 <b>강조색</b>으로 즉시 식별</li>
+        <li>중앙 트릭 카드·소유자 표시가 명확</li>
+        <li>티츄/큰티츄 좌석 배지 + 콜 순간 플래시 인지</li>
+      </ul>
+    </div>
+    <div class="card"><h4>정보 패널</h4>
+      <ul class="check" style="margin-top:4px">
+        <li>좌상단 누적 점수(우리:상대) 읽힘</li>
+        <li>우상단 최근 플레이 로그(5초 페이드) 따라갈 수 있음</li>
+        <li>소원(마작) 표시가 눈에 띔</li>
+        <li>라운드 결과 배너(팀 합산)가 명확</li>
+      </ul>
+    </div>
+    <div class="card"><h4>레이아웃 / 손맛 보조</h4>
+      <ul class="check" style="margin-top:4px">
+        <li>노치/펀치홀 기기에서 SafeArea로 UI 안 가림</li>
+        <li>카드 플레이/차례/결과 애니가 시선을 옳게 유도</li>
+        <li>SFX(실 클립 도입 후) 액션과 동기 — 카드/폭탄/콜/결과</li>
+        <li>가로 1920×1080 기준 스케일이 작은 화면서도 깨지지 않음</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 4 손맛 -->
+<section id="feel">
+  <h2><span class="n">4</span> 손맛 게이트 — 정성 (DoD #3)</h2>
+  <ul class="check">
+    <li>한 판(목표 점수)을 크래시·멈춤 없이 완주</li>
+    <li>모든 룰 인터랙션(폭탄·용·개·마작 소원·티츄/큰티츄·1-2 피니시)이 UI에서 정상 동작</li>
+    <li>플레이가 "답답하지 않다"(AI 딜레이·스킵 버튼으로 템포 조절 가능)</li>
+    <li><b>"한 판 더" 하고 싶은 의향</b> — 내부 플레이테스트 다수 합격</li>
+  </ul>
+  <div class="callout callout-warn"><div>D5.1 이월(이 게이트의 손맛에 영향): 버튼 클릭 SFX · BGM · 설정 볼륨 패널 · <code>OnApplicationPause</code> BGM 음소거. 실 사운드 에셋(<code>AudioBank.asset</code>) 도입도 D5.1. 가독성·60fps 통과 후 손맛을 더 끌어올리는 작업.</div></div>
+</section>
+
+<!-- 5 판정 -->
+<section id="verdict">
+  <h2><span class="n">5</span> 최종 판정</h2>
+  <table>
+    <thead><tr><th>게이트</th><th>통과 조건</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td>완주(DoD#1)</td><td>한 판 크래시 0 · 룰 인터랙션 정상</td><td>☐ Pass / ☐ Fail</td></tr>
+      <tr><td>성능(DoD#2)</td><td>중저가 60fps 유지 · 끊김/지연 체감 0</td><td>☐ Pass / ☐ Fail</td></tr>
+      <tr><td>가독성(DoD#3)</td><td>§3 체크리스트 전부 충족</td><td>☐ Pass / ☐ Fail</td></tr>
+      <tr><td>손맛(DoD#3)</td><td>"한 판 더" 의향 합격</td><td>☐ Pass / ☐ Fail</td></tr>
+    </tbody>
+  </table>
+  <div class="callout callout-ok"><div><b>4/4 Pass → Phase 1(MVP) 종료.</b> 게이트 G1(한 판 완주 + 60fps + 손맛) 통과 → Phase 2(AI 고도화, ISMCTS) 착수. Fail 항목은 원인(가독성=레이아웃, 성능=핫스팟 프로파일링, 손맛=D5.1 사운드/템포)별로 보완 후 재게이트.</div></div>
+  <div class="callout callout-note"><div>이 문서 작성 시점 D6 자동화 완료분: 빌드 식별자 정리(Tichu·com.kas328.tichu·minSdk26) + FpsOverlay(디버그 빌드) + 본 체크리스트. 남은 것 = 사람이 수행하는 APK 빌드·실기기 측정·플레이테스트.</div></div>
+</section>
+
+<div class="footer">
+  티츄 · Phase 1-D · D6 빌드/60fps/가독성 게이트 체크리스트 · Phase 1 DoD 종료 게이트 · 실측·플레이테스트는 중저가 Android 기기로 수행
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9a9b286d19ffcb9439b39eafeb9f4805, type: 3}
+  m_Name: AudioBank
+  m_EditorClassIdentifier: Tichu.Presentation::Tichu.Presentation.Audio.AudioBank
+  clips:
+  - id: 1
+    clip: {fileID: 8300000, guid: 5114974f6f86b5b4aa3a48e17518314c, type: 3}
+  - id: 2
+    clip: {fileID: 8300000, guid: 6ae965c84fe2f294ea957efec96c1837, type: 3}
+  - id: 3
+    clip: {fileID: 8300000, guid: 76279a042ec91b843a499a3a50eeae57, type: 3}
+  - id: 4
+    clip: {fileID: 8300000, guid: 72f60edafd830fd4d8e34c2a286aa59f, type: 3}
+  - id: 5
+    clip: {fileID: 8300000, guid: b36a828847a0afb42bdcf4c2c52b1734, type: 3}
+  - id: 6
+    clip: {fileID: 8300000, guid: 88565f331f40f4b42b4e57a37abf6e0d, type: 3}
+  - id: 7
+    clip: {fileID: 8300000, guid: bd5ea7eff2eb3d34a9069cfe6470723b, type: 3}

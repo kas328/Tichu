@@ -14,14 +14,12 @@ namespace Tichu.GameFlow.Agents
     public sealed class PimcAgent : IAgent
     {
         private readonly ulong _roundSeed;
-        private readonly int _seat;
         private readonly AiAgent _heuristic;   // 비-턴 결정 위임 + (개념상) 디폴트 정책과 동일 로직.
         private Rng _rng;
 
         public PimcAgent(ulong roundSeed, int seat)
         {
             _roundSeed = roundSeed;
-            _seat = seat;
             _heuristic = new AiAgent(roundSeed, seat);
             _rng = new Rng(roundSeed ^ 0x91C0_0000_0000_0001UL ^ (ulong)seat);
         }

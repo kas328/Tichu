@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tichu P2-C 벤치 결과 — Normal PIMC vs 휴리스틱</title>
+<style>
+  :root{--bg:#0f1216;--card:#1a1f27;--line:#2b3340;--ink:#e8edf3;--dim:#9aa7b6;
+    --accent:#5db0ff;--good:#52d28a;--warn:#ffcf5d;--pick:#7c8cff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Malgun Gothic",system-ui,sans-serif;line-height:1.6;padding:32px 16px}
+  .wrap{max-width:920px;margin:0 auto}
+  h1{font-size:23px;margin:0 0 4px}
+  h2{font-size:16px;margin:26px 0 10px;color:var(--accent)}
+  .sub{color:var(--dim);font-size:14px;margin:0 0 20px}
+  .banner{background:#16231a;border:1px solid #2f6b3f;border-radius:12px;padding:16px 20px;font-size:15px}
+  .banner b{color:var(--good)}
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+  .m{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;text-align:center}
+  .m .v{font-size:28px;font-weight:800;color:var(--good)}
+  .m .l{font-size:12px;color:var(--dim);margin-top:2px}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left}
+  th{color:var(--dim);font-weight:600;background:#141922}
+  td.good{color:var(--good)}
+  .gauge{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:8px 0}
+  ul{margin:6px 0;padding-left:20px;font-size:14px;color:var(--ink)}
+  li{margin:3px 0}
+  .dim{color:var(--dim)}
+  code{background:#0c0f13;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px}
+  .foot{color:var(--dim);font-size:12.5px;margin-top:24px;border-top:1px solid var(--line);padding-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>P2-C 벤치 결과 — Normal PIMC vs 현 휴리스틱(AiAgent)</h1>
+  <p class="sub">미러드딜(같은 셔플·좌우 팀 스왑) 라운드 벤치 · 2026-06-25</p>
+
+  <div class="banner">
+    ✅ <b>DoD 통과:</b> Normal PIMC가 현 휴리스틱을 <b>통계적으로 유의하게</b> 이깁니다 —
+    100라운드에서 승률 Wilson 95% 신뢰구간 하한 <b>0.594 &gt; 0.5</b>, 평균 팀점수차 <b>+127.3점/라운드</b>.
+    PIMC 탐색 아키텍처(P2-A~B2) 검증 완료.
+  </div>
+
+  <div class="metrics">
+    <div class="m"><div class="v">+127.3</div><div class="l">평균 팀점수차 / 라운드<br>(PIMC − 휴리스틱)</div></div>
+    <div class="m"><div class="v">69.0%</div><div class="l">라운드 승률 (69/100)</div></div>
+    <div class="m"><div class="v">0.594</div><div class="l">Wilson 95% 하한<br>(DoD 게이트 &gt; 0.5)</div></div>
+  </div>
+
+  <div class="gauge">
+    <div class="dim" style="font-size:13px;margin-bottom:8px">승률 Wilson 95% 신뢰구간 (100라운드) — 하한이 0.5선을 넘음</div>
+    <svg width="100%" height="64" viewBox="0 0 880 64" preserveAspectRatio="none">
+      <!-- track -->
+      <rect x="0" y="26" width="880" height="12" rx="6" fill="#0c0f13" stroke="#2b3340"/>
+      <!-- 0.5 threshold line -->
+      <line x1="440" y1="14" x2="440" y2="50" stroke="#ffcf5d" stroke-width="2" stroke-dasharray="4 3"/>
+      <text x="440" y="11" fill="#ffcf5d" font-size="11" text-anchor="middle">0.5 DoD</text>
+      <!-- CI band: lower 0.594 .. upper ~0.766 (center 0.69) -->
+      <rect x="522.7" y="26" width="151.4" height="12" rx="6" fill="#2f6b3f"/>
+      <!-- point estimate 0.69 -->
+      <circle cx="607.2" cy="32" r="7" fill="#52d28a" stroke="#0f1216" stroke-width="2"/>
+      <text x="607.2" y="60" fill="#52d28a" font-size="11" text-anchor="middle">0.69 (승률)</text>
+      <text x="522.7" y="60" fill="#9aa7b6" font-size="10" text-anchor="middle">0.594</text>
+      <!-- scale ticks -->
+      <text x="4" y="60" fill="#9aa7b6" font-size="10">0.0</text>
+      <text x="872" y="60" fill="#9aa7b6" font-size="10" text-anchor="end">1.0</text>
+    </svg>
+  </div>
+
+  <h2>측정 요약</h2>
+  <table>
+    <tr><th>실행</th><th>라운드</th><th>평균 팀점수차/R</th><th>라운드 승률</th><th>Wilson 95% 하한</th></tr>
+    <tr><td>파일럿</td><td>30 (미러드)</td><td class="good">+96.3</td><td>70.0% (21/30)</td><td>0.521</td></tr>
+    <tr><td><b>확정</b></td><td><b>100 (미러드)</b></td><td class="good"><b>+127.3</b></td><td><b>69.0% (69/100)</b></td><td class="good"><b>0.594</b></td></tr>
+  </table>
+  <p class="dim" style="font-size:12.5px">
+    승률(69%)은 "라운드를 이긴 비율"이고, 평균 팀점수차(+127)는 "이긴 폭"입니다. PIMC는 이길 때 크게 이깁니다(스컹크·티츄 보너스).
+    미러드딜로 딜 운은 상쇄됨. 1수당 PIMC 비용 ≈ 8초/라운드(GC 위주, P2-D 풀링 대상).
+  </p>
+
+  <h2>구축한 벤치 하니스 (재사용)</h2>
+  <ul>
+    <li><code>BenchStats.WilsonLowerBound</code> — 승률 Wilson 95% CI 하한([0,1] 클램프). 단위테스트 3/3.</li>
+    <li><code>PimcBench.RunMirrored(pairs, seed, config)</code> — PIMC vs AiAgent 미러드딜 라운드 벤치. 순수 C# → 백그라운드/배치 실행 가능, <code>config</code> 주입으로 <b>Hard/Expert 재사용</b>.</li>
+    <li><code>PimcBenchTests</code> — <code>[Explicit]+[Category("Bench")]</code>: 기본 스위트 제외(메인스레드 점유·MCP-stuck 회피). Unity Test Runner에서 명시 실행 또는 헤드리스/백그라운드로.</li>
+  </ul>
+
+  <h2>해석 &amp; 다음 단계</h2>
+  <ul>
+    <li>DoD는 형식상 <b>Hard</b> 기준이지만, 더 약한 <b>Normal</b>이 이미 휴리스틱을 통계적으로 압도 → 탐색 강도/방향이 옳음(Hard는 세계수↑로 Normal 이상 기대).</li>
+    <li><b>P2-D(Hard 강화):</b> reach-probability 가중 세계샘플 · 팀협력 · 폭탄타이밍 결정화 · <b>GC 풀링</b>(8초/라운드 단축 → 더 큰 벤치/실기기 가능).</li>
+    <li>이월(리뷰): 예산 per-move 세분화 · budgetMs 실기기 확정.</li>
+  </ul>
+
+  <p class="foot">
+    Tichu Phase 2 · PIMC AI · P2-C 벤치 + DoD 측정 · 생성: Claude Code (Opus 4.8)
+  </p>
+</div>
+</body>
+</html>

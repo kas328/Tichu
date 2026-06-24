@@ -8,7 +8,7 @@ using Tichu.GameFlow.Agents;
 
 namespace Tichu.Core.Tests
 {
-    /// <summary>Pimc.Rollout + PimcAgent 탐색 배선 검증.</summary>
+    /// <summary>Pimc.Rollout + PimcAgent(다세계) 탐색 배선 검증.</summary>
     public class PimcAgentTests
     {
         private static GameState FreshPlayState(int turn)
@@ -30,7 +30,7 @@ namespace Tichu.Core.Tests
             var rng = new Rng(11UL);
             var world = Determinizer.Sample(src, 0, ref rng);
 
-            int reward = Pimc.Rollout(world.Clone(), observerSeat: 0, policySeed: 777UL);
+            int reward = Pimc.Rollout(world.Clone(), observerSeat: 0, policySeed: 777UL, epsilon: 0.0);
 
             // 한 판 카드점수 합은 100 + 티츄델타라 절대값이 비현실적으로 크지 않다(완주 증거).
             Assert.That(reward, Is.InRange(-600, 600));
@@ -43,8 +43,8 @@ namespace Tichu.Core.Tests
             var rng = new Rng(11UL);
             var world = Determinizer.Sample(src, 0, ref rng);
 
-            int a = Pimc.Rollout(world.Clone(), 0, 777UL);
-            int b = Pimc.Rollout(world.Clone(), 0, 777UL);
+            int a = Pimc.Rollout(world.Clone(), 0, 777UL, 0.0);
+            int b = Pimc.Rollout(world.Clone(), 0, 777UL, 0.0);
             Assert.That(a, Is.EqualTo(b), "같은 세계+시드 → 같은 보상");
         }
 
@@ -56,19 +56,32 @@ namespace Tichu.Core.Tests
             var rng = new Rng(11UL);
             var world = Determinizer.Sample(src, 0, ref rng);
 
-            int teamA = Pimc.Rollout(world.Clone(), observerSeat: 0, policySeed: 777UL);
-            int teamB = Pimc.Rollout(world.Clone(), observerSeat: 1, policySeed: 777UL);
+            int teamA = Pimc.Rollout(world.Clone(), observerSeat: 0, policySeed: 777UL, epsilon: 0.0);
+            int teamB = Pimc.Rollout(world.Clone(), observerSeat: 1, policySeed: 777UL, epsilon: 0.0);
             Assert.That(teamA, Is.EqualTo(-teamB), "관측 팀 부호로 보상이 뒤집혀야 한다");
         }
 
-        // ── PimcAgent 탐색 배선 ──────────────────────────────────────────────────────
+        [Test]
+        public void Rollout_with_epsilon_is_deterministic()
+        {
+            var src = FreshPlayState(0);
+            var rng = new Rng(11UL);
+            var world = Determinizer.Sample(src, 0, ref rng);
+
+            int a = Pimc.Rollout(world.Clone(), 0, 555UL, 0.5);
+            int b = Pimc.Rollout(world.Clone(), 0, 555UL, 0.5);
+            Assert.That(a, Is.EqualTo(b), "같은 세계+시드+ε → 같은 보상(결정적)");
+            Assert.That(a, Is.InRange(-600, 600));
+        }
+
+        // ── PimcAgent 다세계 탐색 배선 ─────────────────────────────────────────────────
 
         [Test]
         public void DecideTurn_returns_a_legal_non_null_move_on_lead()
         {
             var s = FreshPlayState(0);                 // seat0 리드(트릭 없음)
             var ctx = GameFlowHelpers.Context(s, 0);
-            var d = new PimcAgent(2024UL, 0).DecideTurn(ctx);
+            var d = new PimcAgent(2024UL, 0, PolicyConfig.Normal).DecideTurn(ctx);
 
             Assert.That(d.IsPass, Is.False, "리드는 패스 불가 → 수를 내야 한다");
             Assert.That(d.Move, Is.Not.Null);
@@ -82,10 +95,11 @@ namespace Tichu.Core.Tests
         [Test]
         public void DecideTurn_is_deterministic_for_same_state_and_seed()
         {
+            // 다세계(Normal) 탐색도 고정 노드수에서 결정적이어야 한다.
             var s1 = FreshPlayState(0);
             var s2 = FreshPlayState(0);
-            var d1 = new PimcAgent(55UL, 0).DecideTurn(GameFlowHelpers.Context(s1, 0));
-            var d2 = new PimcAgent(55UL, 0).DecideTurn(GameFlowHelpers.Context(s2, 0));
+            var d1 = new PimcAgent(55UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s1, 0));
+            var d2 = new PimcAgent(55UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s2, 0));
 
             Assert.That(d1.IsPass, Is.EqualTo(d2.IsPass));
             if (!d1.IsPass)
@@ -94,6 +108,21 @@ namespace Tichu.Core.Tests
                 Assert.That(d1.Move!.Type, Is.EqualTo(d2.Move!.Type));
                 Assert.That(d1.Move!.Length, Is.EqualTo(d2.Move!.Length));
             }
+        }
+
+        [Test]
+        public void Easy_config_returns_legal_move_without_search()
+        {
+            // Worlds=0 → 탐색 없이 ε-휴리스틱 직접 결정. 합법수여야 한다.
+            var s = FreshPlayState(0);
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var d = new PimcAgent(2024UL, 0, PolicyConfig.For(Difficulty.Easy)).DecideTurn(ctx);
+
+            Assert.That(d.IsPass, Is.False, "리드는 패스 불가");
+            bool legal = false;
+            foreach (var m in ctx.LegalMoves)
+                if (m.Rank == d.Move!.Rank && m.Type == d.Move!.Type && m.Length == d.Move!.Length) legal = true;
+            Assert.That(legal, Is.True);
         }
 
         [Test]
@@ -113,7 +142,7 @@ namespace Tichu.Core.Tests
                 new List<Card> { Card.Normal(2, Suit.Pagoda) });
             var ctx = GameFlowHelpers.Context(s, 0);
 
-            var pimc = new PimcAgent(1UL, 0).CallGrandTichu(ctx);
+            var pimc = new PimcAgent(1UL, 0, PolicyConfig.Normal).CallGrandTichu(ctx);
             var heur = new AiAgent(1UL, 0).CallGrandTichu(ctx);
             Assert.That(pimc, Is.EqualTo(heur), "비-턴 결정은 휴리스틱에 위임돼야 한다");
         }
@@ -121,12 +150,13 @@ namespace Tichu.Core.Tests
         [Test]
         public void Four_PimcAgents_complete_a_round_without_throwing()
         {
-            // 단일-세계 탐색이 재귀/폭주 없이 한 라운드를 완주하는지(배선 무결성).
+            // 다세계(Normal) 탐색이 재귀/폭주 없이 한 라운드를 완주하는지(배선 무결성).
+            var cfg = PolicyConfig.Normal;
             var s = FreshPlayState(0);
             var agents = new IAgent[]
             {
-                new PimcAgent(900UL, 0), new PimcAgent(900UL, 1),
-                new PimcAgent(900UL, 2), new PimcAgent(900UL, 3)
+                new PimcAgent(900UL, 0, cfg), new PimcAgent(900UL, 1, cfg),
+                new PimcAgent(900UL, 2, cfg), new PimcAgent(900UL, 3, cfg)
             };
             var outcome = new GameDriver(agents).RunRound(s);
             Assert.That(outcome.State.Phase, Is.EqualTo(RoundPhase.RoundEnd));

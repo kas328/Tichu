@@ -52,8 +52,9 @@ namespace Tichu.GameFlow.Agents
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
 
-            // 각 합법수의 누적 EV(세계×롤аут 합). 후보 집합은 관측 손패만 의존 → 세계 무관 동일.
-            var sumEv = new long[legal.Count];
+            // 각 합법수의 가중 누적 EV(Σ weightᵥ·evᵥ). reach-prob off면 weight=1.0 → 균등(P2-C 불변).
+            var weightedSum = new double[legal.Count];
+            double totalWeight = 0.0;
             var rng = _rng;
             int samples = 0;
             bool budgetHit = false;
@@ -61,6 +62,7 @@ namespace Tichu.GameFlow.Agents
             for (int w = 0; w < _config.Worlds && !budgetHit; w++)
             {
                 var world = Determinizer.Sample(ctx.State, _seat, ref rng);
+                double weight = _config.UseReachProb ? ReachWeight.WorldWeight(world, _seat) : 1.0;
                 for (int r = 0; r < rolloutsPerWorld; r++)
                 {
                     abort.ThrowIfCancellationRequested();                                  // 폭탄 인터럽트 → 폐기
@@ -71,22 +73,23 @@ namespace Tichu.GameFlow.Agents
                     {
                         var sim = world.Clone();
                         if (!GameEngine.Apply(sim, GameAction.Play(_seat, legal[i].Cards)).Ok) continue; // wish=null(P2-B)
-                        sumEv[i] += Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
+                        weightedSum[i] += weight * Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
                     }
+                    totalWeight += weight;
                     samples++;
                 }
             }
 
-            // 세계·롤аут 합 EV 최대 수(동점깨기 MoveOrder.Strength 최소).
-            long bestSum = long.MinValue;
+            // 가중 합 EV 최대 수(동점깨기 MoveOrder.Strength 최소).
+            double bestSum = double.NegativeInfinity;
             int bestStrength = int.MaxValue;
             Combination? best = null;
             for (int i = 0; i < legal.Count; i++)
             {
                 int strength = MoveOrder.Strength(legal[i]);
-                if (sumEv[i] > bestSum || (sumEv[i] == bestSum && strength < bestStrength))
+                if (weightedSum[i] > bestSum || (weightedSum[i] == bestSum && strength < bestStrength))
                 {
-                    bestSum = sumEv[i];
+                    bestSum = weightedSum[i];
                     bestStrength = strength;
                     best = legal[i];
                 }
@@ -100,8 +103,7 @@ namespace Tichu.GameFlow.Agents
                 var passSim = passWorld.Clone();
                 if (GameEngine.Apply(passSim, GameAction.Pass(_seat)).Ok)
                 {
-                    long passEv = (long)Pimc.Rollout(passSim, _seat, policyBase, _config.Epsilon)
-                                  * _config.Worlds * rolloutsPerWorld;
+                    double passEv = (double)Pimc.Rollout(passSim, _seat, policyBase, _config.Epsilon) * totalWeight;
                     if (passEv > bestSum) { _rng = rng; return TurnDecision.Pass; }
                 }
             }

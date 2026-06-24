@@ -36,6 +36,16 @@ namespace Tichu.Core.Tests
             Assert.That(c.Worlds, Is.EqualTo(7));
             Assert.That(c.RolloutsPerWorld, Is.EqualTo(3));
             Assert.That(c.Epsilon, Is.EqualTo(0.2).Within(1e-9));
+            Assert.That(c.UseReachProb, Is.False, "기본 false");
+        }
+
+        [Test]
+        public void UseReachProb_on_for_hard_expert_off_for_easy_normal()
+        {
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseReachProb, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseReachProb, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseReachProb, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseReachProb, Is.True);
         }
     }
 }

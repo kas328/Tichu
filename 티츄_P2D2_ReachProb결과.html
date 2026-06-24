@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P2-D2 reach-prob 결과 — 격리 벤치</title>
+<style>
+  :root{--bg:#0f1216;--card:#1a1f27;--line:#2b3340;--ink:#e8edf3;--dim:#9aa7b6;
+    --accent:#5db0ff;--good:#52d28a;--warn:#ffcf5d;--bad:#ff6b6b;--pick:#7c8cff;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI","Malgun Gothic",system-ui,sans-serif;line-height:1.6;padding:32px 16px}
+  .wrap{max-width:900px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 4px}
+  h2{font-size:16px;margin:24px 0 10px;color:var(--accent)}
+  .sub{color:var(--dim);font-size:14px;margin:0 0 18px}
+  .finding{background:#231f16;border:1px solid #6b5a2b;border-radius:12px;padding:16px 18px;margin-bottom:16px;font-size:14px}
+  .finding b{color:var(--warn)}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:center}
+  th{color:var(--dim);font-weight:600;background:#141922}
+  td.l{text-align:left}
+  td.good{color:var(--good)} td.dim{color:var(--dim)}
+  ul{margin:6px 0;padding-left:20px;font-size:13.5px;color:var(--dim)}
+  li{margin:3px 0}
+  .opt{border:1px solid var(--line);border-radius:10px;padding:13px 16px;background:#141922;margin-bottom:11px}
+  .opt.rec{border-color:var(--pick);box-shadow:0 0 0 1px var(--pick) inset}
+  .opt h3{margin:0 0 5px;font-size:15px;display:flex;align-items:center;gap:8px}
+  .pill{font-size:11px;font-weight:700;border-radius:20px;padding:2px 8px;background:var(--pick);color:#0f1216}
+  .pro{color:var(--good)} .con{color:var(--warn)}
+  code{background:#0c0f13;border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:12.5px}
+  .foot{color:var(--dim);font-size:13px;margin-top:8px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>P2-D2 reach-probability — 격리 벤치 결과 (정직한 보고)</h1>
+  <p class="sub">같은 딜·같은 예산(4세계×2롤아웃)에서 reach-prob만 ON/OFF · 둘 다 vs 휴리스틱 · 2026-06-25</p>
+
+  <div class="finding">
+    ⚠️ <b>reach-prob가 4세계 예산에서 강도를 올리지 못했습니다</b> — 오히려 근소하게 낮음(노이즈 범위 내).
+    둘 다 휴리스틱은 압도. 이는 사실 <b>예상된 결과</b>: reach-prob는 중요도 샘플링이라, 세계가 4개뿐이면
+    유효 표본수가 줄어 분산만 커집니다. 16세계(Hard 설계)에서야 효과가 기대되지만 그건 ~64초/라운드라 지금 제대로 벤치 불가.
+  </div>
+
+  <table>
+    <tr><th class="l">설정 (4×2, vs 휴리스틱)</th><th>평균 점수차/R</th><th>승률</th><th>Wilson 하한</th></tr>
+    <tr><td class="l">reach <b>OFF</b> (균등)</td><td class="good">+209.6</td><td>95.8% (23/24)</td><td>0.798</td></tr>
+    <tr><td class="l">reach <b>ON</b></td><td>+190.4</td><td>87.5% (21/24)</td><td>0.690</td></tr>
+    <tr><td class="l dim">차이</td><td class="dim">−19 (노이즈)</td><td class="dim">−2판/24 (노이즈)</td><td class="dim">겹침</td></tr>
+  </table>
+
+  <h2>해석</h2>
+  <ul>
+    <li>쌍대 비교(같은 딜·같은 RNG세계, EV 집계만 다름)라 깨끗하지만, <b>n=24는 작아 ±2판은 노이즈</b>. "측정 가능한 이득 없음"이 정직한 결론.</li>
+    <li>reach-prob 구현 자체는 <b>정확·검증됨</b>(ReachWeightTests 4/4: 강한 콜손 세계 가중↑). 동작은 의도대로.</li>
+    <li>중요도 샘플링은 표본이 많아야 이득 → <b>Hard의 16세계</b>가 본래 무대. 그러나 16세계=~64초/R라 통계적 벤치가 현실적으로 불가(엔진 속도 개선 후 가능).</li>
+    <li>Normal/Easy는 reach-prob OFF로 <b>완전 불변</b>(검증됨).</li>
+  </ul>
+
+  <h2>결정 필요: reach-prob를 Hard에 켤까?</h2>
+  <div class="opt rec">
+    <h3>A. 머지 + Hard ON 유지 (검증은 속도 개선 후) <span class="pill">기본</span></h3>
+    <ul>
+      <li>코드 정확·검증·Normal 불변. Hard 설계(16세계)대로 ON. 이득은 미검증 — 메모리/리포트에 명시, 엔진 가속 후 16세계 벤치로 확정.</li>
+      <li class="con">미검증 기능을 기본 ON으로 둠(단, Hard 전용·Normal 무영향).</li>
+    </ul>
+  </div>
+  <div class="opt">
+    <h3>B. 머지하되 Hard는 OFF로 (증명될 때까지 보류)</h3>
+    <ul>
+      <li>ReachWeight/가중 EV 코드는 머지(자산 보존)하되 <code>PolicyConfig.For(Hard).UseReachProb=false</code>로 비활성. 증명되면 켬.</li>
+      <li class="con">현재 Hard = Normal+세계수만(티어 차별화 약함).</li>
+    </ul>
+  </div>
+  <div class="opt">
+    <h3>C. 16세계 빠른 스팟체크(~13분) 후 결정</h3>
+    <ul>
+      <li>Hard(16) reach on/off 소량(노이즈 큼) 한 번 보고 결정. 느리고 n 작아 결정력 약함.</li>
+    </ul>
+  </div>
+
+  <p class="foot">아래 CLI에서 선택해 주세요.</p>
+</div>
+</body>
+</html>

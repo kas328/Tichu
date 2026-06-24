@@ -16,11 +16,15 @@ namespace Tichu.GameFlow.Agents
         /// <summary>롤아웃 디폴트 정책의 무작위 확률(ε-greedy). 0이면 순수 휴리스틱.</summary>
         public readonly double Epsilon;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon)
+        /// <summary>true면 reach-probability 가중 세계(Hard+). false면 균등 평균.</summary>
+        public readonly bool UseReachProb;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
             Epsilon = epsilon;
+            UseReachProb = useReachProb;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
@@ -33,8 +37,8 @@ namespace Tichu.GameFlow.Agents
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
                 case Difficulty.Normal: return new PolicyConfig(4, 2, 0.10);
-                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05);  // 고급기능 P2-D
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00);  // 고급기능 P2-E
+                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05, useReachProb: true);  // reach-prob P2-D2
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useReachProb: true);  // 고급기능 P2-E
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

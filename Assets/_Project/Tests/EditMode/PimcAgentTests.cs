@@ -210,5 +210,29 @@ namespace Tichu.Core.Tests
             Assert.Throws<System.OperationCanceledException>(() =>
                 agent.DecideTurnAnytime(ctx, CancellationToken.None, abort.Token));
         }
+
+        // ── reach-prob 가중(Hard 경로) ────────────────────────────────────────────────
+
+        [Test]
+        public void ReachProb_weighted_decide_turn_is_deterministic_and_legal()
+        {
+            // 작은 reach-prob config(worlds=2)로 가중 경로 활성(Hard 16세계는 1결정 ~40s라 회피).
+            var cfg = new PolicyConfig(2, 1, 0.1, useReachProb: true);
+            var s1 = FreshPlayState(0); var s2 = FreshPlayState(0);
+            s1.Seats[1].Call = TichuCall.Tichu; s2.Seats[1].Call = TichuCall.Tichu; // 콜 단서 → 가중 활성
+            var ctx1 = GameFlowHelpers.Context(s1, 0);
+            var d1 = new PimcAgent(55UL, 0, cfg).DecideTurn(ctx1);
+            var d2 = new PimcAgent(55UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s2, 0));
+
+            Assert.That(d1.IsPass, Is.EqualTo(d2.IsPass));
+            if (!d1.IsPass)
+            {
+                Assert.That(d1.Move!.Rank, Is.EqualTo(d2.Move!.Rank));
+                bool legal = false;
+                foreach (var m in ctx1.LegalMoves)
+                    if (m.Rank == d1.Move!.Rank && m.Type == d1.Move!.Type && m.Length == d1.Move!.Length) legal = true;
+                Assert.That(legal, Is.True);
+            }
+        }
     }
 }

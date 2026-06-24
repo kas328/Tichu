@@ -75,12 +75,14 @@ namespace Tichu.Presentation
                     vm.FastForward = false;                 // 새 라운드: 스킵(빠른 진행) 해제
                     vm.ApplySnapshot(state);
 
+                    var cfg = Tichu.GameFlow.Agents.PolicyConfig.For(_args.Difficulty);
+                    int budgetMs = BudgetMsFor(_args.Difficulty);
                     var agents = new IDecisionAgent[]
                     {
                         human,
-                        new DelayedAiDecisionAgent(seed, 1, _args.AiDelayMs, () => vm.FastForward),
-                        new DelayedAiDecisionAgent(seed, 2, _args.AiDelayMs, () => vm.FastForward),
-                        new DelayedAiDecisionAgent(seed, 3, _args.AiDelayMs, () => vm.FastForward),
+                        new PimcDecisionAgent(seed, 1, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
+                        new PimcDecisionAgent(seed, 2, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
+                        new PimcDecisionAgent(seed, 3, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
                     };
 
                     // 매 플레이마다 뷰 갱신 + 로그 기록 → 사람이 AI 플레이를 보며 카운팅.
@@ -110,6 +112,19 @@ namespace Tichu.Presentation
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }
+        }
+
+        /// <summary>난이도별 인게임 1수 시간예산(ms). 스펙 §5 시작값. 0=탐색 OFF(Easy).</summary>
+        private static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d)
+        {
+            switch (d)
+            {
+                case Tichu.GameFlow.Agents.Difficulty.Easy:   return 0;
+                case Tichu.GameFlow.Agents.Difficulty.Normal: return 80;
+                case Tichu.GameFlow.Agents.Difficulty.Hard:   return 250;
+                case Tichu.GameFlow.Agents.Difficulty.Expert: return 300;
+                default:                                       return 80;
+            }
         }
 
         private static Canvas CreateCanvas()

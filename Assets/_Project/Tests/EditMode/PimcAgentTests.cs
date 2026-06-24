@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using NUnit.Framework;
 using Tichu.Core;
 using Tichu.Core.Cards;
@@ -161,6 +162,53 @@ namespace Tichu.Core.Tests
             var outcome = new GameDriver(agents).RunRound(s);
             Assert.That(outcome.State.Phase, Is.EqualTo(RoundPhase.RoundEnd));
             Assert.That(outcome.Result, Is.Not.Null);
+        }
+
+        // ── anytime (동기 코어) ────────────────────────────────────────────────────
+
+        [Test]
+        public void DecideTurnAnytime_with_no_tokens_equals_DecideTurn()
+        {
+            var s1 = FreshPlayState(0);
+            var s2 = FreshPlayState(0);
+            var d1 = new PimcAgent(55UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s1, 0));
+            var d2 = new PimcAgent(55UL, 0, PolicyConfig.Normal)
+                .DecideTurnAnytime(GameFlowHelpers.Context(s2, 0), CancellationToken.None, CancellationToken.None);
+            Assert.That(d1.IsPass, Is.EqualTo(d2.IsPass));
+            if (!d1.IsPass)
+            {
+                Assert.That(d1.Move!.Rank, Is.EqualTo(d2.Move!.Rank));
+                Assert.That(d1.Move!.Type, Is.EqualTo(d2.Move!.Type));
+            }
+        }
+
+        [Test]
+        public void DecideTurnAnytime_budget_cancelled_returns_legal_best_so_far()
+        {
+            // 예산이 미리 취소돼 있어도 ≥1 샘플 완료 후 합법수(best-so-far)를 throw 없이 반환.
+            var s = FreshPlayState(0);
+            var ctx = GameFlowHelpers.Context(s, 0);
+            using var budget = new CancellationTokenSource();
+            budget.Cancel(); // 즉시 만료
+            var d = new PimcAgent(7UL, 0, new PolicyConfig(8, 2, 0.1))
+                .DecideTurnAnytime(ctx, budget.Token, CancellationToken.None);
+            Assert.That(d.IsPass, Is.False);
+            bool legal = false;
+            foreach (var m in ctx.LegalMoves)
+                if (m.Rank == d.Move!.Rank && m.Type == d.Move!.Type && m.Length == d.Move!.Length) legal = true;
+            Assert.That(legal, Is.True, "예산 만료 시에도 합법 best-so-far");
+        }
+
+        [Test]
+        public void DecideTurnAnytime_abort_cancelled_throws_OCE()
+        {
+            var s = FreshPlayState(0);
+            var ctx = GameFlowHelpers.Context(s, 0);
+            using var abort = new CancellationTokenSource();
+            abort.Cancel();
+            var agent = new PimcAgent(7UL, 0, new PolicyConfig(8, 2, 0.1));
+            Assert.Throws<System.OperationCanceledException>(() =>
+                agent.DecideTurnAnytime(ctx, CancellationToken.None, abort.Token));
         }
     }
 }

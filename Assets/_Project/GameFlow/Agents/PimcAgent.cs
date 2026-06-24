@@ -1,3 +1,4 @@
+using System.Threading;
 using Tichu.Core;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
@@ -5,11 +6,11 @@ using Tichu.Core.Game;
 namespace Tichu.GameFlow.Agents
 {
     /// <summary>
-    /// 다세계 PIMC 탐색 에이전트(P2-B1). PolicyConfig 주입으로 티어를 가른다.
+    /// 다세계 PIMC 탐색 에이전트(P2-B). PolicyConfig 주입으로 티어를 가른다.
     /// DecideTurn: Worlds&gt;0 이면 config.Worlds 세계를 결정화하고 각 루트 합법수를
-    /// config.RolloutsPerWorld 회(ε-노이즈) 롤аут해 세계·롤아웃 합 EV(관측 팀 부호)가 최대인
+    /// config.RolloutsPerWorld 회(ε-노이즈) 롤аут해 세계·롤аут 합 EV(관측 팀 부호)가 최대인
     /// 수를 고른다(동점깨기 MoveOrder.Strength 최소). Worlds==0(Easy)이면 탐색 없이 ε-휴리스틱
-    /// 직접 결정. 나머지 결정은 휴리스틱 위임. 고정 노드수에서 결정적(결정화 셔플·ε만 Rng).
+    /// 직접 결정. 나머지 결정은 휴리스틱 위임. 고정 노드수(토큰 None)에서 결정적.
     /// 좌석은 생성자 _seat 단일 출처를 쓴다(드라이버는 항상 자기 좌석으로 호출).
     /// </summary>
     public sealed class PimcAgent : IAgent
@@ -29,7 +30,16 @@ namespace Tichu.GameFlow.Agents
             _rng = new Rng(roundSeed ^ 0x91C0_0000_0000_0001UL ^ (ulong)seat);
         }
 
+        /// <summary>고정 노드수(결정적) 탐색. = DecideTurnAnytime(ctx, None, None).</summary>
         public TurnDecision DecideTurn(in DecisionContext ctx)
+            => DecideTurnAnytime(ctx, CancellationToken.None, CancellationToken.None);
+
+        /// <summary>
+        /// anytime 탐색. budget 만료 시(최소 1샘플 완료 후) 현재까지 best-so-far 반환(throw 안 함);
+        /// abort 취소 시 OperationCanceledException(폭탄 인터럽트 — 드라이버가 이 턴 폐기).
+        /// 토큰 둘 다 None 이면 고정 노드수 결정적 탐색(= DecideTurn).
+        /// </summary>
+        public TurnDecision DecideTurnAnytime(in DecisionContext ctx, CancellationToken budget, CancellationToken abort)
         {
             var legal = ctx.LegalMoves;
             if (legal.Count == 0)
@@ -42,23 +52,28 @@ namespace Tichu.GameFlow.Agents
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
 
-            // 각 합법수의 누적 EV(세계×롤아웃 합). 후보 집합은 관측 손패만 의존 → 세계 무관 동일.
+            // 각 합법수의 누적 EV(세계×롤аут 합). 후보 집합은 관측 손패만 의존 → 세계 무관 동일.
             var sumEv = new long[legal.Count];
             var rng = _rng;
+            int samples = 0;
+            bool budgetHit = false;
 
-            for (int w = 0; w < _config.Worlds; w++)
+            for (int w = 0; w < _config.Worlds && !budgetHit; w++)
             {
                 var world = Determinizer.Sample(ctx.State, _seat, ref rng);
                 for (int r = 0; r < rolloutsPerWorld; r++)
                 {
+                    abort.ThrowIfCancellationRequested();                                  // 폭탄 인터럽트 → 폐기
+                    if (samples >= 1 && budget.IsCancellationRequested) { budgetHit = true; break; } // anytime
                     // 공통 난수(variance reduction): 같은 (w,r)에서 모든 수가 같은 ε-시퀀스를 본다.
                     ulong rolloutSeed = policyBase + (ulong)(w * rolloutsPerWorld + r);
                     for (int i = 0; i < legal.Count; i++)
                     {
                         var sim = world.Clone();
-                        if (!GameEngine.Apply(sim, GameAction.Play(_seat, legal[i].Cards)).Ok) continue; // wish=null(P2-B1)
+                        if (!GameEngine.Apply(sim, GameAction.Play(_seat, legal[i].Cards)).Ok) continue; // wish=null(P2-B)
                         sumEv[i] += Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
                     }
+                    samples++;
                 }
             }
 
@@ -78,8 +93,8 @@ namespace Tichu.GameFlow.Agents
             }
 
             // 패스(합법일 때)는 1세계로 가볍게 평가해 같은 스케일(×Worlds×rollouts)로 환산 비교.
-            // 동점이면 수를 선호(strict >). rng 되쓰기는 모든 Determinizer.Sample 이후 한 번만.
-            if (ctx.CanPass)
+            // 예산 만료(budgetHit) 시엔 즉시 반환으로 anytime 존중. 동점이면 수를 선호(strict >).
+            if (ctx.CanPass && !budgetHit)
             {
                 var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng);
                 var passSim = passWorld.Clone();

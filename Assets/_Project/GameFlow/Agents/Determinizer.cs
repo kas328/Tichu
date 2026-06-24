@@ -41,18 +41,27 @@ namespace Tichu.GameFlow.Agents
             foreach (var c in Deck.CreateStandard())
                 if (!visible.Contains(c)) pool.Add(c);
 
-            // 3) 폐쇄 불변식: 풀 크기 == 상대 좌석 손패 장수 합.
+            // 3) 버려진 개 보정.
+            //    개는 플레이되면 어떤 더미에도 들지 않고 버려진다(GameEngine.ApplyDog) — 손패/트릭/획득 어디에도
+            //    자취가 없다. 미플레이 개는 정상 미관측 카드지만, 버려진 개는 풀에 유령으로 남는다.
+            //    유령 개는 풀을 상대 손패 합보다 정확히 1 크게 만드는 유일한 원인이므로 그 경우에만 제거한다
+            //    (개가 상대 손에 있으면 pool==need 이라 제거되지 않고 정상 분배된다).
             int need = 0;
             for (int i = 0; i < 4; i++)
                 if (i != observerSeat) need += clone.Seats[i].Hand.Count;
+
+            if (pool.Count == need + 1)
+                pool.Remove(Card.Dog);
+
+            // 4) 폐쇄 불변식: 보정 후 풀 크기 == 상대 좌석 손패 장수 합.
             if (need != pool.Count)
                 throw new InvalidOperationException(
                     $"determinize closure mismatch: pool={pool.Count} need={need} (observer={observerSeat})");
 
-            // 4) 풀 셔플(주입 Rng).
+            // 5) 풀 셔플(주입 Rng).
             Deck.Shuffle(pool, ref rng);
 
-            // 5) 상대 좌석에 순차 분배(공개된 장수 정확히 일치).
+            // 6) 상대 좌석에 순차 분배(공개된 장수 정확히 일치).
             int idx = 0;
             for (int i = 0; i < 4; i++)
             {

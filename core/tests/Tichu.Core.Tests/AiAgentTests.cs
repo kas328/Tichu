@@ -39,6 +39,9 @@ namespace Tichu.Core.Tests
         private static Combination Pair(int rank) =>
             CombinationRecognizer.Recognize(new[] { N(rank, Suit.Jade), N(rank, Suit.Sword) }, TrickContext.Lead);
 
+        private static Combination Single(int rank) =>
+            CombinationRecognizer.Recognize(new[] { N(rank, Suit.Jade) }, TrickContext.Lead);
+
         private static List<Card> PairCards(int rank) =>
             new List<Card> { N(rank, Suit.Jade), N(rank, Suit.Sword) };
 
@@ -362,16 +365,67 @@ namespace Tichu.Core.Tests
             // 팔로우. Top 소유는 상대(seat1). AccumulatedPoints=0 (점수 없는 트릭).
             // seat0 의 유일한 이기는 비폭탄 수 = Pair(10) — 10이 두 장이라 PointsInPlay > 0.
             // → 비싼 수로밖에 못 이기는 가치 없는 트릭 → Pass 해야 한다.
+            // 상대(seat1/seat3)는 손패 충분 + 티츄 미콜 → 위협-블로킹 미발동(안티낭비만 검증).
             var s = FollowState(0, Pair(9), topOwner: 1, accumulatedPoints: 0,
                 Hand(N(10, Suit.Jade), N(10, Suit.Sword)),  // seat0: 10페어만 보유
-                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(4, Suit.Jade)),
                 Hand(N(2, Suit.Sword)),
-                Hand(N(2, Suit.Pagoda)));
+                Hand(N(2, Suit.Pagoda), N(3, Suit.Pagoda), N(4, Suit.Pagoda)));
             var ctx = GameFlowHelpers.Context(s, 0);
 
             Assert.That(ctx.CanPass, Is.True, "이 상황에서 패스가 가능해야 한다");
             var d = new AiAgent(1UL, 0).DecideTurn(ctx);
             Assert.That(d.IsPass, Is.True, "가치 없는 트릭을 비싼 수로 이기는 건 낭비 → 패스해야 한다");
+        }
+
+        // ── DecideTurn: 위협 블로킹(#3, 비용 인지) ────────────────────────────────────
+
+        [Test]
+        public void DecideTurn_blocks_opponent_tichu_even_with_point_card()
+        {
+            // 상대(seat1)가 티츄 콜 + 싼 트릭 Top(single 8) 소유. seat0 의 이기는 수는 single 10(점수카드)뿐.
+            // 평소엔 안티낭비로 패스하지만, 티츄 위협이므로 막는다(콤보 안 깨면 점수카드라도 OK).
+            var s = FollowState(0, Single(8), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Sword), N(3, Suit.Pagoda)),
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star), N(8, Suit.Star)));
+            s.Seats[1].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "상대 티츄 위협 → 싼 수로 막는다");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(10).Rank));
+        }
+
+        [Test]
+        public void DecideTurn_sends_tichu_when_only_block_breaks_straight()
+        {
+            // 상대(seat1) 티츄 콜, single 7 Top. seat0 손패 = 5-6-7-8-9 스트레이트.
+            // 이기는 수(single 8/9)는 전부 스트레이트의 일부 → 깨면서까지 막지 않고 보내준다(패스).
+            var s = FollowState(0, Single(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star), N(9, Suit.Jade)),
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star)));
+            s.Seats[1].Call = TichuCall.Tichu;
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(ctx.CanPass, Is.True);
+            var d = new AiAgent(1UL, 0).DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.True, "막는 비용이 극심(스트레이트 깸) → 티츄 보내준다");
+        }
+
+        [Test]
+        public void DecideTurn_blocks_near_out_opponent()
+        {
+            // 상대(seat1)가 손패 2장(아웃 임박) + 싼 트릭 Top(single 8). seat0 single 10(점수)뿐.
+            // 티츄 미콜이지만 아웃 임박 위협 → 막는다.
+            var s = FollowState(0, Single(8), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Sword), N(3, Suit.Pagoda)),
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword)),    // seat1: 2장(아웃 임박)
+                Hand(N(2, Suit.Jade)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star), N(7, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "상대 아웃 임박 → 막는다");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(10).Rank));
         }
 
         // ── CallTichu ─────────────────────────────────────────────────────────────────

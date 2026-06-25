@@ -40,12 +40,14 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void UseReachProb_on_for_hard_expert_off_for_easy_normal()
+        public void UseReachProb_off_for_all_tiers_verified_ineffective_at_16_worlds()
         {
+            // P2-D 검증: reach-prob는 16세계에서도 무효과(재현시 +25/R→−13/R 부호 뒤집힘,
+            // 풀링 동률) → Hard/Expert 도 OFF. ReachWeight 코드는 비활성 보존(재실험 여지).
             Assert.That(PolicyConfig.For(Difficulty.Easy).UseReachProb, Is.False);
             Assert.That(PolicyConfig.For(Difficulty.Normal).UseReachProb, Is.False);
-            Assert.That(PolicyConfig.For(Difficulty.Hard).UseReachProb, Is.True);
-            Assert.That(PolicyConfig.For(Difficulty.Expert).UseReachProb, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseReachProb, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseReachProb, Is.False);
         }
     }
 }

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>P2-D: LegalMoves 속도개선 + reach-prob 16세계 검증</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1d24; --ink:#e6e8ec; --mut:#9aa3af; --on:#4ade80; --off:#fb923c; --base:#60a5fa; --warn:#f87171; --line:#2a2f3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 -apple-system,Segoe UI,Roboto,'Noto Sans KR',sans-serif; }
+  .wrap { max-width:920px; margin:0 auto; padding:32px 20px 80px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  h2 { font-size:18px; margin:32px 0 12px; border-left:3px solid var(--on); padding-left:10px; }
+  .sub { color:var(--mut); margin:0 0 24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin:14px 0; }
+  table { width:100%; border-collapse:collapse; margin:8px 0; font-size:14px; }
+  th,td { text-align:right; padding:8px 10px; border-bottom:1px solid var(--line); }
+  th:first-child,td:first-child { text-align:left; }
+  thead th { color:var(--mut); font-weight:600; }
+  .on { color:var(--on); } .off { color:var(--off); } .base { color:var(--base); } .warn { color:var(--warn); }
+  .big { font-size:15px; font-weight:700; }
+  .verdict { background:linear-gradient(180deg,#1a1d24,#15181e); border:1px solid var(--line); border-left:4px solid var(--warn); border-radius:10px; padding:16px 20px; margin:16px 0; }
+  .ok { border-left-color:var(--on); }
+  code { background:#11141a; padding:1px 6px; border-radius:5px; color:#cbd5e1; font-size:13px; }
+  .mut { color:var(--mut); }
+  .tag { display:inline-block; font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--line); color:var(--mut); margin-right:6px; }
+  ul { margin:8px 0; padding-left:20px; } li { margin:4px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>P2-D · 엔진 속도개선 + reach-prob 16세계 검증</h1>
+  <p class="sub">LegalMoveGenerator 핫패스 할당 제거 → 그로써 가능해진 reach-prob의 정직한 통계 검증. <span class="mut">2026-06-25</span></p>
+
+  <h2>1. 엔진 속도개선 (LegalMoveGenerator/Recognizer)</h2>
+  <div class="card">
+    <p>후보 생성·인식 핫패스의 <b>호출당 할당</b>을 ThreadStatic 버퍼 재사용으로 제거(제너레이터 스크래치·델리게이트·HandBag·counts·candidates). 동작 완전 불변 — 골든 SHA256 해시 동일, dotnet 242·Unity EditMode 84 그린.</p>
+    <table>
+      <thead><tr><th>지표</th><th>Baseline</th><th>최적화</th><th>변화</th></tr></thead>
+      <tbody>
+        <tr><td>bytes/call <span class="mut">(dotnet, 런타임독립)</span></td><td>12,518</td><td>1,111</td><td class="on big">−91%</td></tr>
+        <tr><td>Unity Mono µs/call <span class="mut">(warm)</span></td><td>~24</td><td>~9</td><td class="on big">~2.5–3×</td></tr>
+        <tr><td>Unity gen0 GC <span class="mut">(코퍼스 1.8만 호출)</span></td><td>1–2회</td><td class="on">0회</td><td>GC 압력 제거</td></tr>
+        <tr><td>Hard 16세계 라운드 <span class="mut">(실측)</span></td><td>~64초</td><td class="on">~15.4초</td><td class="on big">~4×</td></tr>
+      </tbody>
+    </table>
+    <p class="mut">CoreCLR(세대GC)에선 이득이 노이즈에 묻힘 → Unity Boehm GC에서만 드러나는 이득을 <code>git stash</code> base/opt 교차측정으로 확인. 남은 1,111B = 반환하는 합법수 Combination+Source(의미상 필수).</p>
+  </div>
+
+  <h2>2. reach-prob 16세계 검증 — 본 무대 재측정</h2>
+  <p class="mut">기존 4세계 격리 벤치에선 reach-prob가 오히려 손해(노이즈). "16세계가 본 무대지만 ~64s/R라 통계 벤치 불가"가 P2-D2의 미해결 부채였음. 속도개선(~4×)으로 이제 검증 가능.</p>
+  <div class="card">
+    <p class="mut">방법: Hard 16세계(16/4/.05), reach <b>ON</b>(가중 EV) vs <b>OFF</b>(균등 EV)를 <b>동일 딜</b>로 PIMC vs 휴리스틱 미러드 비교. 동일 딜·동일 세계라 EV 가중만 차이 → 분산 상쇄. 2배치 × 48라운드.</p>
+    <table>
+      <thead><tr><th>배치</th><th class="on">reach ON</th><th class="off">reach OFF</th><th>delta(ON−OFF)</th></tr></thead>
+      <tbody>
+        <tr><td>배치1 <span class="mut">(seed 1000)</span></td><td class="on">+149.8/R · 39승</td><td class="off">+124.6/R · 37승</td><td class="on">+25.2/R · +2승</td></tr>
+        <tr><td>배치2 <span class="mut">(seed 5000)</span></td><td class="on">+175.0/R · 39승</td><td class="off">+188.1/R · 42승</td><td class="warn">−13.1/R · −3승</td></tr>
+        <tr style="border-top:2px solid var(--line)"><td class="big">풀링 (각 96R)</td><td class="on big">+162.4/R · 78/96</td><td class="off big">+156.4/R · 79/96</td><td class="big">+6.0/R · −1승</td></tr>
+      </tbody>
+    </table>
+
+    <svg viewBox="0 0 880 220" width="100%" style="margin-top:8px">
+      <!-- axis -->
+      <line x1="60" y1="180" x2="850" y2="180" stroke="#2a2f3a"/>
+      <text x="60" y="200" fill="#9aa3af" font-size="12">배치1</text>
+      <text x="350" y="200" fill="#9aa3af" font-size="12">배치2</text>
+      <text x="640" y="200" fill="#9aa3af" font-size="12">풀링(96R)</text>
+      <!-- scale: 0..200/R → 0..160px height -->
+      <!-- batch1 -->
+      <rect x="80"  y="60"  width="60" height="120" fill="#4ade80"/><text x="110" y="52" fill="#4ade80" font-size="12" text-anchor="middle">+149.8</text>
+      <rect x="150" y="80"  width="60" height="100" fill="#fb923c"/><text x="180" y="72" fill="#fb923c" font-size="12" text-anchor="middle">+124.6</text>
+      <!-- batch2 -->
+      <rect x="370" y="40"  width="60" height="140" fill="#4ade80"/><text x="400" y="32" fill="#4ade80" font-size="12" text-anchor="middle">+175.0</text>
+      <rect x="440" y="30"  width="60" height="150" fill="#fb923c"/><text x="470" y="22" fill="#fb923c" font-size="12" text-anchor="middle">+188.1</text>
+      <!-- pooled -->
+      <rect x="660" y="50"  width="60" height="130" fill="#4ade80"/><text x="690" y="42" fill="#4ade80" font-size="12" text-anchor="middle">+162.4</text>
+      <rect x="730" y="55"  width="60" height="125" fill="#fb923c"/><text x="760" y="47" fill="#fb923c" font-size="12" text-anchor="middle">+156.4</text>
+      <!-- legend -->
+      <rect x="60" y="6" width="12" height="12" fill="#4ade80"/><text x="78" y="16" fill="#e6e8ec" font-size="12">reach ON</text>
+      <rect x="160" y="6" width="12" height="12" fill="#fb923c"/><text x="178" y="16" fill="#e6e8ec" font-size="12">reach OFF</text>
+      <text x="500" y="16" fill="#9aa3af" font-size="12">휴리스틱 대비 평균 점수차 /R (높을수록 강함)</text>
+    </svg>
+  </div>
+
+  <div class="verdict">
+    <p class="big warn">결론: reach-prob는 16세계에서도 측정 가능한 이득이 없음.</p>
+    <p>배치1의 <span class="on">+25.2/R</span> 긍정 신호는 <b>노이즈였다</b> — 재현(배치2)에서 <span class="warn">−13.1/R</span>로 부호가 뒤집힘. 풀링하면 ON/OFF 동률(avg +6/R는 분산 내, 승수 78 vs 79). <b>재현 검증이 거짓 양성을 차단함.</b></p>
+    <p class="mut">부수 확인: ON·OFF 둘 다 휴리스틱 대비 +156~162/R·81% 승률 → Hard PIMC 자체는 강력. 차이는 reach 가중 유무뿐이고 그게 무의미.</p>
+  </div>
+
+  <h2>3. 결정 &amp; 조치</h2>
+  <div class="verdict ok">
+    <p class="big">Hard/Expert의 reach-prob를 <span class="on">OFF로 전환</span>.</p>
+    <ul>
+      <li><code>PolicyConfig.For(Hard)</code> = <code>(16,4,.05)</code>, <code>For(Expert)</code> = <code>(24,6,0)</code> — <code>useReachProb</code> 기본 false. 이득 없는 가중계산·복잡도 제거.</li>
+      <li><code>ReachWeight</code> 코드는 남겨두어 비활성(향후 재실험 여지). reach off면 PimcAgent EV가 균등평균(검증상 Normal 로직과 동일 집계).</li>
+      <li>P2-D2 부채 해소: "미검증(4세계선 손해)" → <b>"16세계에서도 효과 없음, 검증 완료"</b>.</li>
+    </ul>
+  </div>
+
+  <p class="mut" style="margin-top:24px">측정 하니스 <code>core/tests/Tichu.Core.Tests/LegalMoveBench.cs</code>([Explicit])는 향후 속도작업·reach 재실험에 재사용.</p>
+</div>
+</body>
+</html>

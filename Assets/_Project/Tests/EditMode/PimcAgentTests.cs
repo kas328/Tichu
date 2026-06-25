@@ -3,6 +3,7 @@ using System.Threading;
 using NUnit.Framework;
 using Tichu.Core;
 using Tichu.Core.Cards;
+using Tichu.Core.Combinations;
 using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
@@ -209,6 +210,55 @@ namespace Tichu.Core.Tests
             var agent = new PimcAgent(7UL, 0, new PolicyConfig(8, 2, 0.1));
             Assert.Throws<System.OperationCanceledException>(() =>
                 agent.DecideTurnAnytime(ctx, CancellationToken.None, abort.Token));
+        }
+
+        // ── 파트너-Top 가드(휴리스틱 규칙 공유) ───────────────────────────────────────
+
+        private static Combination Pair(int rank) =>
+            CombinationRecognizer.Recognize(
+                new[] { Card.Normal(rank, Suit.Jade), Card.Normal(rank, Suit.Sword) }, TrickContext.Lead);
+
+        private static GameState PartnerTopFollow(Combination top, params IReadOnlyList<Card>[] hands)
+        {
+            var s = GameFlowHelpers.PlayState(0, hands);   // seat0 가 행동, 파트너=seat2
+            s.CurrentTrick = new Trick
+            {
+                LeadType = top.Type, LeadLength = top.Length,
+                Top = top, TopOwnerSeat = 2, AccumulatedPoints = 0
+            };
+            return s;
+        }
+
+        [Test]
+        public void DecideTurn_passes_when_partner_owns_top_and_safe()
+        {
+            // 파트너(seat2)가 Pair(J) 소유. seat0 는 Pair(Q)로 밟을 수 있으나 티츄 미선언·
+            // 나가기 아님·파트너 낮지 않음 → EV 탐색 전에 가드가 패스시킨다(비싼 밟기 낭비 방지).
+            var s = PartnerTopFollow(Pair(11),
+                new List<Card> { Card.Normal(12, Suit.Jade), Card.Normal(12, Suit.Sword),
+                                 Card.Normal(2, Suit.Pagoda), Card.Normal(3, Suit.Star) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Star) });
+            var d = new PimcAgent(7UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "여유로우면 파트너 Top 위로 밟지 않고 패스");
+        }
+
+        [Test]
+        public void DecideTurn_overtakes_partner_when_tichu_called()
+        {
+            // seat0 가 티츄 선언 → 나가야 하니 파트너 Top(Pair5) 위로 싸게(8 페어) 밟는다.
+            var s = PartnerTopFollow(Pair(5),
+                new List<Card> { Card.Normal(8, Suit.Jade), Card.Normal(8, Suit.Sword),
+                                 Card.Normal(2, Suit.Pagoda), Card.Normal(3, Suit.Star) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Star) });
+            s.Seats[0].Call = TichuCall.Tichu;
+            var d = new PimcAgent(7UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "티츄 선언 → 파트너 위로라도 밟아 나가기 추진");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
         }
 
         // ── reach-prob 가중(Hard 경로) ────────────────────────────────────────────────

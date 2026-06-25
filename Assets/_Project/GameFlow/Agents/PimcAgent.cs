@@ -49,6 +49,20 @@ namespace Tichu.GameFlow.Agents
             if (_config.Worlds <= 0)
                 return _policy.DecideTurn(ctx);
 
+            // 파트너가 Top 인 팔로우: 휴리스틱과 동일한 파트너 규칙(기본 패스, 조건부 싼-밟기)을
+            // 공유한다. EV 탐색이 파트너를 비싼 카드(A·용)로 무의미하게 밟는 낭비를 막는다.
+            var trick = ctx.State.CurrentTrick;
+            if (trick != null && Seating.Partner(_seat) == trick.TopOwnerSeat)
+            {
+                var nonBomb = new System.Collections.Generic.List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBomb.Add(legal[i]);
+                var over = AiAgent.PartnerOvertakeMove(ctx, _seat, trick, nonBomb);
+                if (over != null) return TurnDecision.Play(over);
+                if (ctx.CanPass) return TurnDecision.Pass;
+                // 패스 불가(소원 강제 등) → 아래 EV 탐색으로 폴백.
+            }
+
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
 

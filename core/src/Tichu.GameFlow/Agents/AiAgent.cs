@@ -335,24 +335,17 @@ namespace Tichu.GameFlow.Agents
 
         /// <summary>
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
-        /// 기본은 패스(null). 다음 중 하나면 점수 없는 최소 오버킬(beat)로 밟는다:
-        /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃, ③파트너가 낮은 카드
-        /// (랭크 ≤ 10)를 냈고 점수 없는 콤보(≥2장)로 싸게 패를 줄이는 경우.
-        /// 점수 카드/비싼 카드를 버리며 밟지는 않는다(beat 후보는 PointsInPlay==0 만).
+        /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
+        /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 콤보(≥2장)로 패를 줄이는 경우.
+        /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
+        /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
         /// </summary>
         internal static Combination? PartnerOvertakeMove(
             in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
         {
-            Combination? cheap = null;
-            int cheapStrength = int.MaxValue;
-            for (int i = 0; i < nonBombWins.Count; i++)
-            {
-                var m = nonBombWins[i];
-                if (m.PointsInPlay != 0) continue;       // 파트너 위로 점수카드 낭비 금지
-                int st = MoveOrder.Strength(m);
-                if (st < cheapStrength) { cheapStrength = st; cheap = m; }
-            }
+            var cheap = MoveOrder.Lowest(nonBombWins);   // 최소 오버킬(점수카드 허용)
             if (cheap == null) return null;
 
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;

@@ -184,16 +184,17 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void DecideTurn_passes_partner_low_when_only_point_card_overtake()
+        public void DecideTurn_overtakes_partner_with_point_card_to_go_out()
         {
-            // 파트너 Top=Pair5(낮음)이지만 밟으려면 점수카드(Pair10=20점)뿐 → 점수 낭비 회피, 패스.
-            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
-                Hand(N(10, Suit.Jade), N(10, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+            // 점수 카드(K 페어)뿐이라도 밟으면 손패가 비어 아웃 → 밟는다(점수카드 밟기 허용).
+            var s = FollowState(0, Pair(12), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(13, Suit.Jade), N(13, Suit.Sword)),   // K 페어(점수카드) = 남은 전부
                 Hand(N(2, Suit.Jade)),
                 Hand(N(2, Suit.Sword)),
                 Hand(N(2, Suit.Star)));
             var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
-            Assert.That(d.IsPass, Is.True, "파트너 위로 점수카드를 버리며 밟지 않는다");
+            Assert.That(d.IsPass, Is.False, "점수카드라도 밟으면 아웃이면 밟는다");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(13).Rank));
         }
 
         [Test]

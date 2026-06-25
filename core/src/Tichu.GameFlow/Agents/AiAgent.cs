@@ -20,6 +20,7 @@ namespace Tichu.GameFlow.Agents
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
+        private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
 
         private Rng _rng;
         private readonly int _seat;
@@ -264,6 +265,16 @@ namespace Tichu.GameFlow.Agents
                 return TurnDecision.Play(cheap!);
             }
 
+            // 상대 위협(티츄 콜/아웃 임박) → 원투를 저지하기 위해 막는다. 단 막을 수 있는 수가
+            // 스트레이트를 깨는 것뿐이면(예: 6-7-8-9-10서 싱글 10) 비용 극심 → 보내준다(패스).
+            if (opponentOwns && OpponentThreat(ctx))
+            {
+                var block = CheapestNonStructural(ctx.MyHand, nonBomb);
+                if (block != null) return TurnDecision.Play(block);
+                if (ctx.CanPass) return TurnDecision.Pass;
+                // 패스 불가(소원 강제 등) → 아래 폴백.
+            }
+
             // 가치 없는(점수 적은) 트릭: 비싼(점수 카드/높은 카드) 수밖에 없으면 패스가 낫다.
             // 가장 낮은 이기는 수가 점수 카드를 포함하면 굳이 안 이기고 패스.
             var lowestWin = MoveOrder.Lowest(nonBomb)!;
@@ -354,6 +365,70 @@ namespace Tichu.GameFlow.Agents
             bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
 
             return (calledTichu || goesOut || (partnerLow && reducesHand)) ? cheap : null;
+        }
+
+        // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
+
+        /// <summary>상대팀이 티츄/큰티츄를 선언했거나 상대가 아웃 임박이면 위협(원투 저지 동기).</summary>
+        private static bool OpponentThreat(in DecisionContext ctx)
+        {
+            var seats = ctx.State.Seats;
+            var l = seats[ctx.LeftSeat];
+            var r = seats[ctx.RightSeat];
+            if (l.Call != TichuCall.None || r.Call != TichuCall.None) return true;
+            return l.Hand.Count <= GoOutThreatCards || r.Hand.Count <= GoOutThreatCards;
+        }
+
+        /// <summary>
+        /// 위협을 막을 수 있는 가장 싼 수(점수 무관). 단 "스트레이트를 깨는 싱글"은 제외(비용 극심).
+        /// 깰 수밖에 없으면 null → 호출부가 보내준다(패스).
+        /// </summary>
+        private static Combination? CheapestNonStructural(IReadOnlyList<Card> hand, IReadOnlyList<Combination> wins)
+        {
+            var inRun = StraightRanks(hand);
+            Combination? best = null;
+            int bestK = int.MaxValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                var m = wins[i];
+                if (BreaksStraight(m, inRun)) continue;
+                int k = MoveOrder.Strength(m);
+                if (k < bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
+
+        /// <summary>손패에서 길이 ≥5 연속(스트레이트)에 속하는 랭크 표시(마작=1 포함).</summary>
+        private static bool[] StraightRanks(IReadOnlyList<Card> hand)
+        {
+            var present = new bool[15]; // 1..14
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var c = hand[i];
+                if (c.Special == SpecialKind.Mahjong) present[1] = true;
+                else if (!c.IsSpecial && c.Rank >= 1 && c.Rank <= 14) present[c.Rank] = true;
+            }
+            var inRun = new bool[15];
+            int rr = 1;
+            while (rr <= 14)
+            {
+                if (!present[rr]) { rr++; continue; }
+                int lo = rr;
+                while (rr <= 14 && present[rr]) rr++;
+                int hi = rr - 1;
+                if (hi - lo + 1 >= 5)
+                    for (int k = lo; k <= hi; k++) inRun[k] = true;
+            }
+            return inRun;
+        }
+
+        // 싱글이고 그 랭크가 ≥5 스트레이트의 일부면 그 싱글을 내면 스트레이트가 깨진다(v1: 싱글만 검사).
+        private static bool BreaksStraight(Combination m, bool[] inRun)
+        {
+            if (m.Type != CombinationType.Single || m.Cards.Count != 1) return false;
+            var c = m.Cards[0];
+            if (c.IsSpecial) return false;
+            return c.Rank >= 1 && c.Rank <= 14 && inRun[c.Rank];
         }
     }
 }

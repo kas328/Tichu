@@ -4,7 +4,10 @@ using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
 
-namespace Tichu.GameFlow.Agents
+using Tichu.GameFlow;
+using Tichu.GameFlow.Agents;
+
+namespace Tichu.Core.Tests.Bench
 {
     /// <summary>
     /// Normal 난이도 휴리스틱 에이전트.
@@ -12,20 +15,18 @@ namespace Tichu.GameFlow.Agents
     /// 모든 결정은 합법이며, RNG 는 동점 처리에만 쓰여 결정성을 해치지 않는다.
     /// 정렬/선택의 단일 출처는 MoveOrder 이다.
     /// </summary>
-    public sealed class AiAgent : IAgent
+    public sealed class OldAiAgent : IAgent
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
-        private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
-        private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
 
         private Rng _rng;
         private readonly int _seat;
 
-        public AiAgent(ulong roundSeed, int seat)
+        public OldAiAgent(ulong roundSeed, int seat)
         {
             _rng = new Rng(roundSeed ^ 0xA1A1_0000_0000_0001UL ^ (ulong)seat);
             _seat = seat;
@@ -131,8 +132,6 @@ namespace Tichu.GameFlow.Agents
         /// </summary>
         public bool CallTichu(in DecisionContext ctx)
         {
-            // 리드 시점(트릭 없음)에만 선언 — 팔로우 중 외치고 곧장 패스하는 어색함 방지.
-            if (ctx.State.CurrentTrick != null) return false;
             var seats = ctx.State.Seats;
             // 상대가 이미 아웃이면 위험 → 콜 안 함.
             if (seats[ctx.LeftSeat].IsOut || seats[ctx.RightSeat].IsOut) return false;
@@ -219,9 +218,8 @@ namespace Tichu.GameFlow.Agents
             return null;
         }
 
-        // 팔로우: 파트너가 Top 이면 기본 패스(나가기/티츄/낮은카드 싼-밟기 이득이면 밟기).
-        // 점수 많은 상대 Top 이면 최소 오버킬 비폭탄으로 회수. 가치 없는 트릭을 비싼 수로만
-        // 이길 수 있으면 패스. 그 외엔 가장 낮은 이기는 수.
+        // 팔로우: 파트너가 Top 이면 패스. 점수 많은 상대 Top 이면 최소 오버킬 비폭탄으로 회수.
+        // 가치 없는 트릭을 비싼 수로만 이길 수 있으면 패스. 그 외엔 가장 낮은 이기는 수.
         private TurnDecision DecideFollow(in DecisionContext ctx, Trick trick)
         {
             int topOwner = trick.TopOwnerSeat;
@@ -229,23 +227,15 @@ namespace Tichu.GameFlow.Agents
             // 팔로우 상황에서는 자기 자신이 Top 일 수 없으므로 opponentOwns == !partnerOwns.
             bool opponentOwns = Seating.TeamOf(topOwner) != Seating.TeamOf(_seat);
 
-            // 비폭탄 합법수(팔로우에서는 모두 Top 을 이기는 수). 폭탄은 DecideBomb 담당.
+            // 파트너가 Top → 점수를 우리 편에 두기 위해 패스(가능하면).
+            if (partnerOwns && ctx.CanPass)
+                return TurnDecision.Pass;
+
+            // 비폭탄 합법수만(폭탄은 DecideBomb 담당).
             var moves = ctx.LegalMoves;
             var nonBomb = new List<Combination>(moves.Count);
             for (int i = 0; i < moves.Count; i++)
                 if (!moves[i].IsBomb) nonBomb.Add(moves[i]);
-
-            // 파트너가 Top → 기본은 패스(팀에 점수·주도권 유지). 단 나가기/티츄/낮은카드 싼-밟기가
-            // 이득이면 점수 없는 최소 오버킬로 밟는다(A·용 같은 비싼 카드 낭비 금지).
-            if (partnerOwns)
-            {
-                var over = PartnerOvertakeMove(ctx, _seat, trick, nonBomb);
-                if (over != null) return TurnDecision.Play(over);
-                if (ctx.CanPass) return TurnDecision.Pass;
-                // 패스 불가(소원 강제 등): 가능한 가장 낮은 수로.
-                if (nonBomb.Count > 0) return TurnDecision.Play(MoveOrder.Lowest(nonBomb)!);
-                return TurnDecision.Play(MoveOrder.Smallest(moves)!);
-            }
 
             // 이길 수 있는 비폭탄이 없으면 패스(가능하면), 아니면(소원 강제 등) 가능한 수.
             if (nonBomb.Count == 0)
@@ -263,16 +253,6 @@ namespace Tichu.GameFlow.Agents
                 // 점수 많은 상대 Top → 최소 오버킬로 반드시 회수.
                 var cheap = MoveOrder.CheapestThatBeats(nonBomb, trick.Top!) ?? MoveOrder.Lowest(nonBomb);
                 return TurnDecision.Play(cheap!);
-            }
-
-            // 상대 위협(티츄 콜/아웃 임박) → 원투를 저지하기 위해 막는다. 단 막을 수 있는 수가
-            // 스트레이트를 깨는 것뿐이면(예: 6-7-8-9-10서 싱글 10) 비용 극심 → 보내준다(패스).
-            if (opponentOwns && OpponentThreat(ctx))
-            {
-                var block = CheapestNonStructural(ctx.MyHand, nonBomb);
-                if (block != null) return TurnDecision.Play(block);
-                if (ctx.CanPass) return TurnDecision.Pass;
-                // 패스 불가(소원 강제 등) → 아래 폴백.
             }
 
             // 가치 없는(점수 적은) 트릭: 비싼(점수 카드/높은 카드) 수밖에 없으면 패스가 낫다.
@@ -342,93 +322,6 @@ namespace Tichu.GameFlow.Agents
                 if (key > bestKey) { bestKey = key; best = moves[i]; }
             }
             return best;
-        }
-
-        /// <summary>
-        /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
-        /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
-        /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 콤보(≥2장)로 패를 줄이는 경우.
-        /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
-        /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
-        /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
-        /// </summary>
-        internal static Combination? PartnerOvertakeMove(
-            in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
-        {
-            var cheap = MoveOrder.Lowest(nonBombWins);   // 최소 오버킬(점수카드 허용)
-            if (cheap == null) return null;
-
-            bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
-            bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
-            bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
-            bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
-
-            return (calledTichu || goesOut || (partnerLow && reducesHand)) ? cheap : null;
-        }
-
-        // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
-
-        /// <summary>상대팀이 티츄/큰티츄를 선언했거나 상대가 아웃 임박이면 위협(원투 저지 동기).</summary>
-        private static bool OpponentThreat(in DecisionContext ctx)
-        {
-            var seats = ctx.State.Seats;
-            var l = seats[ctx.LeftSeat];
-            var r = seats[ctx.RightSeat];
-            if (l.Call != TichuCall.None || r.Call != TichuCall.None) return true;
-            return l.Hand.Count <= GoOutThreatCards || r.Hand.Count <= GoOutThreatCards;
-        }
-
-        /// <summary>
-        /// 위협을 막을 수 있는 가장 싼 수(점수 무관). 단 "스트레이트를 깨는 싱글"은 제외(비용 극심).
-        /// 깰 수밖에 없으면 null → 호출부가 보내준다(패스).
-        /// </summary>
-        private static Combination? CheapestNonStructural(IReadOnlyList<Card> hand, IReadOnlyList<Combination> wins)
-        {
-            var inRun = StraightRanks(hand);
-            Combination? best = null;
-            int bestK = int.MaxValue;
-            for (int i = 0; i < wins.Count; i++)
-            {
-                var m = wins[i];
-                if (BreaksStraight(m, inRun)) continue;
-                int k = MoveOrder.Strength(m);
-                if (k < bestK) { bestK = k; best = m; }
-            }
-            return best;
-        }
-
-        /// <summary>손패에서 길이 ≥5 연속(스트레이트)에 속하는 랭크 표시(마작=1 포함).</summary>
-        private static bool[] StraightRanks(IReadOnlyList<Card> hand)
-        {
-            var present = new bool[15]; // 1..14
-            for (int i = 0; i < hand.Count; i++)
-            {
-                var c = hand[i];
-                if (c.Special == SpecialKind.Mahjong) present[1] = true;
-                else if (!c.IsSpecial && c.Rank >= 1 && c.Rank <= 14) present[c.Rank] = true;
-            }
-            var inRun = new bool[15];
-            int rr = 1;
-            while (rr <= 14)
-            {
-                if (!present[rr]) { rr++; continue; }
-                int lo = rr;
-                while (rr <= 14 && present[rr]) rr++;
-                int hi = rr - 1;
-                if (hi - lo + 1 >= 5)
-                    for (int k = lo; k <= hi; k++) inRun[k] = true;
-            }
-            return inRun;
-        }
-
-        // 싱글이고 그 랭크가 ≥5 스트레이트의 일부면 그 싱글을 내면 스트레이트가 깨진다(v1: 싱글만 검사).
-        private static bool BreaksStraight(Combination m, bool[] inRun)
-        {
-            if (m.Type != CombinationType.Single || m.Cards.Count != 1) return false;
-            var c = m.Cards[0];
-            if (c.IsSpecial) return false;
-            return c.Rank >= 1 && c.Rank <= 14 && inRun[c.Rank];
         }
     }
 }

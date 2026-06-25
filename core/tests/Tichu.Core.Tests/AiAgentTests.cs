@@ -42,6 +42,17 @@ namespace Tichu.Core.Tests
         private static Combination Single(int rank) =>
             CombinationRecognizer.Recognize(new[] { N(rank, Suit.Jade) }, TrickContext.Lead);
 
+        private static Combination Triple(int rank) =>
+            CombinationRecognizer.Recognize(
+                new[] { N(rank, Suit.Jade), N(rank, Suit.Sword), N(rank, Suit.Pagoda) }, TrickContext.Lead);
+
+        private static Combination FullHouse(int tripleRank, int pairRank) =>
+            CombinationRecognizer.Recognize(new[]
+            {
+                N(tripleRank, Suit.Jade), N(tripleRank, Suit.Sword), N(tripleRank, Suit.Pagoda),
+                N(pairRank, Suit.Jade), N(pairRank, Suit.Sword)
+            }, TrickContext.Lead);
+
         private static List<Card> PairCards(int rank) =>
             new List<Card> { N(rank, Suit.Jade), N(rank, Suit.Sword) };
 
@@ -247,6 +258,41 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False, "리드는 패스 불가");
             Assert.That(d.Move!.IsBomb, Is.False, "리드로 폭탄을 내면 안 된다");
             Assert.That(ctx.LegalMoves.Any(m => m.Rank == d.Move!.Rank && m.Type == d.Move!.Type), Is.True);
+        }
+
+        // ── DecideTurn: 낮은카드 콤보 아웃 / 높은족보 보존(#2) ────────────────────────
+
+        [Test]
+        public void DecideTurn_finish_mode_leads_low_combo_to_go_out()
+        {
+            // 끝내기(손패 4장) 리드. {3,3,3,7} — 트리플 3을 내서 확정 아웃을 추진해야 한다.
+            // (3을 싱글로 흘리면 안 됨; 가장 강한 수 = 싱글 7 을 고르던 기존 동작을 교정.)
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(3, Suit.Jade), N(3, Suit.Sword), N(3, Suit.Pagoda), N(7, Suit.Star)),
+                Hand(N(2, Suit.Jade), N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "리드는 패스 불가");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Triple), "낮은 카드는 콤보로 털어 아웃 추진");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Triple(3).Rank));
+        }
+
+        [Test]
+        public void DecideTurn_does_not_waste_high_fullhouse_on_cheap_trick()
+        {
+            // 상대(seat1)가 3 풀하우스(싼 트릭)를 냄. seat0 의 이기는 수는 A 풀하우스뿐.
+            // 비싼 족보를 싼 트릭에 낭비하지 않는다 → 패스(아웃도 아니고 위협도 아님).
+            var s = FollowState(0, FullHouse(3, 4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(14, Suit.Sword), N(14, Suit.Pagoda),
+                     N(2, Suit.Jade), N(2, Suit.Sword), N(13, Suit.Star), N(12, Suit.Star)),
+                Hand(N(6, Suit.Jade), N(7, Suit.Jade), N(8, Suit.Jade)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(6, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(ctx.CanPass, Is.True);
+            var d = new AiAgent(1UL, 0).DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.True, "A 풀하우스로 3 풀하우스 막는 건 낭비 → 패스");
         }
 
         // ── DecideBomb ───────────────────────────────────────────────────────────────

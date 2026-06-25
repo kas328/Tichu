@@ -139,16 +139,75 @@ namespace Tichu.Core.Tests
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────
 
         [Test]
-        public void DecideTurn_passes_when_partner_owns_top()
+        public void DecideTurn_passes_when_partner_owns_top_and_safe()
         {
-            // seat0 팔로우. Top 소유는 파트너(seat2). 점수를 우리 편에 두기 위해 패스.
-            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 30,
-                Hand(N(9, Suit.Jade), N(9, Suit.Sword)),
+            // seat0 팔로우, Top 소유 파트너(seat2)=Pair(J). seat0 는 Pair(Q)로 밟을 수 있으나
+            // 티츄 미선언·나가기 아님·파트너가 낮지 않음 → 여유로우니 패스(카드 보존, 팀 주도권 유지).
+            var s = FollowState(0, Pair(11), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(12, Suit.Jade), N(12, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
                 Hand(N(2, Suit.Jade)),
                 Hand(N(2, Suit.Sword)),
-                Hand(N(2, Suit.Pagoda)));
+                Hand(N(2, Suit.Star)));
             var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
             Assert.That(d.IsPass, Is.True);
+        }
+
+        [Test]
+        public void DecideTurn_overtakes_partner_when_tichu_called()
+        {
+            // seat0 가 작은 티츄 선언 → 나가야 하니 파트너 Top(Pair5) 위로 싸게(8 페어) 밟는다.
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Star)));
+            s.Seats[0].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "티츄 선언 시 나가기 위해 파트너 위로라도 밟는다");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
+        }
+
+        [Test]
+        public void DecideTurn_overtakes_partner_low_with_cheap_combo_to_reduce_hand()
+        {
+            // 파트너가 낮은 조합(Pair5)을 냄. seat0 는 점수 없는 콤보(Pair8)로 싸게 밟아 패를 줄인다.
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "파트너가 낮은 카드 → 싼 콤보로 밟아 패 줄이기");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank));
+        }
+
+        [Test]
+        public void DecideTurn_passes_partner_low_when_only_point_card_overtake()
+        {
+            // 파트너 Top=Pair5(낮음)이지만 밟으려면 점수카드(Pair10=20점)뿐 → 점수 낭비 회피, 패스.
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(10, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "파트너 위로 점수카드를 버리며 밟지 않는다");
+        }
+
+        [Test]
+        public void DecideTurn_overtakes_partner_to_go_out()
+        {
+            // seat0 의 남은 패가 정확히 Pair8(2장) → 밟으면 아웃. 파트너 Top 위라도 나가는 게 이득.
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "밟으면 손패가 비어 아웃 → 밟는다");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank));
         }
 
         [Test]
@@ -331,6 +390,22 @@ namespace Tichu.Core.Tests
             // 기본값: IsOut=false, Call=None — 조건 충족.
             var agent = new AiAgent(1UL, 0);
             Assert.That(agent.CallTichu(GameFlowHelpers.Context(s, 0)), Is.True);
+        }
+
+        [Test]
+        public void CallTichu_false_when_following_not_leading()
+        {
+            // 강한 손(용)이라도 트릭이 진행 중(팔로우)이면 작은 티츄를 외치지 않는다 —
+            // 외치고 곧장 패스하는 어색함 방지(리드 시점에만 선언).
+            var s = FollowState(0, Pair(5), topOwner: 1, accumulatedPoints: 0,
+                Hand(Card.Dragon, N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda),
+                     N(6, Suit.Star), N(7, Suit.Jade), N(8, Suit.Sword), N(9, Suit.Pagoda),
+                     N(11, Suit.Star), N(11, Suit.Jade), N(12, Suit.Sword), N(13, Suit.Pagoda),
+                     N(14, Suit.Star), N(2, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star)),
+                Hand(N(3, Suit.Jade)));
+            Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False);
         }
 
         [Test]

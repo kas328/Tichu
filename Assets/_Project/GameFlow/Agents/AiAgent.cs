@@ -19,6 +19,7 @@ namespace Tichu.GameFlow.Agents
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
+        private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
 
         private Rng _rng;
         private readonly int _seat;
@@ -129,6 +130,8 @@ namespace Tichu.GameFlow.Agents
         /// </summary>
         public bool CallTichu(in DecisionContext ctx)
         {
+            // 리드 시점(트릭 없음)에만 선언 — 팔로우 중 외치고 곧장 패스하는 어색함 방지.
+            if (ctx.State.CurrentTrick != null) return false;
             var seats = ctx.State.Seats;
             // 상대가 이미 아웃이면 위험 → 콜 안 함.
             if (seats[ctx.LeftSeat].IsOut || seats[ctx.RightSeat].IsOut) return false;
@@ -215,8 +218,9 @@ namespace Tichu.GameFlow.Agents
             return null;
         }
 
-        // 팔로우: 파트너가 Top 이면 패스. 점수 많은 상대 Top 이면 최소 오버킬 비폭탄으로 회수.
-        // 가치 없는 트릭을 비싼 수로만 이길 수 있으면 패스. 그 외엔 가장 낮은 이기는 수.
+        // 팔로우: 파트너가 Top 이면 기본 패스(나가기/티츄/낮은카드 싼-밟기 이득이면 밟기).
+        // 점수 많은 상대 Top 이면 최소 오버킬 비폭탄으로 회수. 가치 없는 트릭을 비싼 수로만
+        // 이길 수 있으면 패스. 그 외엔 가장 낮은 이기는 수.
         private TurnDecision DecideFollow(in DecisionContext ctx, Trick trick)
         {
             int topOwner = trick.TopOwnerSeat;
@@ -224,15 +228,23 @@ namespace Tichu.GameFlow.Agents
             // 팔로우 상황에서는 자기 자신이 Top 일 수 없으므로 opponentOwns == !partnerOwns.
             bool opponentOwns = Seating.TeamOf(topOwner) != Seating.TeamOf(_seat);
 
-            // 파트너가 Top → 점수를 우리 편에 두기 위해 패스(가능하면).
-            if (partnerOwns && ctx.CanPass)
-                return TurnDecision.Pass;
-
-            // 비폭탄 합법수만(폭탄은 DecideBomb 담당).
+            // 비폭탄 합법수(팔로우에서는 모두 Top 을 이기는 수). 폭탄은 DecideBomb 담당.
             var moves = ctx.LegalMoves;
             var nonBomb = new List<Combination>(moves.Count);
             for (int i = 0; i < moves.Count; i++)
                 if (!moves[i].IsBomb) nonBomb.Add(moves[i]);
+
+            // 파트너가 Top → 기본은 패스(팀에 점수·주도권 유지). 단 나가기/티츄/낮은카드 싼-밟기가
+            // 이득이면 점수 없는 최소 오버킬로 밟는다(A·용 같은 비싼 카드 낭비 금지).
+            if (partnerOwns)
+            {
+                var over = PartnerOvertakeMove(ctx, _seat, trick, nonBomb);
+                if (over != null) return TurnDecision.Play(over);
+                if (ctx.CanPass) return TurnDecision.Pass;
+                // 패스 불가(소원 강제 등): 가능한 가장 낮은 수로.
+                if (nonBomb.Count > 0) return TurnDecision.Play(MoveOrder.Lowest(nonBomb)!);
+                return TurnDecision.Play(MoveOrder.Smallest(moves)!);
+            }
 
             // 이길 수 있는 비폭탄이 없으면 패스(가능하면), 아니면(소원 강제 등) 가능한 수.
             if (nonBomb.Count == 0)
@@ -319,6 +331,36 @@ namespace Tichu.GameFlow.Agents
                 if (key > bestKey) { bestKey = key; best = moves[i]; }
             }
             return best;
+        }
+
+        /// <summary>
+        /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
+        /// 기본은 패스(null). 다음 중 하나면 점수 없는 최소 오버킬(beat)로 밟는다:
+        /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃, ③파트너가 낮은 카드
+        /// (랭크 ≤ 10)를 냈고 점수 없는 콤보(≥2장)로 싸게 패를 줄이는 경우.
+        /// 점수 카드/비싼 카드를 버리며 밟지는 않는다(beat 후보는 PointsInPlay==0 만).
+        /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
+        /// </summary>
+        internal static Combination? PartnerOvertakeMove(
+            in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            Combination? cheap = null;
+            int cheapStrength = int.MaxValue;
+            for (int i = 0; i < nonBombWins.Count; i++)
+            {
+                var m = nonBombWins[i];
+                if (m.PointsInPlay != 0) continue;       // 파트너 위로 점수카드 낭비 금지
+                int st = MoveOrder.Strength(m);
+                if (st < cheapStrength) { cheapStrength = st; cheap = m; }
+            }
+            if (cheap == null) return null;
+
+            bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
+            bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
+            bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
+            bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
+
+            return (calledTichu || goesOut || (partnerLow && reducesHand)) ? cheap : null;
         }
     }
 }

@@ -37,8 +37,8 @@ namespace Tichu.GameFlow.Agents
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
                 case Difficulty.Normal: return new PolicyConfig(4, 2, 0.10);
-                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05, useReachProb: true);  // reach-prob P2-D2
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useReachProb: true);  // 고급기능 P2-E
+                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05);  // reach-prob 16세계 무효과 검증(P2-D)→OFF
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00);  // 고급기능 P2-E(reach-prob 효과없어 OFF)
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

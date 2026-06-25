@@ -32,7 +32,8 @@ namespace Tichu.Core.Game
             if (!canPlayNonBomb && !canPlayBomb) return result;
 
             var bag = HandBag.Build(hand);
-            var candidates = new List<Combination>();
+            var candidates = _candidatesBuf ??= new List<Combination>(64);
+            candidates.Clear();
             EnumerateCandidates(bag, ctx, candidates);
 
             // 폴로우/리드, 폭탄 제약, beats 필터.
@@ -172,36 +173,54 @@ namespace Tichu.Core.Game
 
         // ── 후보 열거 ───────────────────────────────────────────────────────────
 
-        // ThreadStatic 재사용 버퍼들 — 핫패스 할당 제거.
+        // ThreadStatic 재사용 버퍼들 — 핫패스 할당 제거. LegalMoves는 스레드당 비재진입이라
+        // 한 번에 한 EnumerateCandidates 호출만 이 상태를 점유한다(롤아웃 스레드별 독립).
         [ThreadStatic] private static Card[]? _tryAddBuffer;
         [ThreadStatic] private static HashSet<ulong>? _seenSet;
+        [ThreadStatic] private static List<Card>? _scratch;        // 후보 카드 구성용 단일 재사용 리스트
+        [ThreadStatic] private static TrickContext _ctx;           // 현재 호출의 트릭 컨텍스트
+        [ThreadStatic] private static List<Combination>? _outList; // 현재 호출의 출력 리스트
+        [ThreadStatic] private static List<Combination>? _candidatesBuf; // LegalMoves 내부 후보 스크래치(재사용)
 
         private static void EnumerateCandidates(in HandBag bag, TrickContext ctx, List<Combination> outList)
         {
             // HashSet 재사용: Clear()는 내부 버킷을 유지하므로 재할당 없음.
             var seen = _seenSet ??= new HashSet<ulong>(256);
             seen.Clear();
+            _ctx = ctx;
+            _outList = outList;
 
-            void TryAdd(List<Card> cards)
-            {
-                int n = cards.Count;
-                if (_tryAddBuffer == null || _tryAddBuffer.Length < n)
-                    _tryAddBuffer = new Card[n < 16 ? 16 : n];
-                for (int i = 0; i < n; i++) _tryAddBuffer[i] = cards[i];
-                // 안전: Recognize()는 span을 HandShape.Source(새 Card[])로 복사하므로,
-                // 반환된 Combination은 _tryAddBuffer를 참조하지 않는다(다음 후보가 덮어써도 무해).
-                var combo = CombinationRecognizer.Recognize(_tryAddBuffer.AsSpan(0, n), ctx);
-                if (combo.Type == CombinationType.Invalid) return;
-                ulong key = ComboKey(combo);
-                if (seen.Add(key)) outList.Add(combo);
-            }
+            GenerateSingles(bag);
+            GeneratePairsTriplesBombs(bag);
+            GenerateFullHouses(bag);
+            GenerateStraights(bag);
+            GenerateConsecutivePairs(bag);
+            GenerateStraightFlushBombs(bag);
 
-            GenerateSingles(bag, TryAdd);
-            GeneratePairsTriplesBombs(bag, TryAdd);
-            GenerateFullHouses(bag, TryAdd);
-            GenerateStraights(bag, TryAdd);
-            GenerateConsecutivePairs(bag, TryAdd);
-            GenerateStraightFlushBombs(bag, TryAdd);
+            _outList = null; // 호출 종료 후 참조 보유 방지
+        }
+
+        /// <summary>후보 카드 구성용 재사용 스크래치 리스트(매 후보 직전 Clear).</summary>
+        private static List<Card> Scratch()
+        {
+            var s = _scratch ??= new List<Card>(16);
+            s.Clear();
+            return s;
+        }
+
+        /// <summary>scratch에 담긴 후보를 인식·중복제거해 출력에 추가한다.</summary>
+        private static void Emit(List<Card> cards)
+        {
+            int n = cards.Count;
+            if (_tryAddBuffer == null || _tryAddBuffer.Length < n)
+                _tryAddBuffer = new Card[n < 16 ? 16 : n];
+            for (int i = 0; i < n; i++) _tryAddBuffer[i] = cards[i];
+            // 안전: Recognize()는 span을 HandShape.Source(새 Card[])로 복사하므로,
+            // 반환된 Combination은 _tryAddBuffer를 참조하지 않는다(다음 후보가 덮어써도 무해).
+            var combo = CombinationRecognizer.Recognize(_tryAddBuffer.AsSpan(0, n), _ctx);
+            if (combo.Type == CombinationType.Invalid) return;
+            ulong key = ComboKey(combo);
+            if (_seenSet!.Add(key)) _outList!.Add(combo);
         }
 
         /// <summary>
@@ -232,38 +251,38 @@ namespace Tichu.Core.Game
         }
 
         // 단독: 각 distinct 일반 랭크 1장 + 특수카드(마작/개/봉황/용).
-        private static void GenerateSingles(in HandBag bag, Action<List<Card>> tryAdd)
+        private static void GenerateSingles(in HandBag bag)
         {
             for (int r = 1; r <= 14; r++)
             {
                 if (bag.Cards[r].Count == 0) continue;
-                tryAdd(new List<Card> { bag.Cards[r][0] });
+                var c = Scratch(); c.Add(bag.Cards[r][0]); Emit(c);
             }
-            if (bag.HasDog) tryAdd(new List<Card> { Card.Dog });
-            if (bag.HasPhoenix) tryAdd(new List<Card> { Card.Phoenix });
-            if (bag.HasDragon) tryAdd(new List<Card> { Card.Dragon });
+            if (bag.HasDog) { var c = Scratch(); c.Add(Card.Dog); Emit(c); }
+            if (bag.HasPhoenix) { var c = Scratch(); c.Add(Card.Phoenix); Emit(c); }
+            if (bag.HasDragon) { var c = Scratch(); c.Add(Card.Dragon); Emit(c); }
             // 마작은 Cards[1]에 들어있어 위 루프에서 처리됨.
         }
 
         // 페어/트리플/포카드: 랭크 카운트(+봉황은 페어/트리플만, 폭탄 불가).
-        private static void GeneratePairsTriplesBombs(in HandBag bag, Action<List<Card>> tryAdd)
+        private static void GeneratePairsTriplesBombs(in HandBag bag)
         {
             for (int r = 2; r <= 14; r++)
             {
                 int cnt = bag.Cards[r].Count;
                 // 페어
-                if (cnt >= 2) tryAdd(Take(bag, r, 2));
-                else if (cnt == 1 && bag.HasPhoenix) tryAdd(WithPhoenix(Take(bag, r, 1)));
+                if (cnt >= 2) { var c = Scratch(); TakeInto(bag, r, 2, c); Emit(c); }
+                else if (cnt == 1 && bag.HasPhoenix) { var c = Scratch(); TakeInto(bag, r, 1, c); c.Add(Card.Phoenix); Emit(c); }
                 // 트리플
-                if (cnt >= 3) tryAdd(Take(bag, r, 3));
-                else if (cnt == 2 && bag.HasPhoenix) tryAdd(WithPhoenix(Take(bag, r, 2)));
+                if (cnt >= 3) { var c = Scratch(); TakeInto(bag, r, 3, c); Emit(c); }
+                else if (cnt == 2 && bag.HasPhoenix) { var c = Scratch(); TakeInto(bag, r, 2, c); c.Add(Card.Phoenix); Emit(c); }
                 // 포카드 폭탄 (봉황 불가)
-                if (cnt >= 4) tryAdd(Take(bag, r, 4));
+                if (cnt >= 4) { var c = Scratch(); TakeInto(bag, r, 4, c); Emit(c); }
             }
         }
 
         // 풀하우스: 트리플 랭크 × 페어 랭크. 봉황은 한 슬롯 보완.
-        private static void GenerateFullHouses(in HandBag bag, Action<List<Card>> tryAdd)
+        private static void GenerateFullHouses(in HandBag bag)
         {
             // 자연 트리플(>=3) 또는 봉황보강 트리플(==2 + 봉황) + 다른 랭크의 페어.
             for (int t = 2; t <= 14; t++)
@@ -283,30 +302,30 @@ namespace Tichu.Core.Game
                     // case 1: 자연 트리플 + 자연 페어 (봉황 불요)
                     if (naturalTriple && naturalPair)
                     {
-                        var cards = Take(bag, t, 3);
-                        cards.AddRange(Take(bag, p, 2));
-                        tryAdd(cards);
+                        var cards = Scratch();
+                        TakeInto(bag, t, 3, cards); TakeInto(bag, p, 2, cards);
+                        Emit(cards);
                     }
                     // case 2: 자연 트리플 + 봉황 페어
                     if (naturalTriple && phoenixPair && bag.HasPhoenix)
                     {
-                        var cards = Take(bag, t, 3);
-                        cards.AddRange(Take(bag, p, 1));
-                        tryAdd(WithPhoenix(cards));
+                        var cards = Scratch();
+                        TakeInto(bag, t, 3, cards); TakeInto(bag, p, 1, cards); cards.Add(Card.Phoenix);
+                        Emit(cards);
                     }
                     // case 3: 봉황 트리플 + 자연 페어
                     if (phoenixTriple && naturalPair && bag.HasPhoenix)
                     {
-                        var cards = Take(bag, t, 2);
-                        cards.AddRange(Take(bag, p, 2));
-                        tryAdd(WithPhoenix(cards));
+                        var cards = Scratch();
+                        TakeInto(bag, t, 2, cards); TakeInto(bag, p, 2, cards); cards.Add(Card.Phoenix);
+                        Emit(cards);
                     }
                 }
             }
         }
 
         // 스트레이트: 연속 구간 길이 >=5. 마작(1)=하단, A(14)=상단. 봉황 1개 보완.
-        private static void GenerateStraights(in HandBag bag, Action<List<Card>> tryAdd)
+        private static void GenerateStraights(in HandBag bag)
         {
             // 랭크 1..14에 대해 "있음(>=1)" 비트로 보고, 시작 lo와 길이 len을 스캔.
             // 봉황을 0개/1개 쓰는 경우를 모두 시도해 Recognize에 위임.
@@ -316,17 +335,17 @@ namespace Tichu.Core.Game
                 {
                     int hi = lo + len - 1;
                     // 0봉황: 구간 전체 보유.
-                    BuildStraight(bag, lo, hi, usePhoenix: false, tryAdd);
+                    BuildStraight(bag, lo, hi, usePhoenix: false);
                     // 1봉황: 구간에서 정확히 한 랭크가 빠진 경우(봉황이 메움).
                     if (bag.HasPhoenix)
-                        BuildStraight(bag, lo, hi, usePhoenix: true, tryAdd);
+                        BuildStraight(bag, lo, hi, usePhoenix: true);
                 }
             }
         }
 
         // [lo,hi] 구간 스트레이트 카드 구성. usePhoenix=false면 전부 보유해야;
         // true면 정확히 한 랭크가 비고 나머지 보유.
-        private static void BuildStraight(in HandBag bag, int lo, int hi, bool usePhoenix, Action<List<Card>> tryAdd)
+        private static void BuildStraight(in HandBag bag, int lo, int hi, bool usePhoenix)
         {
             int missing = 0;
             int missingRank = 0;
@@ -338,23 +357,23 @@ namespace Tichu.Core.Game
             if (!usePhoenix)
             {
                 if (missing != 0) return;
-                var cards = new List<Card>();
+                var cards = Scratch();
                 for (int r = lo; r <= hi; r++) cards.Add(bag.Cards[r][0]);
-                tryAdd(cards);
+                Emit(cards);
             }
             else
             {
                 if (missing != 1) return; // 봉황은 내부 한 칸만 메움(끝 확장은 별도 lo/hi 조합으로 커버됨)
-                var cards = new List<Card>();
+                var cards = Scratch();
                 for (int r = lo; r <= hi; r++)
                     if (r != missingRank) cards.Add(bag.Cards[r][0]);
                 cards.Add(Card.Phoenix);
-                tryAdd(cards);
+                Emit(cards);
             }
         }
 
         // 연속 페어: 연속 랭크 각 2장(봉황이 한 페어 보완), 길이 >=4(>=2페어).
-        private static void GenerateConsecutivePairs(in HandBag bag, Action<List<Card>> tryAdd)
+        private static void GenerateConsecutivePairs(in HandBag bag)
         {
             for (int lo = 2; lo <= 14; lo++)
             {
@@ -362,15 +381,15 @@ namespace Tichu.Core.Game
                 {
                     int hi = lo + pairs - 1;
                     // 0봉황: 각 랭크 2장 이상.
-                    BuildConsecutivePairs(bag, lo, hi, usePhoenix: false, tryAdd);
+                    BuildConsecutivePairs(bag, lo, hi, usePhoenix: false);
                     // 1봉황: 정확히 한 랭크가 1장(나머지 >=2).
                     if (bag.HasPhoenix)
-                        BuildConsecutivePairs(bag, lo, hi, usePhoenix: true, tryAdd);
+                        BuildConsecutivePairs(bag, lo, hi, usePhoenix: true);
                 }
             }
         }
 
-        private static void BuildConsecutivePairs(in HandBag bag, int lo, int hi, bool usePhoenix, Action<List<Card>> tryAdd)
+        private static void BuildConsecutivePairs(in HandBag bag, int lo, int hi, bool usePhoenix)
         {
             int singleRank = 0, singleCount = 0;
             for (int r = lo; r <= hi; r++)
@@ -383,40 +402,41 @@ namespace Tichu.Core.Game
             if (!usePhoenix)
             {
                 if (singleCount != 0) return;         // 봉황 없이 모두 페어여야
-                var cards = new List<Card>();
-                for (int r = lo; r <= hi; r++) cards.AddRange(Take(bag, r, 2));
-                tryAdd(cards);
+                var cards = Scratch();
+                for (int r = lo; r <= hi; r++) TakeInto(bag, r, 2, cards);
+                Emit(cards);
             }
             else
             {
                 if (singleCount != 1) return;         // 봉황이 정확히 한 단수 랭크를 페어로
-                var cards = new List<Card>();
-                for (int r = lo; r <= hi; r++)
-                    cards.AddRange(Take(bag, r, r == singleRank ? 1 : 2));
+                var cards = Scratch();
+                for (int r = lo; r <= hi; r++) TakeInto(bag, r, r == singleRank ? 1 : 2, cards);
                 cards.Add(Card.Phoenix);
-                tryAdd(cards);
+                Emit(cards);
             }
         }
 
         // 스트레이트 플러시 폭탄: 같은 문양 연속 길이 >=5(봉황 불가).
-        private static void GenerateStraightFlushBombs(in HandBag bag, Action<List<Card>> tryAdd)
+        private static readonly Suit[] _flushSuits = { Suit.Jade, Suit.Sword, Suit.Pagoda, Suit.Star };
+
+        private static void GenerateStraightFlushBombs(in HandBag bag)
         {
             // 문양별로 보유 랭크를 모아 연속 구간을 찾는다(마작/특수 제외).
-            foreach (Suit suit in new[] { Suit.Jade, Suit.Sword, Suit.Pagoda, Suit.Star })
+            foreach (Suit suit in _flushSuits)
             {
                 for (int lo = 2; lo <= 14; lo++)
                 {
                     for (int len = 5; lo + len - 1 <= 14; len++)
                     {
                         int hi = lo + len - 1;
-                        var cards = new List<Card>();
+                        var cards = Scratch();
                         bool ok = true;
                         for (int r = lo; r <= hi; r++)
                         {
                             if (!bag.TryGetSuited(r, suit, out var card)) { ok = false; break; }
                             cards.Add(card);
                         }
-                        if (ok) tryAdd(cards);
+                        if (ok) Emit(cards);
                     }
                 }
             }
@@ -424,17 +444,10 @@ namespace Tichu.Core.Game
 
         // ── 보조 ────────────────────────────────────────────────────────────────
 
-        private static List<Card> Take(in HandBag bag, int rank, int n)
+        private static void TakeInto(in HandBag bag, int rank, int n, List<Card> dest)
         {
-            var list = new List<Card>(n);
-            for (int i = 0; i < n; i++) list.Add(bag.Cards[rank][i]);
-            return list;
-        }
-
-        private static List<Card> WithPhoenix(List<Card> cards)
-        {
-            cards.Add(Card.Phoenix);
-            return cards;
+            var list = bag.Cards[rank];
+            for (int i = 0; i < n; i++) dest.Add(list[i]);
         }
 
         private static bool HandContainsAll(List<Card> hand, IReadOnlyList<Card> cards)
@@ -458,10 +471,22 @@ namespace Tichu.Core.Game
                 Cards = cards; HasPhoenix = phoenix; HasDog = dog; HasDragon = dragon;
             }
 
+            // ThreadStatic 재사용 — LegalMoves는 스레드당 동시에 한 HandBag만 점유.
+            [ThreadStatic] private static List<Card>[]? _cardsBuf;
+
             public static HandBag Build(List<Card> hand)
             {
-                var cards = new List<Card>[15];
-                for (int r = 0; r < 15; r++) cards[r] = new List<Card>();
+                var cards = _cardsBuf;
+                if (cards == null)
+                {
+                    cards = new List<Card>[15];
+                    for (int r = 0; r < 15; r++) cards[r] = new List<Card>();
+                    _cardsBuf = cards;
+                }
+                else
+                {
+                    for (int r = 0; r < 15; r++) cards[r].Clear();
+                }
                 bool phoenix = false, dog = false, dragon = false;
                 foreach (var c in hand)
                 {

@@ -52,9 +52,14 @@ namespace Tichu.Core.Combinations
                 HasMahjong = mahjong; Points = points; CardCount = cardCount; Source = source;
             }
 
+            // counts는 Recognize 호출 내에서만 살고 Combination에 저장되지 않으므로
+            // ThreadStatic 재사용 안전(롤아웃 스레드별 독립, Recognize 비재진입).
+            [ThreadStatic] private static int[]? _countsBuf;
+
             public static HandShape Analyze(ReadOnlySpan<Card> cards)
             {
-                var counts = new int[15];
+                var counts = _countsBuf ??= new int[15];
+                Array.Clear(counts, 0, 15);
                 int phoenix = 0, points = 0; bool dog = false, dragon = false, mahjong = false;
                 var src = new Card[cards.Length];
                 for (int i = 0; i < cards.Length; i++)

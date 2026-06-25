@@ -21,6 +21,7 @@ namespace Tichu.GameFlow.Agents
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
         private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
+        private const int HighComboSaveScaled = 24; // 콤보 랭크 ≥ 12(Q, 스케일 ×2) → 싼 트릭에 낭비 회피.
 
         private Rng _rng;
         private readonly int _seat;
@@ -181,8 +182,9 @@ namespace Tichu.GameFlow.Agents
             Combination chosen;
             if (ctx.MyHand.Count <= FinishHandSize)
             {
-                // 끝내기 모드: 한 방에 많이 털 수 있는 강한 수(가장 높은 Strength).
-                chosen = Strongest(pool)!;
+                // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 낮은 카드는 싱글로 흘리지 말고 콤보로).
+                // 동수면 가장 강한 수(이겨서 주도권 유지).
+                chosen = MostShedding(pool)!;
             }
             else
             {
@@ -275,10 +277,13 @@ namespace Tichu.GameFlow.Agents
                 // 패스 불가(소원 강제 등) → 아래 폴백.
             }
 
-            // 가치 없는(점수 적은) 트릭: 비싼(점수 카드/높은 카드) 수밖에 없으면 패스가 낫다.
-            // 가장 낮은 이기는 수가 점수 카드를 포함하면 굳이 안 이기고 패스.
+            // 가치 없는(점수 적은) 트릭: 점수카드를 버리거나, 비싼 족보(예: A 풀하우스로 3 풀하우스
+            // 막기)를 낭비해야만 이길 수 있으면 패스가 낫다. 단 그 수로 나가면(아웃) 그냥 낸다.
             var lowestWin = MoveOrder.Lowest(nonBomb)!;
-            if (ctx.CanPass && lowestWin.PointsInPlay > 0 && trick.AccumulatedPoints < RichTrickPoints)
+            bool goesOut = ctx.MyHand.Count == lowestWin.Cards.Count;
+            bool wastesHighCombo = !goesOut && lowestWin.Cards.Count >= 3 && lowestWin.Rank >= HighComboSaveScaled;
+            if (ctx.CanPass && trick.AccumulatedPoints < RichTrickPoints
+                && (lowestWin.PointsInPlay > 0 || wastesHighCombo))
                 return TurnDecision.Pass;
 
             return TurnDecision.Play(lowestWin);
@@ -332,14 +337,18 @@ namespace Tichu.GameFlow.Agents
 
         // ── 보조 ───────────────────────────────────────────────────────────────────
 
-        private static Combination? Strongest(IReadOnlyList<Combination> moves)
+        // 끝내기 리드용: 가장 많은 카드를 터는 수(아웃 추진). 동수면 가장 강한(주도권 유지) 수.
+        private static Combination? MostShedding(IReadOnlyList<Combination> moves)
         {
             Combination? best = null;
-            int bestKey = int.MinValue;
+            int bestCount = -1, bestStrength = -1;
             for (int i = 0; i < moves.Count; i++)
             {
-                int key = MoveOrder.Strength(moves[i]);
-                if (key > bestKey) { bestKey = key; best = moves[i]; }
+                var m = moves[i];
+                int cnt = m.Cards.Count;
+                int st = MoveOrder.Strength(m);
+                if (cnt > bestCount || (cnt == bestCount && st > bestStrength))
+                { bestCount = cnt; bestStrength = st; best = m; }
             }
             return best;
         }

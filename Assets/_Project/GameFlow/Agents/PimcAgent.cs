@@ -111,7 +111,11 @@ namespace Tichu.GameFlow.Agents
 
             // 패스(합법일 때)는 1세계로 가볍게 평가해 같은 스케일(×Worlds×rollouts)로 환산 비교.
             // 예산 만료(budgetHit) 시엔 즉시 반환으로 anytime 존중. 동점이면 수를 선호(strict >).
-            if (ctx.CanPass && !budgetHit)
+            // 콜러 패스억제: (작은/큰)티츄 선언자는 반드시 먼저 나가야 하므로, 이길 수 있으면 패스하지
+            // 않고 EV-최선 수를 낸다(아웃 추진). 파트너-Top은 위 가드가 선행 처리. OFF면 비트불변.
+            bool callerSuppressPass = _config.UseCallerAggression
+                && ctx.State.Seats[_seat].Call != TichuCall.None;
+            if (ctx.CanPass && !budgetHit && !callerSuppressPass)
             {
                 var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng);
                 var passSim = passWorld.Clone();

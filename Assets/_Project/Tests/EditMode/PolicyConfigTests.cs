@@ -49,5 +49,14 @@ namespace Tichu.Core.Tests
             Assert.That(PolicyConfig.For(Difficulty.Hard).UseReachProb, Is.False);
             Assert.That(PolicyConfig.For(Difficulty.Expert).UseReachProb, Is.False);
         }
+
+        [Test]
+        public void UseCallerAggression_on_for_normal()
+        {
+            // 콜러 패스억제(+22/R 검증). Normal ON. Easy는 탐색 OFF라 무의미(false).
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseCallerAggression, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseCallerAggression, Is.True);
+            Assert.That(new PolicyConfig(4, 2, 0.10).UseCallerAggression, Is.False, "기본 false(비트불변 경로)");
+        }
     }
 }

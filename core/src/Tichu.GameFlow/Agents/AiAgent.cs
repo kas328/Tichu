@@ -22,7 +22,6 @@ namespace Tichu.GameFlow.Agents
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
         private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
         private const int HighComboSaveScaled = 24; // 콤보 랭크 ≥ 12(Q, 스케일 ×2) → 싼 트릭에 낭비 회피.
-        private const int WeakExchangeThreshold = 3; // HandPower < 이 값이면 약한 패 → 파트너에게 최고 카드.
         private const int LockoutTopScaled = 20;  // 싱글 Top 랭크 ≤ 10이면 1장 상대가 받아 나갈 위험 → 봉쇄.
 
         private Rng _rng;
@@ -63,6 +62,19 @@ namespace Tichu.GameFlow.Agents
             return score;
         }
 
+        /// <summary>티츄(그랜드/스몰)를 노릴 만큼 강한 손인가 — 그랜드티츄급(HandPower) 또는 용/봉황 보유.
+        /// 강하면 교환 시 고카드 보존(내가 먼저 나갈 계획), 아니면 파트너에게 최고 카드를 줘 팀 강화.</summary>
+        private static bool IntendsTichu(IReadOnlyList<Card> hand)
+        {
+            if (HandPower(hand) >= GrandThreshold) return true;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var sp = hand[i].Special;
+                if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) return true;
+            }
+            return false;
+        }
+
         // ── 교환 ───────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -87,9 +99,9 @@ namespace Tichu.GameFlow.Agents
 
             candidates.Sort(CompareLow);
 
-            // 약한 패(티츄 외치기 힘듦): 가장 높은 카드를 파트너에게 줘 팀을 강화한다.
-            // 가장 낮은 둘은 상대(Left/Right)에게.
-            if (HandPower(hand) < WeakExchangeThreshold)
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 카드를 파트너에게 줘 팀을 강화한다
+            // (나는 먼저 나갈 계획이 아니므로). 가장 낮은 둘은 상대(Left/Right)에게.
+            if (!IntendsTichu(hand))
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];

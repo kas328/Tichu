@@ -163,15 +163,27 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void ChooseExchange_strong_hand_keeps_high_gives_low_to_partner()
+        public void ChooseExchange_tichu_intent_hand_keeps_top_gives_low_to_partner()
         {
-            // 강한 패(A·K 보유) → 고카드 보존, 파트너에게 낮은(중간) 카드(기존 동작).
-            var hand = Hand(N(14, Suit.Jade), N(13, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star),
-                            N(4, Suit.Jade), N(5, Suit.Sword), N(6, Suit.Pagoda), N(7, Suit.Star));
+            // 티츄 의향(용 보유) → 고카드 보존, 파트너에게 낮은(중간) 카드.
+            var hand = Hand(Card.Dragon, N(14, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
             var s = GameFlowHelpers.PlayState(0, hand,
                 Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
             var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
-            Assert.That(ex.ToPartner.Rank, Is.LessThan(13), "강한 패면 고카드 보존(파트너에 낮은 카드)");
+            Assert.That(ex.ToPartner.Rank, Is.LessThan(13), "티츄 의향이면 고카드 보존(파트너에 낮은 카드)");
+        }
+
+        [Test]
+        public void ChooseExchange_moderate_hand_not_tichu_gives_top_to_partner()
+        {
+            // A·K 보유하나 티츄 의향 아님(HandPower<10, 용/봉황 없음) → 파트너에게 최고 카드(A) 줘 팀 강화.
+            var hand = Hand(N(14, Suit.Jade), N(13, Suit.Sword), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "티츄 의향 아니면 파트너에게 최고 카드(A)");
         }
 
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────

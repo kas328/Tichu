@@ -22,6 +22,8 @@ namespace Tichu.GameFlow.Agents
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
         private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
         private const int HighComboSaveScaled = 24; // 콤보 랭크 ≥ 12(Q, 스케일 ×2) → 싼 트릭에 낭비 회피.
+        private const int WeakExchangeThreshold = 3; // HandPower < 이 값이면 약한 패 → 파트너에게 최고 카드.
+        private const int LockoutTopScaled = 20;  // 싱글 Top 랭크 ≤ 10이면 1장 상대가 받아 나갈 위험 → 봉쇄.
 
         private Rng _rng;
         private readonly int _seat;
@@ -85,7 +87,17 @@ namespace Tichu.GameFlow.Agents
 
             candidates.Sort(CompareLow);
 
-            // 가능하면 에이스를 뒤로 미뤄 보존: 비-에이스가 충분하면 에이스 제외.
+            // 약한 패(티츄 외치기 힘듦): 가장 높은 카드를 파트너에게 줘 팀을 강화한다.
+            // 가장 낮은 둘은 상대(Left/Right)에게.
+            if (HandPower(hand) < WeakExchangeThreshold)
+            {
+                var lo0 = candidates[0];
+                var lo1 = candidates[1];
+                var high = candidates[candidates.Count - 1];
+                return new ExchangeChoice(lo0, high, lo1); // ToLeft, ToPartner, ToRight
+            }
+
+            // 강한 패: 가능하면 에이스를 보존(비-에이스가 충분하면 에이스 제외).
             int nonAce = 0;
             for (int i = 0; i < candidates.Count; i++)
                 if (candidates[i].Rank != 14 || candidates[i].IsSpecial) nonAce++;
@@ -182,17 +194,26 @@ namespace Tichu.GameFlow.Agents
             Combination chosen;
             if (ctx.MyHand.Count <= FinishHandSize)
             {
-                // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 낮은 카드는 싱글로 흘리지 말고 콤보로).
+                // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 콤보를 자연히 우선 → 1장 상대도 봉쇄).
                 // 동수면 가장 강한 수(이겨서 주도권 유지).
                 chosen = MostShedding(pool)!;
             }
             else
             {
-                // 평소: 점수 없는 가장 낮은 수를 선호. 없으면 그냥 가장 낮은 수.
-                var noPoint = new List<Combination>();
-                for (int i = 0; i < pool.Count; i++)
-                    if (pool[i].PointsInPlay == 0) noPoint.Add(pool[i]);
-                chosen = MoveOrder.Lowest(noPoint.Count > 0 ? noPoint : pool)!;
+                // 상대 1장 봉쇄: 싱글 말고 콤보로 리드(1장으론 페어+ 를 못 받음 → 못 나감).
+                var lockCombo = AnyOpponentNearOut(ctx, 1) ? LowestCombo(pool) : null;
+                if (lockCombo != null)
+                {
+                    chosen = lockCombo;
+                }
+                else
+                {
+                    // 평소: 점수 없는 가장 낮은 수를 선호. 없으면 그냥 가장 낮은 수.
+                    var noPoint = new List<Combination>();
+                    for (int i = 0; i < pool.Count; i++)
+                        if (pool[i].PointsInPlay == 0) noPoint.Add(pool[i]);
+                    chosen = MoveOrder.Lowest(noPoint.Count > 0 ? noPoint : pool)!;
+                }
             }
 
             int? wish = MaybeWish(ctx, chosen);
@@ -236,6 +257,15 @@ namespace Tichu.GameFlow.Agents
             var nonBomb = new List<Combination>(moves.Count);
             for (int i = 0; i < moves.Count; i++)
                 if (!moves[i].IsBomb) nonBomb.Add(moves[i]);
+
+            // 1장 남은 상대가 이 싼 싱글 트릭을 받아 나가는 것을 막는다: 가장 높은 이기는 싱글로
+            // 봉쇄(파트너 위라도). Top이 이미 높으면 이길 싱글이 없어 자연히 통과한다.
+            if (trick.Top != null && trick.Top.Type == CombinationType.Single
+                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
+            {
+                var highSingle = HighestWinningSingle(nonBomb);
+                if (highSingle != null) return TurnDecision.Play(highSingle);
+            }
 
             // 파트너가 Top → 기본은 패스(팀에 점수·주도권 유지). 단 나가기/티츄/낮은카드 싼-밟기가
             // 이득이면 점수 없는 최소 오버킬로 밟는다(A·용 같은 비싼 카드 낭비 금지).
@@ -377,6 +407,43 @@ namespace Tichu.GameFlow.Agents
         }
 
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
+
+        /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>
+        private static bool AnyOpponentNearOut(in DecisionContext ctx, int cards)
+        {
+            var seats = ctx.State.Seats;
+            var l = seats[ctx.LeftSeat];
+            var r = seats[ctx.RightSeat];
+            return (!l.IsOut && l.Hand.Count <= cards) || (!r.IsOut && r.Hand.Count <= cards);
+        }
+
+        /// <summary>가장 낮은(약한) 콤보(Length≥2). 없으면 null. 상대 1장 봉쇄 리드용.</summary>
+        private static Combination? LowestCombo(IReadOnlyList<Combination> moves)
+        {
+            Combination? best = null; int bestK = int.MaxValue;
+            for (int i = 0; i < moves.Count; i++)
+            {
+                var m = moves[i];
+                if (m.Cards.Count < 2) continue;
+                int k = MoveOrder.Strength(m);
+                if (k < bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
+
+        /// <summary>가장 높은 이기는 싱글. 없으면 null. 1장 상대 봉쇄(탑패)용.</summary>
+        private static Combination? HighestWinningSingle(IReadOnlyList<Combination> wins)
+        {
+            Combination? best = null; int bestK = int.MinValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                var m = wins[i];
+                if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
+                int k = MoveOrder.Strength(m);
+                if (k > bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
 
         /// <summary>상대팀이 티츄/큰티츄를 선언했거나 상대가 아웃 임박이면 위협(원투 저지 동기).</summary>
         private static bool OpponentThreat(in DecisionContext ctx)

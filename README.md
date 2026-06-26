@@ -1,6 +1,6 @@
 # Tichu
 
-Unity로 개발하는 티추(Tichu) 카드 게임 프로젝트.
+Unity로 개발하는 티츄(Tichu) 카드 게임 프로젝트.
 
 ## 개발 환경
 

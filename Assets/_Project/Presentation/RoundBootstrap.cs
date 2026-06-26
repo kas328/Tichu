@@ -120,7 +120,7 @@ namespace Tichu.Presentation
             switch (d)
             {
                 case Tichu.GameFlow.Agents.Difficulty.Easy:   return 0;
-                case Tichu.GameFlow.Agents.Difficulty.Normal: return 80;
+                case Tichu.GameFlow.Agents.Difficulty.Normal: return 900;  // P2-F: 겹치기 전제, 관전 딜레이(~900ms) 이내로 탐색 흡수
                 case Tichu.GameFlow.Agents.Difficulty.Hard:   return 250;
                 case Tichu.GameFlow.Agents.Difficulty.Expert: return 300;
                 default:                                       return 80;

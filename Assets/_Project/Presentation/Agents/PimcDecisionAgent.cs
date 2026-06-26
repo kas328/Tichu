@@ -19,19 +19,25 @@ namespace Tichu.Presentation
         private readonly int _budgetMs;
         private readonly int _delayMs;
         private readonly Func<bool> _fastForward;
+        private readonly Func<CancellationToken, UniTask> _delayOverride;
 
         public PimcDecisionAgent(ulong roundSeed, int seat, PolicyConfig config,
-            int budgetMs, int delayMs, Func<bool> fastForward = null)
+            int budgetMs, int delayMs, Func<bool> fastForward = null,
+            Func<CancellationToken, UniTask> delayOverride = null)
         {
             _pimc = new PimcAgent(roundSeed, seat, config);
             _config = config;
             _budgetMs = budgetMs;
             _delayMs = delayMs;
             _fastForward = fastForward;
+            _delayOverride = delayOverride;
         }
 
         private UniTask DelayAsync(CancellationToken ct)
-            => _fastForward != null && _fastForward() ? UniTask.CompletedTask : UniTask.Delay(_delayMs, cancellationToken: ct);
+        {
+            if (_delayOverride != null) return _delayOverride(ct);
+            return _fastForward != null && _fastForward() ? UniTask.CompletedTask : UniTask.Delay(_delayMs, cancellationToken: ct);
+        }
 
         public UniTask<bool> CallGrandTichuAsync(DecisionContext ctx, CancellationToken ct)
             => UniTask.FromResult(_pimc.CallGrandTichu(ctx));
@@ -44,19 +50,25 @@ namespace Tichu.Presentation
 
         public async UniTask<TurnDecision> DecideTurnAsync(DecisionContext ctx, CancellationToken ct)
         {
-            await DelayAsync(ct);
-
-            // Easy(탐색 OFF): 즉시 휴리스틱(스레드풀 우회).
+            // Easy(탐색 OFF): 겹칠 연산이 없으므로 딜레이 후 즉시 휴리스틱(스레드풀 우회).
             if (_config.Worlds <= 0)
+            {
+                await DelayAsync(ct);
                 return _pimc.DecideTurn(ctx);
+            }
 
-            var snap = ctx.State.Clone();   // 가변 공유 차단(백그라운드 진입 전).
+            var snap = ctx.State.Clone();   // 가변 공유 차단(백그라운드 진입 전, 메인스레드).
             int seat = ctx.Seat;
             using var budgetCts = new CancellationTokenSource(_budgetMs);   // anytime 예산.
             var budget = budgetCts.Token;
-            return await UniTask.RunOnThreadPool(
+
+            // 탐색을 스레드풀에 먼저 띄우고(핫 스타트) 관전 딜레이와 겹쳐 진행.
+            // per-move ≈ max(딜레이, 연산) — 딜레이 이내 연산은 추가 지연 0.
+            var compute = UniTask.RunOnThreadPool(
                 () => _pimc.DecideTurnAnytime(new DecisionContext(snap, seat), budget, ct),
                 cancellationToken: ct);
+            await DelayAsync(ct);
+            return await compute;
         }
 
         public async UniTask<Combination?> DecideBombAsync(DecisionContext ctx, CancellationToken ct)

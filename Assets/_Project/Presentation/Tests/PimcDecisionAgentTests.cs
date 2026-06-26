@@ -1,3 +1,5 @@
+using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -76,6 +78,37 @@ namespace Tichu.Presentation.Tests
             foreach (var m in ctx.LegalMoves)
                 if (m.Rank == d.Move!.Rank && m.Type == d.Move!.Type && m.Length == d.Move!.Length) legal = true;
             Assert.That(legal, Is.True);
+        }
+
+        // 겹침 검증: 주입 delay(Task.Delay 기반 — EditMode 스레드풀 타이머로 완료)와 탐색이
+        // 동시에 진행되면 per-move ≈ max(delay, compute). 순차면 delay+compute.
+        // 연산을 작은 예산(~1세계)으로 바운드하고 딜레이를 지배적으로 둬, compute-only(c)
+        // 대비 delay를 끼운 f < delay + 0.5*c 이면 겹친 것(순차면 f≈delay+c).
+        [Test, Timeout(60000)]
+        public async Task DecideTurnAsync_overlaps_delay_with_compute()
+        {
+            const int delayMs = 800;
+            const int budgetMs = 250;   // 연산을 ~1세계로 바운드(딜레이가 지배)
+            var cfg = new PolicyConfig(8, 4, 0.10);
+            Func<CancellationToken, UniTask> immediate = _ => UniTask.CompletedTask;
+            Func<CancellationToken, UniTask> delayed = ct => Task.Delay(delayMs, ct).AsUniTask();
+
+            // compute-only 기준 c (즉시 딜레이)
+            var swc = Stopwatch.StartNew();
+            await new PimcDecisionAgent(Seed, 0, cfg, budgetMs, 0, null, immediate)
+                .DecideTurnAsync(PlayCtx(0), default).AsTask();
+            swc.Stop();
+            long c = swc.ElapsedMilliseconds;
+
+            // delay 끼운 f — 겹치면 f≈max(delay,c), 순차면 f≈delay+c
+            var swf = Stopwatch.StartNew();
+            await new PimcDecisionAgent(Seed, 0, cfg, budgetMs, 0, null, delayed)
+                .DecideTurnAsync(PlayCtx(0), default).AsTask();
+            swf.Stop();
+            long f = swf.ElapsedMilliseconds;
+
+            Assert.That(f, Is.LessThan(delayMs + 0.5 * c),
+                $"겹침이면 f≈max({delayMs},c). 순차면 f≈{delayMs}+c. (c={c}ms, f={f}ms)");
         }
 
         [Test, Timeout(60000)]

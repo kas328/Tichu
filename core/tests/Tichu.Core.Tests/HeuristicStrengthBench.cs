@@ -7,9 +7,10 @@ using Tichu.GameFlow.Agents;
 namespace Tichu.Core.Tests.Bench
 {
     /// <summary>
-    /// 신(현재) 휴리스틱 AiAgent vs 구(P2-D, OldAiAgent) 휴리스틱 미러드 맞대결.
-    /// 순수 휴리스틱이라 PIMC 없이 수천 라운드를 ms 단위로 돌릴 수 있다 → P2-E 누적
-    /// 휴리스틱 변경(#1 티츄게이트·#4 파트너밟기·#3 블로킹)이 강도를 떨어뜨리지 않았는지 검증.
+    /// 신(현재) 휴리스틱 AiAgent vs 구(OldAiAgent) 미러드 맞대결. OldAiAgent 는 "직전 버전"
+    /// 롤링 베이스라인 — 새 휴리스틱 변경 전에 현재 AiAgent 를 sed 변환해 갱신한다(격리 측정).
+    /// 순수 휴리스틱이라 PIMC 없이 수천 라운드를 ms 단위로 돌릴 수 있다 → 변경의 강도 순효과 검증.
+    /// 수용 기준: 회귀(분명한 음수) 아니면 채택(드문 상황 교정은 전체 승률엔 작게 잡힘).
     /// [Explicit] — 기본 스위트 제외.
     /// </summary>
     [Explicit, Category("Bench")]

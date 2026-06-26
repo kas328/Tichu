@@ -150,6 +150,30 @@ namespace Tichu.Core.Tests
                 Assert.That(hand.Contains(c), Is.True, $"{c} 는 손패에 있어야 한다");
         }
 
+        [Test]
+        public void ChooseExchange_weak_hand_gives_highest_to_partner()
+        {
+            // 약한 패(고카드 없음, 티츄 힘듦) → 파트너에게 가장 높은 카드(9), 상대에게 가장 낮은 둘.
+            var hand = Hand(N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda), N(5, Suit.Star),
+                            N(6, Suit.Jade), N(7, Suit.Sword), N(8, Suit.Pagoda), N(9, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.EqualTo(9), "약한 패면 파트너에게 최고 카드(팀 강화)");
+        }
+
+        [Test]
+        public void ChooseExchange_strong_hand_keeps_high_gives_low_to_partner()
+        {
+            // 강한 패(A·K 보유) → 고카드 보존, 파트너에게 낮은(중간) 카드(기존 동작).
+            var hand = Hand(N(14, Suit.Jade), N(13, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star),
+                            N(4, Suit.Jade), N(5, Suit.Sword), N(6, Suit.Pagoda), N(7, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.LessThan(13), "강한 패면 고카드 보존(파트너에 낮은 카드)");
+        }
+
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────
 
         [Test]
@@ -258,6 +282,38 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False, "리드는 패스 불가");
             Assert.That(d.Move!.IsBomb, Is.False, "리드로 폭탄을 내면 안 된다");
             Assert.That(ctx.LegalMoves.Any(m => m.Rank == d.Move!.Rank && m.Type == d.Move!.Type), Is.True);
+        }
+
+        // ── 엔드게임 락아웃: 상대 1장 봉쇄(#2·#3) ────────────────────────────────────
+
+        [Test]
+        public void DecideLead_locks_out_one_card_opponent_with_combo()
+        {
+            // 상대(seat1)가 1장 남음 → 싱글 말고 콤보(페어3)로 리드해 봉쇄(1장으론 페어를 못 받음).
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(3, Suit.Sword), N(5, Suit.Pagoda),
+                     N(7, Suit.Star), N(9, Suit.Jade), N(11, Suit.Sword), N(12, Suit.Pagoda)),
+                Hand(N(6, Suit.Sword)),                       // seat1: 1장(아웃 임박)
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(4, Suit.Star), N(8, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair), "상대 1장 → 콤보로 리드해 봉쇄");
+        }
+
+        [Test]
+        public void DecideFollow_locks_out_one_card_opponent_over_partner()
+        {
+            // 파트너(seat2)가 싼 싱글(4)을 냄. 상대(seat3)가 1장 남아 그 싱글을 받아 나갈 수 있음 →
+            // 파트너 위라도 가장 높은 싱글(A)로 막아 봉쇄해야 한다(패스하면 안 됨).
+            var s = FollowState(0, Single(4), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(5, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(7, Suit.Jade), N(8, Suit.Jade), N(9, Suit.Jade)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(6, Suit.Sword)));                      // seat3: 1장(아웃 임박)
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "상대 1장 봉쇄 → 패스 금지");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(14).Rank), "가장 높은 싱글(A)로 봉쇄");
         }
 
         // ── DecideTurn: 낮은카드 콤보 아웃 / 높은족보 보존(#2) ────────────────────────

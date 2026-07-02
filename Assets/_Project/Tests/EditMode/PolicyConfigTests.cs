@@ -58,5 +58,17 @@ namespace Tichu.Core.Tests
             Assert.That(PolicyConfig.For(Difficulty.Normal).UseCallerAggression, Is.True);
             Assert.That(new PolicyConfig(4, 2, 0.10).UseCallerAggression, Is.False, "기본 false(비트불변 경로)");
         }
+
+        [Test]
+        public void Normal_promoted_to_16_world_strong_preset()
+        {
+            // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.
+            var n = PolicyConfig.For(Difficulty.Normal);
+            Assert.That(n.Worlds, Is.EqualTo(16), "P2-F 기본 강화: 16세계(EV 노이즈↓)");
+            Assert.That(n.RolloutsPerWorld, Is.EqualTo(4));
+            Assert.That(n.Epsilon, Is.EqualTo(0.05).Within(1e-9));
+            Assert.That(n.UseReachProb, Is.False);
+            Assert.That(n.UseCallerAggression, Is.True, "콜러 패스억제(+22/R) 보존");
+        }
     }
 }

@@ -163,15 +163,27 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void ChooseExchange_strong_hand_keeps_high_gives_low_to_partner()
+        public void ChooseExchange_tichu_intent_hand_keeps_top_gives_low_to_partner()
         {
-            // 강한 패(A·K 보유) → 고카드 보존, 파트너에게 낮은(중간) 카드(기존 동작).
-            var hand = Hand(N(14, Suit.Jade), N(13, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star),
-                            N(4, Suit.Jade), N(5, Suit.Sword), N(6, Suit.Pagoda), N(7, Suit.Star));
+            // 티츄 의향(용 보유) → 고카드 보존, 파트너에게 낮은(중간) 카드.
+            var hand = Hand(Card.Dragon, N(14, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
             var s = GameFlowHelpers.PlayState(0, hand,
                 Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
             var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
-            Assert.That(ex.ToPartner.Rank, Is.LessThan(13), "강한 패면 고카드 보존(파트너에 낮은 카드)");
+            Assert.That(ex.ToPartner.Rank, Is.LessThan(13), "티츄 의향이면 고카드 보존(파트너에 낮은 카드)");
+        }
+
+        [Test]
+        public void ChooseExchange_moderate_hand_not_tichu_gives_top_to_partner()
+        {
+            // A·K 보유하나 티츄 의향 아님(HandPower<10, 용/봉황 없음) → 파트너에게 최고 카드(A) 줘 팀 강화.
+            var hand = Hand(N(14, Suit.Jade), N(13, Suit.Sword), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "티츄 의향 아니면 파트너에게 최고 카드(A)");
         }
 
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────
@@ -204,6 +216,22 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False, "티츄 선언 시 나가기 위해 파트너 위로라도 밟는다");
             Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair));
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
+        }
+
+        [Test]
+        public void DecideTurn_overtakes_partner_low_single_when_partner_is_out()
+        {
+            // 파트너(seat2)가 마지막 카드(낮은 싱글 2)로 아웃. 패스하면 리드가 상대(NextActive)로 넘어가므로,
+            // 싱글로라도 밟아 리드를 우리 팀에 유지한다(엔드게임 템포).
+            var s = FollowState(0, Single(2), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(5, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star)),  // seat0: 이기는 싱글 보유, 아웃 아님
+                Hand(N(7, Suit.Jade), N(8, Suit.Sword)),                     // seat1(상대): 2장
+                Hand(),                                                       // seat2(파트너): 아웃
+                Hand(N(9, Suit.Jade), N(10, Suit.Sword)));                   // seat3(상대): 2장
+            s.Seats[2].IsOut = true;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "파트너 아웃 시 패스하면 리드를 상대에 헌납 → 밟아 유지");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Single), "싼 싱글로 최소 오버킬");
         }
 
         [Test]

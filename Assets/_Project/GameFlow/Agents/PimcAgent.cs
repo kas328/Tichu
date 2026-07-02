@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using Tichu.Core;
 using Tichu.Core.Combinations;
@@ -63,11 +64,14 @@ namespace Tichu.GameFlow.Agents
                 // 패스 불가(소원 강제 등) → 아래 EV 탐색으로 폴백.
             }
 
+            // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
+            var candidates = TurnCandidates(legal);
+
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
 
-            // 각 합법수의 가중 누적 EV(Σ weightᵥ·evᵥ). reach-prob off면 weight=1.0 → 균등(P2-C 불변).
-            var weightedSum = new double[legal.Count];
+            // 각 후보의 가중 누적 EV(Σ weightᵥ·evᵥ). reach-prob off면 weight=1.0 → 균등(P2-C 불변).
+            var weightedSum = new double[candidates.Count];
             double totalWeight = 0.0;
             var rng = _rng;
             int samples = 0;
@@ -83,10 +87,10 @@ namespace Tichu.GameFlow.Agents
                     if (samples >= 1 && budget.IsCancellationRequested) { budgetHit = true; break; } // anytime
                     // 공통 난수(variance reduction): 같은 (w,r)에서 모든 수가 같은 ε-시퀀스를 본다.
                     ulong rolloutSeed = policyBase + (ulong)(w * rolloutsPerWorld + r);
-                    for (int i = 0; i < legal.Count; i++)
+                    for (int i = 0; i < candidates.Count; i++)
                     {
                         var sim = world.Clone();
-                        if (!GameEngine.Apply(sim, GameAction.Play(_seat, legal[i].Cards)).Ok) continue; // wish=null(P2-B)
+                        if (!GameEngine.Apply(sim, GameAction.Play(_seat, candidates[i].Cards)).Ok) continue; // wish=null(P2-B)
                         weightedSum[i] += weight * Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
                     }
                     totalWeight += weight;
@@ -98,14 +102,14 @@ namespace Tichu.GameFlow.Agents
             double bestSum = double.NegativeInfinity;
             int bestStrength = int.MaxValue;
             Combination? best = null;
-            for (int i = 0; i < legal.Count; i++)
+            for (int i = 0; i < candidates.Count; i++)
             {
-                int strength = MoveOrder.Strength(legal[i]);
+                int strength = MoveOrder.Strength(candidates[i]);
                 if (weightedSum[i] > bestSum || (weightedSum[i] == bestSum && strength < bestStrength))
                 {
                     bestSum = weightedSum[i];
                     bestStrength = strength;
-                    best = legal[i];
+                    best = candidates[i];
                 }
             }
 
@@ -128,6 +132,21 @@ namespace Tichu.GameFlow.Agents
 
             _rng = rng;
             return best == null ? TurnDecision.Pass : TurnDecision.Play(best);
+        }
+
+        /// <summary>
+        /// 인-턴 EV 후보 집합. 폭탄은 게이트된 <see cref="DecideBomb"/>(리치트릭 ≥15점)이 담당하므로
+        /// 후보에서 제외해 싼 트릭에 폭탄을 낭비하지 않는다(휴리스틱 DecideLead/DecideFollow 와 동일 규율).
+        /// 비폭탄이 하나도 없으면(소원 강제로 폭탄만 합법 등) 폭탄으로 폴백한다.
+        /// </summary>
+        public static List<Combination> TurnCandidates(IReadOnlyList<Combination> legal)
+        {
+            var c = new List<Combination>(legal.Count);
+            for (int i = 0; i < legal.Count; i++)
+                if (!legal[i].IsBomb) c.Add(legal[i]);
+            if (c.Count == 0)
+                for (int i = 0; i < legal.Count; i++) c.Add(legal[i]);
+            return c;
         }
 
         public bool CallGrandTichu(in DecisionContext ctx) => _policy.CallGrandTichu(ctx);

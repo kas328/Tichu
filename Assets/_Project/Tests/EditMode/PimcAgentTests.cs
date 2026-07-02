@@ -261,6 +261,36 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
         }
 
+        // ── 인-턴 폭탄 규율(③ 폭탄 타이밍) ───────────────────────────────────────────
+        // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외해
+        // 싼 트릭에 폭탄을 낭비하지 않는다(휴리스틱 DecideLead/Follow 와 동일 규율).
+
+        private static Combination FourBomb(int rank) =>
+            CombinationRecognizer.Recognize(new[] {
+                Card.Normal(rank, Suit.Jade), Card.Normal(rank, Suit.Sword),
+                Card.Normal(rank, Suit.Pagoda), Card.Normal(rank, Suit.Star) }, TrickContext.Lead);
+
+        private static Combination SingleOf(int rank) =>
+            CombinationRecognizer.Recognize(new[] { Card.Normal(rank, Suit.Jade) }, TrickContext.Lead);
+
+        [Test]
+        public void TurnCandidates_excludes_bombs_when_nonbomb_exists()
+        {
+            var bomb = FourBomb(7);
+            Assert.That(bomb.IsBomb, Is.True, "four-카드는 폭탄");
+            var cands = PimcAgent.TurnCandidates(new List<Combination> { SingleOf(13), bomb });
+            Assert.That(cands.Count, Is.EqualTo(1), "비폭탄만 후보");
+            Assert.That(cands[0].IsBomb, Is.False);
+        }
+
+        [Test]
+        public void TurnCandidates_falls_back_to_bombs_when_only_bombs()
+        {
+            var cands = PimcAgent.TurnCandidates(new List<Combination> { FourBomb(7) });
+            Assert.That(cands.Count, Is.EqualTo(1), "비폭탄 없으면 폭탄 폴백");
+            Assert.That(cands[0].IsBomb, Is.True);
+        }
+
         // ── reach-prob 가중(Hard 경로) ────────────────────────────────────────────────
 
         [Test]

@@ -22,7 +22,6 @@ namespace Tichu.GameFlow.Agents
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
         private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
         private const int HighComboSaveScaled = 24; // 콤보 랭크 ≥ 12(Q, 스케일 ×2) → 싼 트릭에 낭비 회피.
-        private const int WeakExchangeThreshold = 3; // HandPower < 이 값이면 약한 패 → 파트너에게 최고 카드.
         private const int LockoutTopScaled = 20;  // 싱글 Top 랭크 ≤ 10이면 1장 상대가 받아 나갈 위험 → 봉쇄.
 
         private Rng _rng;
@@ -63,6 +62,19 @@ namespace Tichu.GameFlow.Agents
             return score;
         }
 
+        /// <summary>티츄(그랜드/스몰)를 노릴 만큼 강한 손인가 — 그랜드티츄급(HandPower) 또는 용/봉황 보유.
+        /// 강하면 교환 시 고카드 보존(내가 먼저 나갈 계획), 아니면 파트너에게 최고 카드를 줘 팀 강화.</summary>
+        private static bool IntendsTichu(IReadOnlyList<Card> hand)
+        {
+            if (HandPower(hand) >= GrandThreshold) return true;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var sp = hand[i].Special;
+                if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) return true;
+            }
+            return false;
+        }
+
         // ── 교환 ───────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -87,9 +99,9 @@ namespace Tichu.GameFlow.Agents
 
             candidates.Sort(CompareLow);
 
-            // 약한 패(티츄 외치기 힘듦): 가장 높은 카드를 파트너에게 줘 팀을 강화한다.
-            // 가장 낮은 둘은 상대(Left/Right)에게.
-            if (HandPower(hand) < WeakExchangeThreshold)
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 카드를 파트너에게 줘 팀을 강화한다
+            // (나는 먼저 나갈 계획이 아니므로). 가장 낮은 둘은 상대(Left/Right)에게.
+            if (!IntendsTichu(hand))
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];
@@ -387,7 +399,8 @@ namespace Tichu.GameFlow.Agents
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
         /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 콤보(≥2장)로 패를 줄이는 경우.
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 ㉠콤보(≥2장)로 패를 줄이거나 ㉡파트너가 아웃이라
+        ///   패스 시 리드가 상대로 넘어가는 경우(싱글로라도 밟아 우리 팀 리드 유지).
         /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
         /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
@@ -402,8 +415,9 @@ namespace Tichu.GameFlow.Agents
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
             bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
+            bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
-            return (calledTichu || goesOut || (partnerLow && reducesHand)) ? cheap : null;
+            return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
         }
 
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────

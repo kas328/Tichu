@@ -219,6 +219,22 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void DecideTurn_overtakes_partner_low_single_when_partner_is_out()
+        {
+            // 파트너(seat2)가 마지막 카드(낮은 싱글 2)로 아웃. 패스하면 리드가 상대(NextActive)로 넘어가므로,
+            // 싱글로라도 밟아 리드를 우리 팀에 유지한다(엔드게임 템포).
+            var s = FollowState(0, Single(2), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(5, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star)),  // seat0: 이기는 싱글 보유, 아웃 아님
+                Hand(N(7, Suit.Jade), N(8, Suit.Sword)),                     // seat1(상대): 2장
+                Hand(),                                                       // seat2(파트너): 아웃
+                Hand(N(9, Suit.Jade), N(10, Suit.Sword)));                   // seat3(상대): 2장
+            s.Seats[2].IsOut = true;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "파트너 아웃 시 패스하면 리드를 상대에 헌납 → 밟아 유지");
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Single), "싼 싱글로 최소 오버킬");
+        }
+
+        [Test]
         public void DecideTurn_overtakes_partner_low_with_cheap_combo_to_reduce_hand()
         {
             // 파트너가 낮은 조합(Pair5)을 냄. seat0 는 점수 없는 콤보(Pair8)로 싸게 밟아 패를 줄인다.

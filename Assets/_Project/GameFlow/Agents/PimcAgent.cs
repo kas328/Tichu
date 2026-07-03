@@ -90,10 +90,19 @@ namespace Tichu.GameFlow.Agents
             int samples = 0;
             bool budgetHit = false;
 
+            // B1 강건 백업: 후보별 "세계별 EV(그 세계 롤아웃 평균)"의 합·제곱합 → argmax(mean−λ·std).
+            // OFF면 미할당(비트불변). reach-prob 는 전 티어 OFF라 가중 없이 세계별 EV 사용.
+            bool robust = _config.UseRobustBackup;
+            double[] robSum = robust ? new double[candidates.Count] : null;
+            double[] robSumSq = robust ? new double[candidates.Count] : null;
+            int worldsCounted = 0;
+
             for (int w = 0; w < _config.Worlds && !budgetHit; w++)
             {
                 var world = Determinizer.Sample(ctx.State, _seat, ref rng);
                 double weight = _config.UseReachProb ? ReachWeight.WorldWeight(world, _seat) : 1.0;
+                double[] worldSum = robust ? new double[candidates.Count] : null;
+                int rolloutsThisWorld = 0;
                 for (int r = 0; r < rolloutsPerWorld; r++)
                 {
                     abort.ThrowIfCancellationRequested();                                  // 폭탄 인터럽트 → 폐기
@@ -104,27 +113,33 @@ namespace Tichu.GameFlow.Agents
                     {
                         var sim = world.Clone();
                         if (!GameEngine.Apply(sim, GameAction.Play(_seat, candidates[i].Cards)).Ok) continue; // wish=null(P2-B)
-                        weightedSum[i] += weight * Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
+                        double ev = Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
+                        weightedSum[i] += weight * ev;
+                        if (robust) worldSum[i] += ev;
                     }
                     totalWeight += weight;
                     samples++;
+                    rolloutsThisWorld++;
+                }
+                if (robust && rolloutsThisWorld > 0)
+                {
+                    for (int i = 0; i < candidates.Count; i++)
+                    {
+                        double we = worldSum[i] / rolloutsThisWorld;   // 이 세계의 EV(롤아웃 평균)
+                        robSum[i] += we;
+                        robSumSq[i] += we * we;
+                    }
+                    worldsCounted++;
                 }
             }
 
-            // 가중 합 EV 최대 수(동점깨기 MoveOrder.Strength 최소).
-            double bestSum = double.NegativeInfinity;
-            int bestStrength = int.MaxValue;
-            Combination? best = null;
-            for (int i = 0; i < candidates.Count; i++)
-            {
-                int strength = MoveOrder.Strength(candidates[i]);
-                if (weightedSum[i] > bestSum || (weightedSum[i] == bestSum && strength < bestStrength))
-                {
-                    bestSum = weightedSum[i];
-                    bestStrength = strength;
-                    best = candidates[i];
-                }
-            }
+            // 선택: robust(B1)면 argmax(mean − λ·std), 아니면 기존 가중 합 argmax(둘 다 Strength 최소 동점깨기).
+            // robust 라도 세계<2면 분산 불능 → 가중 합 폴백. 패스 비교는 선택 후보의 weightedSum(스케일 유지) 사용.
+            int bestIndex = (robust && worldsCounted >= 2)
+                ? RobustArgmax(robSum, robSumSq, worldsCounted, _config.RobustLambda, candidates)
+                : MeanArgmax(weightedSum, candidates);
+            Combination? best = bestIndex >= 0 ? candidates[bestIndex] : null;
+            double bestSum = bestIndex >= 0 ? weightedSum[bestIndex] : double.NegativeInfinity;
 
             // 패스(합법일 때)는 1세계로 가볍게 평가해 같은 스케일(×Worlds×rollouts)로 환산 비교.
             // 예산 만료(budgetHit) 시엔 즉시 반환으로 anytime 존중. 동점이면 수를 선호(strict >).
@@ -160,6 +175,45 @@ namespace Tichu.GameFlow.Agents
             if (c.Count == 0)
                 for (int i = 0; i < legal.Count; i++) c.Add(legal[i]);
             return c;
+        }
+
+        /// <summary>강건 백업 점수 = mean − λ·std(세계 간). count≤0이면 −∞. B1 순수 함수.</summary>
+        public static double RobustScore(double sum, double sumSq, int count, double lambda)
+        {
+            if (count <= 0) return double.NegativeInfinity;
+            double mean = sum / count;
+            double variance = sumSq / count - mean * mean;
+            if (variance < 0.0) variance = 0.0;   // 부동소수 가드
+            return mean - lambda * System.Math.Sqrt(variance);
+        }
+
+        /// <summary>robSum/robSumSq(후보별 세계별 EV 합·제곱합)에서 argmax(RobustScore), 동점깨기 Strength 최소. 없으면 −1.</summary>
+        public static int RobustArgmax(double[] robSum, double[] robSumSq, int worldsCounted, double lambda, IReadOnlyList<Combination> candidates)
+        {
+            double bestScore = double.NegativeInfinity;
+            int bestStrength = int.MaxValue, best = -1;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                double score = RobustScore(robSum[i], robSumSq[i], worldsCounted, lambda);
+                int strength = MoveOrder.Strength(candidates[i]);
+                if (score > bestScore || (score == bestScore && strength < bestStrength))
+                { bestScore = score; bestStrength = strength; best = i; }
+            }
+            return best;
+        }
+
+        // 가중 합 EV argmax(동점깨기 Strength 최소). robust OFF 경로(비트불변). 없으면 −1.
+        private static int MeanArgmax(double[] sum, IReadOnlyList<Combination> candidates)
+        {
+            double bestSum = double.NegativeInfinity;
+            int bestStrength = int.MaxValue, best = -1;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                int strength = MoveOrder.Strength(candidates[i]);
+                if (sum[i] > bestSum || (sum[i] == bestSum && strength < bestStrength))
+                { bestSum = sum[i]; bestStrength = strength; best = i; }
+            }
+            return best;
         }
 
         public bool CallGrandTichu(in DecisionContext ctx) => _policy.CallGrandTichu(ctx);

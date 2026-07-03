@@ -380,5 +380,71 @@ namespace Tichu.Core.Tests
                 Assert.That(legal, Is.True);
             }
         }
+
+        // ── B1 α-μ 강건 백업(분산 페널티) ─────────────────────────────────────────────
+        // 선택 규칙만 argmax(mean) → argmax(mean − λ·std). 전략 융합 탈출. 순수 함수로 격리 검증.
+        // (X: EVs {200×3,−150×3} → mean 25·std 175 · Y: EVs {18×6} → mean 18·std 0)
+
+        [Test]
+        public void RobustScore_penalizes_variance()
+        {
+            double xScore = PimcAgent.RobustScore(150.0, 187500.0, 6, 0.2);   // 25 − 0.2·175 = −10
+            double yScore = PimcAgent.RobustScore(108.0, 1944.0, 6, 0.2);     // 18 − 0 = 18
+            Assert.That(yScore, Is.GreaterThan(xScore), "고분산 X 는 저분산 Y 보다 낮은 강건 점수");
+            Assert.That(xScore, Is.EqualTo(-10.0).Within(1e-6));
+            Assert.That(yScore, Is.EqualTo(18.0).Within(1e-6));
+        }
+
+        [Test]
+        public void RobustScore_lambda_zero_equals_mean()
+        {
+            Assert.That(PimcAgent.RobustScore(150.0, 187500.0, 6, 0.0), Is.EqualTo(25.0).Within(1e-6), "λ=0 → 평균");
+        }
+
+        [Test]
+        public void RobustScore_zero_count_is_negative_infinity()
+        {
+            Assert.That(PimcAgent.RobustScore(0.0, 0.0, 0, 0.5), Is.EqualTo(double.NegativeInfinity));
+        }
+
+        [Test]
+        public void RobustArgmax_prefers_low_variance_candidate()
+        {
+            var candidates = new List<Combination> { SingleOf(13), SingleOf(5) }; // X=idx0, Y=idx1
+            double[] robSum   = { 150.0, 108.0 };
+            double[] robSumSq = { 187500.0, 1944.0 };
+            int idx = PimcAgent.RobustArgmax(robSum, robSumSq, 6, 0.2, candidates);
+            Assert.That(idx, Is.EqualTo(1), "λ=0.2 → 고분산 X(−10) 보다 저분산 Y(+18) 선택");
+        }
+
+        [Test]
+        public void RobustArgmax_lambda_zero_prefers_higher_mean()
+        {
+            var candidates = new List<Combination> { SingleOf(13), SingleOf(5) };
+            double[] robSum   = { 150.0, 108.0 };    // means 25 vs 18
+            double[] robSumSq = { 187500.0, 1944.0 };
+            int idx = PimcAgent.RobustArgmax(robSum, robSumSq, 6, 0.0, candidates);
+            Assert.That(idx, Is.EqualTo(0), "λ=0 → 평균 최대(X)");
+        }
+
+        [Test]
+        public void DecideTurn_robust_backup_is_deterministic_and_legal()
+        {
+            // robust ON(λ=0.25) 이 FreshPlayState(결정화 유효)에서 결정적·합법이어야 한다.
+            var cfg = new PolicyConfig(4, 2, 0.1, useRobustBackup: true, robustLambda: 0.25);
+            var s1 = FreshPlayState(0); var s2 = FreshPlayState(0);
+            var ctx1 = GameFlowHelpers.Context(s1, 0);
+            var d1 = new PimcAgent(88UL, 0, cfg).DecideTurn(ctx1);
+            var d2 = new PimcAgent(88UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s2, 0));
+            Assert.That(d1.IsPass, Is.EqualTo(d2.IsPass));
+            if (!d1.IsPass)
+            {
+                Assert.That(d1.Move!.Rank, Is.EqualTo(d2.Move!.Rank));
+                bool legal = false;
+                foreach (var m in ctx1.LegalMoves)
+                    if (m.Rank == d1.Move!.Rank && m.Type == d1.Move!.Type && m.Length == d1.Move!.Length) legal = true;
+                Assert.That(legal, Is.True, "robust 선택 수는 합법이어야 한다");
+            }
+        }
     }
 }

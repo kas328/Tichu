@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 AI — P2-G D1 상대-위협 블록 가드 구현 보고</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a;
+    --new:#6fce8a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+    line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 14px;padding-top:14px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:16.5px;margin:24px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;
+    font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:middle;letter-spacing:.02em}
+  .t-done{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-gate{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-new{background:#132a33;color:#79dcff;border:1px solid #244e5e}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .mut{color:var(--muted)}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0;text-align:center;overflow-x:auto}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:10px;text-align:center}
+  .badges{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+  .badge{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 16px;min-width:120px}
+  .badge .n{font-size:24px;font-weight:800;color:var(--good);font-variant-numeric:tabular-nums}
+  .badge .l{font-size:12px;color:var(--muted)}
+  ul.tight li{margin:5px 0}
+  .files code{display:inline-block}
+  kbd{font-size:12px;color:var(--muted)}
+  .pill{font-size:11px;padding:1px 7px;border-radius:6px;background:#0c0f13;color:#cfe6ff;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>P2-G · D1 — 상대-팔로우 위협 블록 가드</h1>
+  <div class="sub">Phase 2 PIMC 강화 로드맵 첫 액션 · 2026-07-03 · TDD 구현 완료 · 브랜치 <code>feat/p2g-d1-opponent-block</code></div>
+
+  <div class="verdict">
+    <strong>한 줄 요약.</strong> 로드맵을 커밋(<code>5060a4c</code>)한 뒤, 로드맵이 <b>“가장 먼저”</b>로 지목한
+    <b>D1 상대-위협 블록 가드</b>를 TDD로 구현했다(<code>3133e8d</code>). 상대가 트릭 Top 을 쥐고 <b>아웃/티츄 위협</b>일 때,
+    순수 EV 탐색 <b>전에</b> 휴리스틱 블록 가드를 걸어 네가 본 <b>“옆 상대가 아웃 임박 상대의 낮은 리드에 올패스”</b> 증상을 직접 제거한다.
+    <b>기본 OFF 플래그</b>로 게이트해 비트불변이며, 테스트는 <b>dotnet 37/37 · Unity 57/57 · 계약 11/11</b> 전부 그린.
+  </div>
+
+  <h2>1. 왜 필요했나 — 관측된 증상</h2>
+  <p>로드맵 검증에서 확인된 근본 원인: <b>PIMC 의 라이브 수는 EV 탐색이 고른다.</b> 그런데 순수 EV 는
+  <b>전략 융합 + 롤아웃 천장</b> 탓에 “아웃 임박 상대를 지금 막아야 한다”는 판단을 라이브 수에 <b>직접 반영하지 못한다</b>(롤아웃에만 간접 반영).
+  그래서 휴리스틱 <code>AiAgent</code> 는 이미 막을 줄 아는데도, PIMC 좌석은 EV 평균이 흐릿해 <b>그냥 패스</b>해버린다.</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 760 250" width="100%" style="max-width:760px" role="img" aria-label="Before/After 비교">
+      <!-- BEFORE -->
+      <rect x="16" y="16" width="352" height="218" rx="12" fill="#1b1215" stroke="#4a2530"/>
+      <text x="192" y="42" fill="#f2748a" font-size="14" font-weight="700" text-anchor="middle">BEFORE — 순수 EV</text>
+      <text x="36" y="78" fill="#cdd6e2" font-size="13">상대(1장 남음)가 낮은 싱글 <tspan fill="#f2b350">4</tspan> 리드</text>
+      <text x="36" y="104" fill="#cdd6e2" font-size="13">내 차례: 이기는 싱글 5 · A 보유</text>
+      <text x="36" y="140" fill="#9aa7b6" font-size="12.5">EV 평균이 흐릿 → 0점 트릭에</text>
+      <text x="36" y="160" fill="#9aa7b6" font-size="12.5">A 낭비 꺼려 <tspan fill="#f2748a" font-weight="700">올패스</tspan></text>
+      <text x="36" y="196" fill="#f2748a" font-size="13.5" font-weight="700">→ 상대가 받아 아웃 😖</text>
+
+      <!-- arrow -->
+      <path d="M382 125 h30" stroke="#3a4552" stroke-width="2" marker-end="url(#ah)"/>
+      <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+        <path d="M0 0 L9 4.5 L0 9 z" fill="#3a4552"/></marker></defs>
+
+      <!-- AFTER -->
+      <rect x="424" y="16" width="320" height="218" rx="12" fill="#12211a" stroke="#2c5c3d"/>
+      <text x="584" y="42" fill="#6fce8a" font-size="14" font-weight="700" text-anchor="middle">AFTER — D1 가드</text>
+      <text x="444" y="78" fill="#cdd6e2" font-size="13">같은 상황 → EV 전에 가드 발동</text>
+      <text x="444" y="104" fill="#cdd6e2" font-size="13">규칙 ①: 1장 상대 + 낮은 싱글 Top</text>
+      <text x="444" y="140" fill="#8fd0a4" font-size="12.5">→ <tspan font-weight="700">가장 높은 싱글(A)로 봉쇄</tspan></text>
+      <text x="444" y="160" fill="#9aa7b6" font-size="12.5">1장 상대가 못 받아 나간다</text>
+      <text x="444" y="196" fill="#6fce8a" font-size="13.5" font-weight="700">→ 아웃 저지 ✓</text>
+    </svg>
+    <figcaption>규칙 ②(상대 티츄콜/≤2장 위협)는 <code>CheapestNonStructural</code>(스트레이트 안 깨는 최소 오버킬)로 저지하고, 막을 수가 스트레이트를 깨는 싱글뿐이면 보내준다.</figcaption>
+  </div>
+
+  <h2>2. 구현 — 파트너-밟기 가드의 구조적 쌍둥이</h2>
+  <p>이미 검증된 <code>PartnerOvertakeMove</code>(파트너가 Top 일 때 밟기 가드)와 <b>정확히 대칭</b>인 신규 메서드를 만들고,
+  <code>PimcAgent</code> 의 파트너 가드 <b>바로 뒤</b>에 배선했다. 기존 <code>DecideFollow</code> 로직은 <b>손대지 않았다</b>(수술적).</p>
+
+  <div class="fig">
+    <svg viewBox="0 0 720 330" width="100%" style="max-width:720px" role="img" aria-label="PimcAgent 결정 흐름">
+      <defs><marker id="a2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+        <path d="M0 0 L9 4.5 L0 9 z" fill="#3a4552"/></marker></defs>
+      <!-- nodes -->
+      <g font-size="13" text-anchor="middle">
+        <rect x="270" y="14" width="180" height="34" rx="8" fill="#1e232b" stroke="#2a323d"/>
+        <text x="360" y="36" fill="#cdd6e2">DecideTurnAnytime</text>
+
+        <rect x="270" y="66" width="180" height="34" rx="8" fill="#1e232b" stroke="#2a323d"/>
+        <text x="360" y="88" fill="#cdd6e2">Easy(Worlds=0)? → 휴리스틱</text>
+
+        <rect x="270" y="118" width="180" height="34" rx="8" fill="#241a30" stroke="#43315e"/>
+        <text x="360" y="140" fill="#c9a6ff">파트너 Top? → 파트너 가드</text>
+
+        <rect x="248" y="170" width="224" height="40" rx="8" fill="#12211a" stroke="#2c5c3d" stroke-width="2"/>
+        <text x="360" y="186" fill="#6fce8a" font-weight="700">★ 상대 Top + 위협? → D1 가드</text>
+        <text x="360" y="202" fill="#7ee6a6" font-size="11">UseOpponentThreatBlock (기본 OFF)</text>
+
+        <rect x="270" y="228" width="180" height="34" rx="8" fill="#1e232b" stroke="#2a323d"/>
+        <text x="360" y="250" fill="#cdd6e2">EV 탐색 (Determinize+Rollout)</text>
+
+        <rect x="285" y="280" width="150" height="34" rx="8" fill="#132a33" stroke="#244e5e"/>
+        <text x="360" y="302" fill="#79dcff">best 수 / 패스</text>
+      </g>
+      <!-- arrows down -->
+      <g stroke="#3a4552" stroke-width="1.6" fill="none">
+        <path d="M360 48 v16" marker-end="url(#a2)"/>
+        <path d="M360 100 v16" marker-end="url(#a2)"/>
+        <path d="M360 152 v16" marker-end="url(#a2)"/>
+        <path d="M360 210 v16" marker-end="url(#a2)"/>
+        <path d="M360 262 v16" marker-end="url(#a2)"/>
+      </g>
+      <!-- side exits -->
+      <g font-size="11" fill="#6b7683">
+        <text x="470" y="88">▶ 리턴</text>
+        <text x="470" y="140">▶ 밟기/패스</text>
+        <text x="484" y="194" fill="#6fce8a">▶ 블록 리턴</text>
+      </g>
+    </svg>
+    <figcaption>새 노드(★)만 추가. OFF(기본)면 이 노드는 통과 → 기존 EV 경로와 <b>비트불변</b>. 상대가 Top 이 아니거나(파트너/리드) 위협이 없으면 가드는 <code>null</code> 을 반환해 EV 로 폴백한다.</figcaption>
+  </div>
+
+  <h3>변경 파일 (7)</h3>
+  <div class="card files">
+    <ul class="tight">
+      <li><code>AiAgent.cs</code> — 신규 <code>public static OpponentThreatBlockMove(ctx, trick, nonBombWins)</code>. 기존 private 헬퍼(<code>HighestWinningSingle</code>·<code>CheapestNonStructural</code>·<code>OpponentThreat</code>·<code>AnyOpponentNearOut</code>) 재사용 <span class="tag t-new">신규</span></li>
+      <li><code>PolicyConfig.cs</code> — <code>UseOpponentThreatBlock</code> 플래그(기본 <code>false</code>) 추가</li>
+      <li><code>PimcAgent.cs</code> — 파트너 가드 직후 상대-Top 게이트 배선(<code>Seating.TeamOf</code> 상대 판정)</li>
+      <li><code>PimcAgentTests.cs</code> — 통합 테스트 +3 (ON 봉쇄 2종 · OFF 게이팅 1종)</li>
+      <li><code>AiAgentTests.cs</code> (Unity+core) — 순수 메서드 테스트 +4 (규칙①·②·구조보존·무위협)</li>
+      <li><code>core/ AiAgent.cs</code> — dotnet 미러 동기화(양쪽 바이트 동일)</li>
+    </ul>
+  </div>
+
+  <h2>3. 검증 — TDD 전 구간 그린</h2>
+  <p>RED→GREEN 규율을 지켰다: core 순수 테스트는 <b>컴파일 실패(메서드 부재)</b>로 먼저 실패시키고 구현, Unity 통합은
+  OFF 게이팅 테스트가 <b>EV 경로 진입(결정화 예외)</b>을 관측해 “플래그가 가드를 게이트함”을 증명하도록 재설계했다.</p>
+  <div class="badges">
+    <div class="badge"><div class="n">37/37</div><div class="l">dotnet · AiAgentTests<br>(순수 로직, 빠른 격리)</div></div>
+    <div class="badge"><div class="n">57/57</div><div class="l">Unity EditMode<br>PimcAgent+AiAgent</div></div>
+    <div class="badge"><div class="n">11/11</div><div class="l">PolicyConfig+계약<br>(회귀 확인)</div></div>
+    <div class="badge"><div class="n">0</div><div class="l">컴파일 에러<br>/ 경고</div></div>
+  </div>
+  <table>
+    <thead><tr><th>테스트</th><th>검증 내용</th><th>결과</th></tr></thead>
+    <tbody>
+      <tr><td>규칙 ① 봉쇄</td><td>1장 상대 + 낮은 싱글 Top → 가장 높은 싱글(A)로 봉쇄</td><td class="mut">green</td></tr>
+      <tr><td>규칙 ② 저지</td><td>상대 티츄콜 → 스트레이트 안 깨는 최소 오버킬(10)로 저지</td><td class="mut">green</td></tr>
+      <tr><td>구조 보존</td><td>막을 수가 스트레이트 깨는 싱글뿐 → <code>null</code>(보내준다)</td><td class="mut">green</td></tr>
+      <tr><td>무위협 폴백</td><td>위협 없으면 <code>null</code> → EV 로 폴백</td><td class="mut">green</td></tr>
+      <tr><td>ON 통합 ×2</td><td>플래그 ON → PimcAgent 가 EV 전에 블록 반환</td><td class="mut">green</td></tr>
+      <tr><td>OFF 게이팅</td><td>플래그 OFF → 단락 안 함, EV 경로 진입(비트불변)</td><td class="mut">green</td></tr>
+    </tbody>
+  </table>
+
+  <h2>4. 적용 — PIMC 티어 승격 + 비-회귀 벤치</h2>
+  <div class="verdict">
+    <strong>Normal·Hard·Expert 승격(D1 ON).</strong> 사용자 결정(A): 체감 확인을 우선해 PIMC 전 티어에서 D1 을 켰다.
+    D1 은 난이도 차별 축이 아니라 관측된 나쁜-수를 고치는 <b>정확성 바닥</b>이라, Normal 만 켜면 Hard 가 같은 증상을 보이는
+    <b>티어 역전</b>이 생기므로 세 티어 모두 ON(Easy 는 <code>Worlds=0</code> 라 가드 미도달·무관). 회귀 위험은 낮다 — 이미 검증된
+    <code>DecideFollow</code> 로직을 좁은 위협 조건에서만 재사용하기 때문. <b>비-회귀 확인용 PimcBench ON/OFF 는 백그라운드로 진행 중.</b>
+  </div>
+  <p class="mut">저장소의 “강도 주장은 격리 벤치 필수” 규율을 존중하되, D1 의 실제 검증은 <b>플레이테스트</b>(체감 증상 제거)이며 벤치는 점수 <b>비-회귀</b>를 사후 확인한다(로드맵도 점수 이득은 “소폭”으로 예측). 승격은 TDD(<code>UseOpponentThreatBlock_on_for_pimc_tiers</code> RED→GREEN)로 반영, 재검증 64/64 그린.</p>
+
+  <h2>5. 진행 상태 &amp; 다음</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><span class="tag t-done">완료</span> D1 구현 · PIMC 티어 승격(Normal/Hard/Expert ON) · <code>--no-ff</code> main 병합.</li>
+      <li><span class="tag t-gate">진행 중</span> <code>PimcBench</code> ON/OFF 미러드 <b>비-회귀 벤치</b>(백그라운드) — 점수 회귀 없음 확인.</li>
+      <li><span class="tag t-new">검증</span> 플레이테스트로 “옆 상대 올패스” 증상 제거 체감 확인(D1 의 본 목적).</li>
+    </ul>
+    <p class="mut">그다음 로드맵 순서는 <b>B1 α-μ 강건 백업</b>(최고 레버리지, 전략융합 탈출) → <b>A1/A2 롤아웃 강화</b>다.</p>
+  </div>
+
+  <div class="sub" style="margin-top:34px;border-top:1px solid var(--line);padding-top:14px">
+    커밋: <code>5060a4c</code> 로드맵 문서 · <code>3133e8d</code> D1 가드(7파일 +292/−1) · <code>247aec3</code> 티어 승격(Normal/Hard/Expert ON).
+    테스트: dotnet <code>AiAgentTests</code> 37 · Unity EditMode <code>PolicyConfig</code>+<code>PimcAgent</code>+<code>AiAgent</code> 64 · 회귀·계약 그린. 모두 green.
+  </div>
+
+</div>
+</body>
+</html>

@@ -186,6 +186,20 @@ namespace Tichu.Core.Tests
             Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "티츄 의향 아니면 파트너에게 최고 카드(A)");
         }
 
+        [Test]
+        public void ChooseExchange_partner_called_tichu_gives_highest_even_if_own_hand_strong()
+        {
+            // #4a: 파트너(seat2)가 라지 티츄 콜 → 내 패가 강해도(용 보유) 파트너에게 최고 카드(A)를
+            // 줘 콜을 돕는다(200점 지원). 콜 없으면 티츄-의향 분기라 낮은 카드를 줬을 것.
+            var hand = Hand(Card.Dragon, N(14, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            s.Seats[2].Call = TichuCall.GrandTichu;   // 파트너 라지 티츄
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "파트너 티츄 콜 → 최고 카드(A) 헌납해 콜 지원");
+        }
+
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────
 
         [Test]
@@ -275,6 +289,36 @@ namespace Tichu.Core.Tests
             var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
             Assert.That(d.IsPass, Is.False, "밟으면 손패가 비어 아웃 → 밟는다");
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank));
+        }
+
+        [Test]
+        public void DecideTurn_passes_when_partner_called_grand_tichu_even_if_could_go_out()
+        {
+            // #4c: 파트너(seat2)가 라지 티츄 콜 + 아직 안 나감. seat0 는 Pair8로 밟으면 아웃이지만,
+            // 콜한 파트너보다 먼저 나가면 티츄(200점) 파탄 → 밟지 말고 패스(파트너가 먼저 나가게 양보).
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword)),          // seat0: Pair8 = 남은 전부(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),          // seat1(상대) 2장
+                Hand(N(9, Suit.Pagoda), N(10, Suit.Star)),        // seat2(파트너) 아직 안 나감
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));        // seat3(상대) 2장
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "콜한 파트너보다 먼저 나가지 않는다(200점 보호)");
+        }
+
+        [Test]
+        public void DecideTurn_passes_when_partner_called_grand_tichu_low_combo()
+        {
+            // #4b: 파트너(seat2)가 라지 티츄 콜 + 아직 안 나감, 낮은 콤보(Pair5)로 주도 중.
+            // 밟으면 콜한 파트너의 리드를 뺏어 콜을 방해 → 패스(파트너가 계속 주도해 먼저 나가게).
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),  // 밟아도 아웃 아님
+                Hand(N(2, Suit.Jade)),
+                Hand(N(9, Suit.Sword), N(10, Suit.Pagoda)),   // seat2(파트너) 아직 안 나감
+                Hand(N(2, Suit.Star)));
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "콜한 파트너를 밟아 리드 뺏지 않는다");
         }
 
         [Test]

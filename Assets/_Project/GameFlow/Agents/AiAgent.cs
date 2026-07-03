@@ -99,9 +99,10 @@ namespace Tichu.GameFlow.Agents
 
             candidates.Sort(CompareLow);
 
-            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 카드를 파트너에게 줘 팀을 강화한다
-            // (나는 먼저 나갈 계획이 아니므로). 가장 낮은 둘은 상대(Left/Right)에게.
-            if (!IntendsTichu(hand))
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면, 또는 파트너가 티츄를 콜했으면: 가장 높은 카드를
+            // 파트너에게 줘 팀/콜을 강화한다(#4a 파트너 티츄 지원 — 200점). 가장 낮은 둘은 상대(Left/Right)에게.
+            bool partnerCalledTichu = ctx.State.Seats[ctx.PartnerSeat].Call != TichuCall.None;
+            if (!IntendsTichu(hand) || partnerCalledTichu)
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];
@@ -418,6 +419,12 @@ namespace Tichu.GameFlow.Agents
         {
             var cheap = MoveOrder.Lowest(nonBombWins);   // 최소 오버킬(점수카드 허용)
             if (cheap == null) return null;
+
+            // #4b/#4c: 파트너(Top 소유)가 티츄 콜 + 아직 안 나감 → 절대 밟지 않는다(콜한 파트너가 리드를
+            // 유지해 먼저 나가게 양보; 밟으면 리드를 뺏거나 goesOut 으로 먼저 아웃해 티츄 200점을 파탄낸다).
+            if (ctx.State.Seats[trick.TopOwnerSeat].Call != TichuCall.None
+                && !ctx.State.Seats[trick.TopOwnerSeat].IsOut)
+                return null;
 
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진

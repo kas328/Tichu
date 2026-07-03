@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — Expert 플레이 진단 2차 (코드 근거)</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:40px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin:14px 0}
+  .crit{background:linear-gradient(180deg,#2a1016,#1c0e11);border:1px solid #5e2c3a;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .win{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:16px 20px;margin:14px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .mut{color:var(--muted)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-win{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-risk{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-crit{background:#301820;color:#f2879e;border:1px solid #5e2c3a}
+  ul{margin:8px 0}
+  .lbl{font-weight:700;color:#f2879e}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Expert 플레이 진단 2차 — 코드 근거</h1>
+  <div class="sub">2026-07-04 · 제대로 된 Expert(900ms·caller ON) 재플레이 관측 4종 · <code>AiAgent.cs</code> 정독</div>
+
+  <div class="crit">
+    <strong>핵심 발견.</strong> 관측 <b>#4의 세 증상(교환·밟기·먼저 나가기)은 한 뿌리</b>다 —
+    <b>AI가 "파트너의 티츄 콜"을 전혀 참조하지 않는다.</b> 교환·밟기 판단은 <b>자기 손패/자기 콜만</b> 본다.
+    그래서 파트너(당신)가 라지 티츄를 외쳐도 AI는 그걸 모르고 자기 기준으로 둔다. <b>200점짜리 버그이고, 고치면 체감·EV 둘 다 이득(win-win)</b>이다.
+  </div>
+
+  <h2>1. 관측 → 클러스터 매핑</h2>
+  <table>
+    <thead><tr><th style="width:24%">관측</th><th>코드 근거 · 진단</th><th style="width:16%">판정</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>#4a</b> 라지티츄 외쳤는데 교환서 탑패 안 줌</td>
+        <td><code>AiAgent.ChooseExchange</code>(L84)는 <b>자기 손패의 <code>IntendsTichu</code>만</b> 본다. 자기 패가 강하면(용/봉 보유) 고카드 쟁이고 파트너에겐 <code>candidates[2]</code>(낮은 카드) 줌(L112-123). <b>파트너의 <code>Call</code>을 안 봄</b> → 당신의 라지티츄를 도울 카드를 안 줌.</td>
+        <td><span class="tag t-crit">치명·버그</span></td>
+      </tr>
+      <tr>
+        <td><b>#4b</b> 파트너(나)의 스트레이트를 더 높은 걸로 밟음</td>
+        <td><code>PartnerOvertakeMove</code>(L416)의 <code>calledTichu</code>는 <b>seat(자기) 콜</b>만 검사(L422). <b>topOwner=파트너의 콜은 안 봄</b>. <code>partnerLow && reducesHand</code>가 낮은 스트레이트를 "패 줄이려" 밟음 → 티츄 콜한 파트너를 밟아버림.</td>
+        <td><span class="tag t-crit">치명·버그</span></td>
+      </tr>
+      <tr>
+        <td><b>#4c</b> 1장 남은 파트너가 나(라지티츄)보다 먼저 나감</td>
+        <td>같은 <code>PartnerOvertakeMove</code>: <code>goesOut</code>(L423, 밟으면 손패 소진)이면 무조건 밟음 → <b>티츄 콜한 파트너가 아직 안 나갔는데 AI가 선수 쳐서 먼저 아웃</b> → 라지티츄(200점) 파탄.</td>
+        <td><span class="tag t-crit">치명·버그</span></td>
+      </tr>
+      <tr>
+        <td><b>#2</b> 싱글 3에 봉황 내버림</td>
+        <td>라이브 수 = <code>PimcAgent</code> 순수 EV. 휴리스틱의 <code>CheapestNonPhoenixSingle</code>(L537 봉황 보존)은 <b>롤아웃에만</b> 닿고 라이브 선택엔 안 감. 알려진 <b>봉황 낭비(Bug3) 미해결</b>.</td>
+        <td><span class="tag t-risk">진짜·벤치리스크</span></td>
+      </tr>
+      <tr>
+        <td><b>#3</b> 7,8,8,9,9를 8899+7 대신 싱글 5번</td>
+        <td>≤5장 끝내기 = 휴리스틱은 <code>MostShedding</code>(L211, 콤보로 많이 털기)이지만 <b>라이브는 EV</b>라 미적용. EV가 연페어(8899)로 빠른 아웃을 못 골라 싱글 남발.</td>
+        <td><span class="tag t-risk">진짜 갭·벤치리스크</span></td>
+      </tr>
+      <tr>
+        <td><b>#1</b> 9장서 QQ·용 낸 뒤 개로 선 넘김</td>
+        <td>라이브 리드 EV. 용을 이르게 리드 + 개로 선 넘김 = 리드 순서/자원 이슈. 이력상 <b>리드 제한 휴리스틱은 3회 다 회귀</b>(−15~−20/R).</td>
+        <td><span class="tag t-risk">EV 아티팩트 유력</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. 클러스터 &amp; 우선순위</h2>
+
+  <div class="win">
+    <h3 style="margin-top:0;color:var(--good)">클러스터 A — 파트너 티츄 지원 (#4a·#4b·#4c) · <span class="tag t-win">최우선 · win-win</span></h3>
+    <p>한 뿌리(파트너 <code>Call</code> 무시)의 세 증상. 수정도 한 곳에 모임:</p>
+    <ul>
+      <li><b>교환</b>: 파트너가 (라지/스몰) 티츄를 콜했으면 → 파트너에게 <b>가장 높은 카드</b>를 준다(자기 <code>IntendsTichu</code>보다 우선).</li>
+      <li><b>밟기 억제</b>: <code>PartnerOvertakeMove</code>에서 <b>topOwner(파트너)가 티츄 콜 + 아직 안 나감</b>이면 → 밟지 않는다(스트레이트 밟기 금지, <code>goesOut</code>로 먼저 나가기 금지). 콜한 파트너가 먼저 나가게 양보.</li>
+    </ul>
+    <p class="mut">200점 보너스를 지키는 수정 → <b>체감(똑똑해 보임) + EV(승점) 둘 다 상승</b>. 격리벤치서도 AI끼리 티츄를 콜하므로 검증 가능. 회귀 위험 낮음.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;color:var(--warn)">클러스터 B — 봉황 낭비 (#2) · <span class="tag t-risk">진짜지만 벤치리스크</span></h3>
+    <p>라이브 EV가 봉황을 낮은 싱글에 씀. 라이브 봉황-보존 가드가 필요하나, 과거 "봉황 아끼려 과-패스"는 <b>−3/R 회귀</b>. 좁은 가드(낮은 싱글엔 봉황으로 안 이김) + 격리벤치 필수.</p>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;color:var(--warn)">클러스터 C — 셰딩/리드 효율 (#3, #1) · <span class="tag t-risk">벤치리스크(리드 3회 회귀)</span></h3>
+    <p>라이브 EV가 끝내기서 콤보 셰딩(8899+7)을 안 고르고(#3), 리드 순서가 이상함(#1). 라이브에 <code>MostShedding</code>류 가드를 걸 수 있으나 <b>리드 계열은 상습 회귀</b>. #3(끝내기 콤보 셰딩)은 #1(고카드 리드 제한)보다 명분이 뚜렷 → 별도 취급·격리벤치.</p>
+  </div>
+
+  <h2>3. 권장</h2>
+  <div class="win">
+    <p><b>클러스터 A부터.</b> 치명적이고, 한 곳 수정이며, win-win이라 회귀 위험이 가장 낮다. TDD(파트너 티츄 시 교환·밟기·양보) + 격리벤치(중립 이상) 게이트로 진행.
+    이후 B·C는 각각 좁은 가드 + 격리벤치로 신중히(리드/봉황 회귀 이력 존중).</p>
+  </div>
+
+  <div class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:14px">
+    근거: <code>AiAgent.ChooseExchange</code>(L84-124)·<code>PartnerOvertakeMove</code>(L416-429)·<code>MostShedding</code>(L211)·<code>CheapestNonPhoenixSingle</code>(L537). 라이브 수=<code>PimcAgent</code> EV+공유 가드(PartnerOvertakeMove/OpponentThreatBlockMove). 비-턴(교환/콜/폭탄)은 휴리스틱 직접 위임.
+  </div>
+
+</div>
+</body>
+</html>

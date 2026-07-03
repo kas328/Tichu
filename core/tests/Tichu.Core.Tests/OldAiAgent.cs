@@ -25,6 +25,7 @@ namespace Tichu.Core.Tests.Bench
         private const int PartnerLowTopScaled = 20; // 파트너 Top 랭크 ≤ 10(스케일 ×2) → "낮은 카드".
         private const int GoOutThreatCards = 2;   // 상대 손패 ≤ 이 값이면 아웃 임박(블로킹 위협).
         private const int HighComboSaveScaled = 24; // 콤보 랭크 ≥ 12(Q, 스케일 ×2) → 싼 트릭에 낭비 회피.
+        private const int LockoutTopScaled = 20;  // 싱글 Top 랭크 ≤ 10이면 1장 상대가 받아 나갈 위험 → 봉쇄.
 
         private Rng _rng;
         private readonly int _seat;
@@ -64,6 +65,19 @@ namespace Tichu.Core.Tests.Bench
             return score;
         }
 
+        /// <summary>티츄(그랜드/스몰)를 노릴 만큼 강한 손인가 — 그랜드티츄급(HandPower) 또는 용/봉황 보유.
+        /// 강하면 교환 시 고카드 보존(내가 먼저 나갈 계획), 아니면 파트너에게 최고 카드를 줘 팀 강화.</summary>
+        private static bool IntendsTichu(IReadOnlyList<Card> hand)
+        {
+            if (HandPower(hand) >= GrandThreshold) return true;
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var sp = hand[i].Special;
+                if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) return true;
+            }
+            return false;
+        }
+
         // ── 교환 ───────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -88,7 +102,17 @@ namespace Tichu.Core.Tests.Bench
 
             candidates.Sort(CompareLow);
 
-            // 가능하면 에이스를 뒤로 미뤄 보존: 비-에이스가 충분하면 에이스 제외.
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 카드를 파트너에게 줘 팀을 강화한다
+            // (나는 먼저 나갈 계획이 아니므로). 가장 낮은 둘은 상대(Left/Right)에게.
+            if (!IntendsTichu(hand))
+            {
+                var lo0 = candidates[0];
+                var lo1 = candidates[1];
+                var high = candidates[candidates.Count - 1];
+                return new ExchangeChoice(lo0, high, lo1); // ToLeft, ToPartner, ToRight
+            }
+
+            // 강한 패: 가능하면 에이스를 보존(비-에이스가 충분하면 에이스 제외).
             int nonAce = 0;
             for (int i = 0; i < candidates.Count; i++)
                 if (candidates[i].Rank != 14 || candidates[i].IsSpecial) nonAce++;
@@ -185,17 +209,26 @@ namespace Tichu.Core.Tests.Bench
             Combination chosen;
             if (ctx.MyHand.Count <= FinishHandSize)
             {
-                // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 낮은 카드는 싱글로 흘리지 말고 콤보로).
+                // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 콤보를 자연히 우선 → 1장 상대도 봉쇄).
                 // 동수면 가장 강한 수(이겨서 주도권 유지).
                 chosen = MostShedding(pool)!;
             }
             else
             {
-                // 평소: 점수 없는 가장 낮은 수를 선호. 없으면 그냥 가장 낮은 수.
-                var noPoint = new List<Combination>();
-                for (int i = 0; i < pool.Count; i++)
-                    if (pool[i].PointsInPlay == 0) noPoint.Add(pool[i]);
-                chosen = MoveOrder.Lowest(noPoint.Count > 0 ? noPoint : pool)!;
+                // 상대 1장 봉쇄: 싱글 말고 콤보로 리드(1장으론 페어+ 를 못 받음 → 못 나감).
+                var lockCombo = AnyOpponentNearOut(ctx, 1) ? LowestCombo(pool) : null;
+                if (lockCombo != null)
+                {
+                    chosen = lockCombo;
+                }
+                else
+                {
+                    // 평소: 점수 없는 가장 낮은 수를 선호. 없으면 그냥 가장 낮은 수.
+                    var noPoint = new List<Combination>();
+                    for (int i = 0; i < pool.Count; i++)
+                        if (pool[i].PointsInPlay == 0) noPoint.Add(pool[i]);
+                    chosen = MoveOrder.Lowest(noPoint.Count > 0 ? noPoint : pool)!;
+                }
             }
 
             int? wish = MaybeWish(ctx, chosen);
@@ -239,6 +272,15 @@ namespace Tichu.Core.Tests.Bench
             var nonBomb = new List<Combination>(moves.Count);
             for (int i = 0; i < moves.Count; i++)
                 if (!moves[i].IsBomb) nonBomb.Add(moves[i]);
+
+            // 1장 남은 상대가 이 싼 싱글 트릭을 받아 나가는 것을 막는다: 가장 높은 이기는 싱글로
+            // 봉쇄(파트너 위라도). Top이 이미 높으면 이길 싱글이 없어 자연히 통과한다.
+            if (trick.Top != null && trick.Top.Type == CombinationType.Single
+                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
+            {
+                var highSingle = HighestWinningSingle(nonBomb);
+                if (highSingle != null) return TurnDecision.Play(highSingle);
+            }
 
             // 파트너가 Top → 기본은 패스(팀에 점수·주도권 유지). 단 나가기/티츄/낮은카드 싼-밟기가
             // 이득이면 점수 없는 최소 오버킬로 밟는다(A·용 같은 비싼 카드 낭비 금지).
@@ -360,7 +402,8 @@ namespace Tichu.Core.Tests.Bench
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
         /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 콤보(≥2장)로 패를 줄이는 경우.
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 ㉠콤보(≥2장)로 패를 줄이거나 ㉡파트너가 아웃이라
+        ///   패스 시 리드가 상대로 넘어가는 경우(싱글로라도 밟아 우리 팀 리드 유지).
         /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
         /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
@@ -375,11 +418,78 @@ namespace Tichu.Core.Tests.Bench
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
             bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
+            bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
-            return (calledTichu || goesOut || (partnerLow && reducesHand)) ? cheap : null;
+            return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+        }
+
+        /// <summary>
+        /// 상대가 Top 을 소유한 팔로우에서 "아웃/티츄 위협을 저지할 블록 수"를 돌려준다(막지 말아야 하면 null).
+        /// DecideFollow 의 상대-위협 규율을 PIMC 라이브 경로에 공유한다(PimcAgent 가 플래그 ON 일 때 EV 전에 호출):
+        /// ① 낮은 싱글 Top + 상대 1장 → 가장 높은 이기는 싱글로 봉쇄(1장 상대가 받아 나가기 차단),
+        /// ② 상대 티츄콜/아웃임박(≤2장) → 스트레이트 안 깨는 최소 오버킬(CheapestNonStructural)로 저지.
+        /// 막을 수가 스트레이트를 깨는 싱글뿐이면 null(→ 보내준다). 순수 EV 는 전략융합/롤아웃 천장 탓에
+        /// 이 블록을 라이브 수로 못 내므로(롤아웃에만 간접 반영) 가드로 직접 건다.
+        /// 호출부(PimcAgent)가 "상대가 Top 소유"를 보장한다. PartnerOvertakeMove 의 구조적 쌍둥이.
+        /// </summary>
+        public static Combination? OpponentThreatBlockMove(
+            in DecisionContext ctx, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return null;
+
+            // ① 1장 상대가 낮은 싱글 트릭을 받아 나가는 것 봉쇄: 가장 높은 이기는 싱글.
+            if (trick.Top != null && trick.Top.Type == CombinationType.Single
+                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
+            {
+                var high = HighestWinningSingle(nonBombWins);
+                if (high != null) return high;
+            }
+
+            // ② 티츄콜/아웃임박 위협 → 스트레이트 안 깨는 최소 오버킬(없으면 null → 보내준다).
+            if (OpponentThreat(ctx))
+                return CheapestNonStructural(ctx.MyHand, nonBombWins);
+
+            return null;
         }
 
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
+
+        /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>
+        private static bool AnyOpponentNearOut(in DecisionContext ctx, int cards)
+        {
+            var seats = ctx.State.Seats;
+            var l = seats[ctx.LeftSeat];
+            var r = seats[ctx.RightSeat];
+            return (!l.IsOut && l.Hand.Count <= cards) || (!r.IsOut && r.Hand.Count <= cards);
+        }
+
+        /// <summary>가장 낮은(약한) 콤보(Length≥2). 없으면 null. 상대 1장 봉쇄 리드용.</summary>
+        private static Combination? LowestCombo(IReadOnlyList<Combination> moves)
+        {
+            Combination? best = null; int bestK = int.MaxValue;
+            for (int i = 0; i < moves.Count; i++)
+            {
+                var m = moves[i];
+                if (m.Cards.Count < 2) continue;
+                int k = MoveOrder.Strength(m);
+                if (k < bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
+
+        /// <summary>가장 높은 이기는 싱글. 없으면 null. 1장 상대 봉쇄(탑패)용.</summary>
+        private static Combination? HighestWinningSingle(IReadOnlyList<Combination> wins)
+        {
+            Combination? best = null; int bestK = int.MinValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                var m = wins[i];
+                if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
+                int k = MoveOrder.Strength(m);
+                if (k > bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
 
         /// <summary>상대팀이 티츄/큰티츄를 선언했거나 상대가 아웃 임박이면 위협(원투 저지 동기).</summary>
         private static bool OpponentThreat(in DecisionContext ctx)

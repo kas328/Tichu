@@ -25,6 +25,9 @@ namespace Tichu.Presentation.Shell
             // 팩토리 등록으로 생성자 선택 모호성을 피하고 AppFlowMachine을 VContainer 무참조 POCO로 유지한다.
             // Singleton + IDisposable → 스코프 종료 시 컨테이너가 Dispose 한다.
             builder.Register<AppFlowMachine>(_ => new AppFlowMachine(), Lifetime.Singleton);
+
+            // 난이도 선택 홀더(앱 실행 중 마지막 선택 기억). 메뉴가 기록·세션 프레젠터가 읽어 GameLaunchArgs로 운반.
+            builder.Register<MatchSettings>(Lifetime.Singleton);
         }
     }
 }

@@ -17,7 +17,7 @@ namespace Tichu.Presentation.Shell
         // 메뉴 네비 화면. InGame/Result는 메뉴 셸 밖(C4) — 그 상태에선 프레젠터가 전 패널을 숨긴다.
         public static readonly ScreenState[] MenuStates =
         {
-            ScreenState.Intro, ScreenState.MainHub, ScreenState.ModeSelect, ScreenState.HowTo, ScreenState.Settings,
+            ScreenState.Intro, ScreenState.MainHub, ScreenState.ModeSelect, ScreenState.DifficultySelect, ScreenState.HowTo, ScreenState.Settings,
         };
 
         readonly Dictionary<ScreenState, CanvasGroup> _panels = new();
@@ -125,6 +125,7 @@ namespace Tichu.Presentation.Shell
             ScreenState.Intro      => new Color(0.07f, 0.09f, 0.16f, 1f),
             ScreenState.MainHub    => new Color(0.06f, 0.13f, 0.10f, 1f),
             ScreenState.ModeSelect => new Color(0.12f, 0.08f, 0.16f, 1f),
+            ScreenState.DifficultySelect => new Color(0.10f, 0.10f, 0.18f, 1f),
             ScreenState.HowTo      => new Color(0.06f, 0.12f, 0.14f, 1f),
             ScreenState.Settings   => new Color(0.11f, 0.11f, 0.13f, 1f),
             _                      => new Color(0.08f, 0.08f, 0.08f, 1f),
@@ -135,6 +136,7 @@ namespace Tichu.Presentation.Shell
             ScreenState.Intro      => "TICHU",
             ScreenState.MainHub    => "메인 허브",
             ScreenState.ModeSelect => "모드 선택",
+            ScreenState.DifficultySelect => "난이도 선택",
             ScreenState.HowTo      => "게임 방법",
             ScreenState.Settings   => "설정",
             _                      => s.ToString(),

@@ -9,6 +9,7 @@ namespace Tichu.Presentation.Shell
         Intro,
         MainHub,
         ModeSelect,
+        DifficultySelect,
         HowTo,
         Settings,
         InGame,

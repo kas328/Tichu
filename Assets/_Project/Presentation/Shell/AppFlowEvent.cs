@@ -10,6 +10,7 @@ namespace Tichu.Presentation.Shell
         OpenModeSelect,
         OpenHowTo,
         OpenSettings,
+        OpenDifficultySelect,
         Back,
         StartAiMatch,
         SelectRankingStub,

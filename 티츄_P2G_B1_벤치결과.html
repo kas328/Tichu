@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 AI — B1 α-μ 강건 백업 벤치 결과</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:40px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#231d12,#1b1710);border:1px solid #4a3a1e;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0;text-align:center;overflow-x:auto}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:10px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .bad{color:var(--bad)} .good{color:var(--good)} .mut{color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px}
+  .t-park{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  ul.tight li{margin:5px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>B1 · α-μ 강건 백업 — 벤치 결과 <span class="tag t-park">보류(OFF 유지)</span></h1>
+  <div class="sub">Phase 2 최고 레버리지 레버 · 2026-07-03 · self-play head-to-head, λ 스윕, 2배치</div>
+
+  <div class="verdict">
+    <strong>판정.</strong> 분산 페널티 강건 백업(<code>argmax(mean − λ·std)</code>)은 <b>16세계에서 부호 안정 우세를 만들지 못했다</b> —
+    스윕한 모든 λ에서 배치 간 부호가 뒤집힌다. 8세계 프록시의 λ=0.10 <b>+32.5/R</b> 는 <b>노이즈였고</b>(16세계 재현 실패),
+    이는 로드맵이 경고한 실패 모드 그대로다: 세계당 4회 롤아웃이라 "세계 간 분산"에 RNG 노이즈가 섞여 강건 백업이
+    전략 융합이 아닌 <b>노이즈를 벌한다</b>. → <b>프리셋 OFF 유지</b>(비트불변), 코드·스펙·테스트는 재실험용으로 보존.
+    강도 주장을 격리 벤치+부호안정으로 검증하는 규율이 8세계 거짓 신호를 정확히 걸러냈다.
+  </div>
+
+  <h2>1. 측정</h2>
+  <p>self-play head-to-head: robust-ON 팀 vs plain-PIMC 팀, <b>미러드 딜</b>(유일 차이=robust). 8세계 프록시로 방향을 잡고(stage 1),
+  16세계(배포 타깃)에서 λ를 좁혀 <b>λ마다 2배치</b>로 부호 안정성을 봤다(stage 2).</p>
+
+  <h3 style="color:var(--muted);font-size:15px">8세계 프록시 (stage 1, n=16/λ)</h3>
+  <table>
+    <thead><tr><th>λ</th><th class="num">robust 마진/R</th><th>승률</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>0.10</td><td class="num good">+32.5</td><td>10/16</td><td class="mut">← 여기서 유망해 보였으나…</td></tr>
+      <tr><td>0.25</td><td class="num">+3.1</td><td>8/16</td><td class="mut">wash</td></tr>
+      <tr><td>0.50</td><td class="num">+1.9</td><td>8/16</td><td class="mut">wash</td></tr>
+      <tr><td>1.00</td><td class="num bad">−30.0</td><td>5/16</td><td class="mut">강한 페널티는 명확히 해로움</td></tr>
+    </tbody>
+  </table>
+
+  <h3 style="color:var(--muted);font-size:15px">16세계 확정 (stage 2, n=12/배치)</h3>
+  <table>
+    <thead><tr><th>λ</th><th class="num">batch 0</th><th class="num">batch 1</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td>0.05</td><td class="num">+1.7</td><td class="num bad">−5.0</td><td class="bad">부호 불안정</td></tr>
+      <tr><td>0.10</td><td class="num bad">−32.5</td><td class="num">+6.7</td><td class="bad">부호 반전(39점 스윙)</td></tr>
+      <tr><td>0.15</td><td class="num">0.0</td><td class="num good">+36.7</td><td class="bad">부호 불안정</td></tr>
+    </tbody>
+  </table>
+
+  <div class="fig">
+    <svg viewBox="0 0 720 300" width="100%" style="max-width:720px" role="img" aria-label="16세계 λ별 배치 마진">
+      <!-- zero line -->
+      <line x1="60" y1="150" x2="680" y2="150" stroke="#6fce8a" stroke-dasharray="5 4"/>
+      <text x="690" y="154" fill="#6fce8a" font-size="11">0</text>
+      <text x="52" y="60" fill="#9aa7b6" font-size="11" text-anchor="end">+40</text>
+      <text x="52" y="244" fill="#9aa7b6" font-size="11" text-anchor="end">−40</text>
+      <!-- scale: 40 pts = 90px. y = 150 - val*2.25 -->
+      <!-- lambda 0.05: b0 +1.7, b1 -5.0 -->
+      <g>
+        <rect x="120" y="146.2" width="46" height="3.8" fill="#54d18c"/>
+        <rect x="176" y="150" width="46" height="11.25" fill="#f2748a"/>
+        <text x="171" y="280" fill="#9aa7b6" font-size="12" text-anchor="middle">λ=0.05</text>
+        <text x="143" y="140" fill="#8fd0a4" font-size="10" text-anchor="middle">+1.7</text>
+        <text x="199" y="175" fill="#f2879e" font-size="10" text-anchor="middle">−5.0</text>
+      </g>
+      <!-- lambda 0.10: b0 -32.5, b1 +6.7 -->
+      <g>
+        <rect x="300" y="150" width="46" height="73.1" fill="#f2748a"/>
+        <rect x="356" y="134.9" width="46" height="15.1" fill="#54d18c"/>
+        <text x="351" y="280" fill="#9aa7b6" font-size="12" text-anchor="middle">λ=0.10</text>
+        <text x="323" y="237" fill="#f2879e" font-size="10" text-anchor="middle">−32.5</text>
+        <text x="379" y="128" fill="#8fd0a4" font-size="10" text-anchor="middle">+6.7</text>
+      </g>
+      <!-- lambda 0.15: b0 0.0, b1 +36.7 -->
+      <g>
+        <rect x="480" y="149" width="46" height="2" fill="#9aa7b6"/>
+        <rect x="536" y="67.4" width="46" height="82.6" fill="#54d18c"/>
+        <text x="531" y="280" fill="#9aa7b6" font-size="12" text-anchor="middle">λ=0.15</text>
+        <text x="503" y="140" fill="#9aa7b6" font-size="10" text-anchor="middle">0.0</text>
+        <text x="559" y="61" fill="#8fd0a4" font-size="10" text-anchor="middle">+36.7</text>
+      </g>
+      <text x="360" y="24" fill="#8fa0b2" font-size="12" text-anchor="middle">16세계 robust 마진/R — 왼쪽=batch0, 오른쪽=batch1 (동률선 위/아래를 오간다)</text>
+    </svg>
+    <figcaption>모든 λ에서 두 배치가 동률선을 사이에 두고 오간다 — 일관된 신호 없음. 배치 스윙(≥39점)이 어떤 효과보다 크다.</figcaption>
+  </div>
+
+  <h2>2. 왜 안 됐나 (로드맵이 예견함)</h2>
+  <div class="card">
+    <p>강건 백업은 후보의 <b>세계 간 EV 분산</b>을 벌한다. 그런데 각 세계의 EV 는 <b>세계당 4회 노이즈 롤아웃</b>의 평균이라
+    RNG 노이즈를 포함한다. 따라서 측정된 "분산"은 <b>진짜 세계-구조 분산 + 롤아웃 노이즈</b>의 혼합이고, 노이즈 항이 작지 않다.
+    강건 백업이 이 노이즈를 전략 융합으로 오인해 벌하니 선택이 흔들린다. 로드맵 주의: <em>"여기 리프는 노이즈 롤아웃 →
+    최악/분산 백업이 변량을 쫓을 수 있음. 세계당 k-미니롤아웃 평균으로 완화."</em> — k=4 는 부족했다.</p>
+  </div>
+
+  <h2>3. 조치 & 재실험 여지</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>프리셋 OFF 유지</b> — 인게임 동작 불변(비트불변). 어느 티어도 안 켠다.</li>
+      <li><b>코드·스펙·테스트 보존</b> — <code>RobustScore</code>/<code>RobustArgmax</code> + 세계별 EV 누적 인프라는 재실험 자산
+        (reach-prob 를 OFF로 보존한 선례와 동일).</li>
+      <li><b>재실험 경로</b>(범위 밖·별도 스파이크): ① 세계당 <b>k↑</b>(예: 16 미니롤아웃)로 per-world EV 정제 —
+        단 "값싼 이식" 원칙 이탈·연산↑. ② <b>B2 세계-내 심화</b>(depth-limited best-response)로 리프 노이즈 자체를 줄이는 접근.
+        ③ 학습 값-네트(리프 노이즈 근본 제거) — XL 연구.</li>
+    </ul>
+    <p class="mut">즉 "강건 선택" 아이디어가 틀렸다기보다, <b>값싼 형태(k=4 분산 페널티)로는 리프 노이즈에 가려 검출 불가</b>.
+    다음 레버는 <b>A1/A2 롤아웃 천장</b>(P2-E에서 +95/R 검증된 계열)이 더 확실하다.</p>
+  </div>
+
+  <div class="sub" style="margin-top:34px;border-top:1px solid var(--line);padding-top:14px">
+    방법: self-play head-to-head, 미러드 딜, robust-ON vs plain, base(caller+d1 on). stage1 8세계 n=16/λ ·
+    stage2 16세계 2배치 n=12/배치(λ=0.10 batch0 −32.5 결정적 재현 확인). 브랜치 <code>feat/p2g-b1-robust-backup</code>
+    (구현 <code>6e52693</code>·스펙 <code>b002515</code>) — 미병합. 강도 주장 격리 벤치+부호안정 규율 적용.
+  </div>
+
+</div>
+</body>
+</html>

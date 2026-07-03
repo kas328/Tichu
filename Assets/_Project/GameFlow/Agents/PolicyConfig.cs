@@ -25,7 +25,13 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 상대가 Top+아웃/티츄 위협일 때 EV 전에 휴리스틱 블록 가드(D1)를 건다. OFF면 비트불변.</summary>
         public readonly bool UseOpponentThreatBlock;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false)
+        /// <summary>true면 후보 선택을 argmax(mean) → argmax(mean−λ·std)로 바꿔 전략 융합을 탈출(B1). OFF면 비트불변.</summary>
+        public readonly bool UseRobustBackup;
+
+        /// <summary>강건 백업(B1)의 분산 페널티 계수 λ. UseRobustBackup=false면 무시.</summary>
+        public readonly double RobustLambda;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -33,6 +39,8 @@ namespace Tichu.GameFlow.Agents
             UseReachProb = useReachProb;
             UseCallerAggression = useCallerAggression;
             UseOpponentThreatBlock = useOpponentThreatBlock;
+            UseRobustBackup = useRobustBackup;
+            RobustLambda = robustLambda;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

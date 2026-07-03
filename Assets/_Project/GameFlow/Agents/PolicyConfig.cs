@@ -44,9 +44,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true);  // P2-F: 기본 강화 16세계(EV 노이즈↓), caller(+22/R) 보존
-                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05);  // reach-prob 16세계 무효과 검증(P2-D)→OFF
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00);  // 고급기능 P2-E(reach-prob 효과없어 OFF)
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-F 16세계 + caller(+22/R) + P2-G D1 위협 블록
+                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05, useOpponentThreatBlock: true);  // reach-prob OFF(P2-D) + D1 위협 블록
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useOpponentThreatBlock: true);  // reach-prob OFF + D1 위협 블록
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

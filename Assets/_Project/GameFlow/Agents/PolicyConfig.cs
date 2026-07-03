@@ -22,13 +22,17 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 (작은/큰)티츄 선언자는 이길 수 있으면 패스하지 않는다(아웃 추진). OFF면 비트불변.</summary>
         public readonly bool UseCallerAggression;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false)
+        /// <summary>true면 상대가 Top+아웃/티츄 위협일 때 EV 전에 휴리스틱 블록 가드(D1)를 건다. OFF면 비트불변.</summary>
+        public readonly bool UseOpponentThreatBlock;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
             Epsilon = epsilon;
             UseReachProb = useReachProb;
             UseCallerAggression = useCallerAggression;
+            UseOpponentThreatBlock = useOpponentThreatBlock;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

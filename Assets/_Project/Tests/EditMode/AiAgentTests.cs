@@ -558,6 +558,81 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Rank, Is.EqualTo(Single(10).Rank));
         }
 
+        // ── OpponentThreatBlockMove (D1): PIMC 라이브 블록 가드 ────────────────────────
+        // 상대가 Top 소유 + 아웃/티츄 위협이면 EV 전에 저지할 블록 수를 돌려준다(막지 말아야 하면 null).
+        // 파트너-밟기 가드(PartnerOvertakeMove)의 구조적 쌍둥이. PimcAgent 가 플래그 ON 일 때 호출한다.
+
+        private static List<Combination> NonBombWins(DecisionContext ctx)
+        {
+            var list = new List<Combination>();
+            foreach (var m in ctx.LegalMoves)
+                if (!m.IsBomb) list.Add(m);
+            return list;
+        }
+
+        [Test]
+        public void OpponentThreatBlockMove_locks_out_one_card_opponent_with_highest_single()
+        {
+            // 상대(seat1)가 낮은 single 4 Top 소유. 다른 상대(seat3)가 1장(아웃 임박).
+            // seat0 는 이기는 싱글 5·A 보유 → 가장 높은 싱글(A)로 봉쇄(1장 상대가 받아 나가기 차단).
+            var s = FollowState(0, Single(4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(5, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(7, Suit.Jade), N(8, Suit.Jade), N(9, Suit.Jade)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(6, Suit.Sword)));            // seat3: 1장(아웃 임박)
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var block = AiAgent.OpponentThreatBlockMove(ctx, s.CurrentTrick, NonBombWins(ctx));
+            Assert.That(block, Is.Not.Null, "1장 상대 봉쇄 → 블록 수를 내야 한다");
+            Assert.That(block!.Rank, Is.EqualTo(Single(14).Rank), "가장 높은 싱글(A)로 봉쇄");
+        }
+
+        [Test]
+        public void OpponentThreatBlockMove_blocks_tichu_threat_with_cheapest_nonstructural()
+        {
+            // 상대(seat1)가 티츄 콜 + 싼 single 8 Top. seat0 이기는 수 = single 10 뿐.
+            // 스트레이트를 깨지 않는 최소 오버킬(single 10)로 저지.
+            var s = FollowState(0, Single(8), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Sword), N(3, Suit.Pagoda)),
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star), N(8, Suit.Star)));
+            s.Seats[1].Call = TichuCall.Tichu;
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var block = AiAgent.OpponentThreatBlockMove(ctx, s.CurrentTrick, NonBombWins(ctx));
+            Assert.That(block, Is.Not.Null, "티츄 위협 → 저지");
+            Assert.That(block!.Rank, Is.EqualTo(Single(10).Rank), "스트레이트 안 깨는 최소 오버킬(10)");
+        }
+
+        [Test]
+        public void OpponentThreatBlockMove_returns_null_when_only_block_breaks_straight()
+        {
+            // 상대(seat1) 티츄 콜, single 7 Top. seat0 = 5-6-7-8-9 스트레이트.
+            // 이기는 수(8·9)가 전부 스트레이트의 일부 → 깨면서 막지 않고 null(보내준다).
+            var s = FollowState(0, Single(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star), N(9, Suit.Jade)),
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade)),
+                Hand(N(2, Suit.Sword)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star)));
+            s.Seats[1].Call = TichuCall.Tichu;
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var block = AiAgent.OpponentThreatBlockMove(ctx, s.CurrentTrick, NonBombWins(ctx));
+            Assert.That(block, Is.Null, "막을 수가 스트레이트 깨는 싱글뿐 → null");
+        }
+
+        [Test]
+        public void OpponentThreatBlockMove_returns_null_when_no_threat()
+        {
+            // 상대(seat1)가 Top 소유하나 아웃임박 아님·티츄 미콜 → 가드 미개입(null → EV 폴백).
+            var s = FollowState(0, Single(8), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Sword), N(3, Suit.Pagoda)),
+                Hand(N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(4, Suit.Star), N(6, Suit.Star), N(8, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var block = AiAgent.OpponentThreatBlockMove(ctx, s.CurrentTrick, NonBombWins(ctx));
+            Assert.That(block, Is.Null, "위협 없으면 가드 미개입");
+        }
+
         // ── CallTichu ─────────────────────────────────────────────────────────────────
 
         [Test]

@@ -261,6 +261,72 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
         }
 
+        // ── 상대-위협 블록 가드(D1) ───────────────────────────────────────────────────
+        // 상대가 Top 소유 + 아웃/티츄 위협일 때, 순수 EV 전에 휴리스틱 블록 가드
+        // (AiAgent.OpponentThreatBlockMove)를 건다. 플래그 OFF(기본)면 비트불변(가드 미개입).
+
+        private static GameState OpponentTopFollow(Combination top, int owner, params IReadOnlyList<Card>[] hands)
+        {
+            var s = GameFlowHelpers.PlayState(0, hands);   // seat0 가 행동
+            s.CurrentTrick = new Trick
+            {
+                LeadType = top.Type, LeadLength = top.Length,
+                Top = top, TopOwnerSeat = owner, AccumulatedPoints = 0
+            };
+            return s;
+        }
+
+        [Test]
+        public void DecideTurn_blocks_opponent_tichu_threat_when_flag_on()
+        {
+            // 상대(seat1) 티츄 콜 + 싼 single 8 Top. seat0 이기는 수 = single 10 뿐.
+            // 플래그 ON → EV 전에 가드가 single 10 으로 저지.
+            var s = OpponentTopFollow(SingleOf(8), 1,
+                new List<Card> { Card.Normal(10, Suit.Jade), Card.Normal(2, Suit.Sword), Card.Normal(3, Suit.Pagoda) },
+                new List<Card> { Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Sword), Card.Normal(7, Suit.Pagoda) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(4, Suit.Star), Card.Normal(6, Suit.Star), Card.Normal(8, Suit.Star) });
+            s.Seats[1].Call = TichuCall.Tichu;
+            var cfg = new PolicyConfig(4, 2, 0.1, useOpponentThreatBlock: true);
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "티츄 위협 → 가드가 막는다");
+            Assert.That(d.Move!.Rank, Is.EqualTo(SingleOf(10).Rank), "single 10 으로 저지");
+        }
+
+        [Test]
+        public void DecideTurn_locks_out_near_out_opponent_when_flag_on()
+        {
+            // 상대(seat1) 낮은 single 4 Top, 다른 상대(seat3) 1장. seat0 이기는 싱글 5·A.
+            // 플래그 ON → 가장 높은 싱글(A)로 봉쇄(1장 상대가 받아 나가기 차단).
+            var s = OpponentTopFollow(SingleOf(4), 1,
+                new List<Card> { Card.Normal(14, Suit.Jade), Card.Normal(5, Suit.Sword), Card.Normal(2, Suit.Pagoda), Card.Normal(3, Suit.Star) },
+                new List<Card> { Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(6, Suit.Sword) });   // seat3: 1장(아웃 임박)
+            var cfg = new PolicyConfig(4, 2, 0.1, useOpponentThreatBlock: true);
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "1장 상대 봉쇄 → 패스 금지");
+            Assert.That(d.Move!.Rank, Is.EqualTo(SingleOf(14).Rank), "가장 높은 싱글(A)로 봉쇄");
+        }
+
+        [Test]
+        public void DecideTurn_does_not_apply_guard_when_flag_off()
+        {
+            // 동일 봉쇄 시나리오, 플래그 OFF(기본) → 가드 미개입. ON(위 두 테스트)은 EV 전에 블록으로
+            // 단락하지만, OFF 는 단락하지 않고 EV 경로(Determinizer)로 진입한다. 이 합성 fixture 는
+            // 손패 합≠전체 덱이라 결정화가 InvalidOperationException 을 던지는데, 그 예외 자체가
+            // "가드로 단락하지 않고 EV 로 진입했다"(=플래그가 가드를 게이트함)는 관측 증거다.
+            var s = OpponentTopFollow(SingleOf(4), 1,
+                new List<Card> { Card.Normal(14, Suit.Jade), Card.Normal(5, Suit.Sword), Card.Normal(2, Suit.Pagoda), Card.Normal(3, Suit.Star) },
+                new List<Card> { Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(6, Suit.Sword) });
+            var cfgOff = new PolicyConfig(4, 2, 0.1);   // useOpponentThreatBlock 기본 false
+            Assert.Throws<System.InvalidOperationException>(
+                () => new PimcAgent(7UL, 0, cfgOff).DecideTurn(GameFlowHelpers.Context(s, 0)),
+                "플래그 OFF → 가드 미개입 → EV 경로 진입(블록으로 단락하지 않음)");
+        }
+
         // ── 인-턴 폭탄 규율(③ 폭탄 타이밍) ───────────────────────────────────────────
         // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외해
         // 싼 트릭에 폭탄을 낭비하지 않는다(휴리스틱 DecideLead/Follow 와 동일 규율).

@@ -384,16 +384,61 @@ namespace Tichu.Core.Tests
         [Test]
         public void DecideBomb_null_when_points_below_threshold()
         {
-            // 누적 점수 10 < 15. 폭탄 있어도 거절.
+            // 누적 10 < 15 이고 상대 아웃/티츄 위협 없음(양 상대 5장·미콜) → 폭탄 거절(순수 점수 게이트).
             var top = Pair(13);
             var s = FollowState(1, top, topOwner: 1, accumulatedPoints: 10,
                 Hand(N(2, Suit.Jade)),
-                Hand(N(2, Suit.Sword)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(5, Suit.Sword), N(6, Suit.Sword)),
                 Hand(BombCards(9).ToArray()),   // seat2 가 폭탄 보유
-                Hand(N(2, Suit.Pagoda)));
-            // seat2 의 폭탄 창.
+                Hand(N(2, Suit.Pagoda), N(3, Suit.Pagoda), N(4, Suit.Pagoda), N(5, Suit.Pagoda), N(6, Suit.Pagoda)));
             var d = new AiAgent(1UL, 2).DecideBomb(GameFlowHelpers.Context(s, 2));
             Assert.That(d, Is.Null);
+        }
+
+        [Test]
+        public void DecideBomb_fires_below_15_when_opponent_near_out()
+        {
+            // A2: 상대(seat1) Top 소유 + 아웃 임박(≤2장). 누적 0점이라도 최소 폭탄으로 저지.
+            var top = Pair(13);
+            var s = FollowState(1, top, topOwner: 1, accumulatedPoints: 0,
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword)),   // seat1 opp owns top, 2장(아웃 임박)
+                Hand(BombCards(9).ToArray()),               // seat2 폭탄
+                Hand(N(2, Suit.Pagoda), N(3, Suit.Pagoda), N(4, Suit.Pagoda), N(5, Suit.Pagoda)));
+            var d = new AiAgent(1UL, 2).DecideBomb(GameFlowHelpers.Context(s, 2));
+            Assert.That(d, Is.Not.Null, "상대 아웃 임박(≤2장) → 15점 미만이라도 저지 폭탄");
+            Assert.That(d!.IsBomb, Is.True);
+        }
+
+        [Test]
+        public void DecideBomb_fires_below_15_when_opponent_tichu_near_complete()
+        {
+            // A2: 상대(seat1) 티츄 콜 + ≤4장(완성 임박). 누적 0점이라도 최소 폭탄으로 저지(±100~200).
+            var top = Pair(13);
+            var s = FollowState(1, top, topOwner: 1, accumulatedPoints: 0,
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(5, Suit.Sword)),  // seat1 opp, 4장, 티츄
+                Hand(BombCards(9).ToArray()),
+                Hand(N(2, Suit.Pagoda), N(3, Suit.Pagoda), N(4, Suit.Pagoda), N(5, Suit.Pagoda), N(6, Suit.Pagoda)));  // seat3 5장(아웃 임박 아님)
+            s.Seats[1].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 2).DecideBomb(GameFlowHelpers.Context(s, 2));
+            Assert.That(d, Is.Not.Null, "티츄 콜 상대 ≤4장(완성 임박) → 저지 폭탄");
+            Assert.That(d!.IsBomb, Is.True);
+        }
+
+        [Test]
+        public void DecideBomb_no_fire_when_opponent_tichu_but_many_cards()
+        {
+            // A2 게이트: 티츄 콜이라도 아직 5+장이면(완성 임박 아님) 폭탄 안 씀 — 과폭탄 억제.
+            var top = Pair(13);
+            var s = FollowState(1, top, topOwner: 1, accumulatedPoints: 10,
+                Hand(N(2, Suit.Jade)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(5, Suit.Sword), N(6, Suit.Sword)),  // seat1 opp, 5장, 티츄
+                Hand(BombCards(9).ToArray()),
+                Hand(N(2, Suit.Pagoda), N(3, Suit.Pagoda), N(4, Suit.Pagoda), N(5, Suit.Pagoda), N(6, Suit.Pagoda)));  // seat3 5장
+            s.Seats[1].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 2).DecideBomb(GameFlowHelpers.Context(s, 2));
+            Assert.That(d, Is.Null, "티츄라도 5+장이면 폭탄 안 씀(과폭탄 억제)");
         }
 
         [Test]

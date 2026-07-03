@@ -345,7 +345,9 @@ namespace Tichu.GameFlow.Agents
             int topOwner = trick.TopOwnerSeat;
             bool opponentOwns = Seating.TeamOf(topOwner) != Seating.TeamOf(_seat);
             if (!opponentOwns) return null;                    // 파트너/자기 Top → 폭탄 안 함.
-            if (trick.AccumulatedPoints < BombMinPoints) return null;
+            // 폭탄 트리거: ①리치 트릭(누적 ≥15점) 또는 ②A2 아웃/티츄 저지(상대 아웃·티츄 완성 임박이면
+            // 15점 미만이라도 최소 폭탄으로 저지 — ±100~200 스윙). 과폭탄은 ≤2장/티츄콜≤4장 게이트로 억제.
+            if (trick.AccumulatedPoints < BombMinPoints && !OpponentGoingOutOrTichu(ctx)) return null;
 
             // LegalMoves 중 Top 을 이기는 폭탄들(폴로우 시 폭탄은 턴 무관으로 포함됨).
             var moves = ctx.LegalMoves;
@@ -458,6 +460,20 @@ namespace Tichu.GameFlow.Agents
             var l = seats[ctx.LeftSeat];
             var r = seats[ctx.RightSeat];
             return (!l.IsOut && l.Hand.Count <= cards) || (!r.IsOut && r.Hand.Count <= cards);
+        }
+
+        /// <summary>A2: 상대(파트너 아님)가 아웃/티츄 완성 임박인가 — 폭탄으로 저지할 고-EV(±100~200) 상황.
+        /// 티츄콜한 상대 ≤4장(콜 완성 임박) 또는 아무 상대 ≤2장(아웃 임박). 아웃한 상대는 제외.</summary>
+        private static bool OpponentGoingOutOrTichu(in DecisionContext ctx)
+        {
+            var seats = ctx.State.Seats;
+            var l = seats[ctx.LeftSeat];
+            var r = seats[ctx.RightSeat];
+            bool tichuNearComplete = (l.Call != TichuCall.None && !l.IsOut && l.Hand.Count <= 4)
+                                  || (r.Call != TichuCall.None && !r.IsOut && r.Hand.Count <= 4);
+            bool aboutToGoOut = (!l.IsOut && l.Hand.Count <= GoOutThreatCards)
+                             || (!r.IsOut && r.Hand.Count <= GoOutThreatCards);
+            return tichuNearComplete || aboutToGoOut;
         }
 
         /// <summary>가장 낮은(약한) 콤보(Length≥2). 없으면 null. 상대 1장 봉쇄 리드용.</summary>

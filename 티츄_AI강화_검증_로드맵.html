@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 AI — 세계수 검증 & 강화 로드맵</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a;
+    --A:#f2b350; --B:#b78bff; --C:#4fd6c6; --D:#6fce8a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
+    line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:22px;margin:44px 0 14px;padding-top:14px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:17px;margin:26px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:26px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;
+    font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;vertical-align:middle;letter-spacing:.02em}
+  .t-keep{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-scope{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-kill{background:#301820;color:#f2879e;border:1px solid #5e2c3a}
+  .t-live{background:#132a33;color:#79dcff;border:1px solid #244e5e}
+  .t-roll{background:#241a30;color:#c9a6ff;border:1px solid #43315e}
+  .t-S{background:#12242e;color:#84d9ee}.t-M{background:#222a15;color:#c3de83}
+  .t-L{background:#2c2412;color:#eec777}.t-XL{background:#301620;color:#f090a6}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .mut{color:var(--muted)}
+  .lev{border-left:3px solid var(--line);padding:12px 16px;margin:12px 0;background:var(--panel2);border-radius:0 10px 10px 0}
+  .lev.A{border-left-color:var(--A)} .lev.B{border-left-color:var(--B)}
+  .lev.C{border-left-color:var(--C)} .lev.D{border-left-color:var(--D)}
+  .lev h4{margin:0 0 6px;font-size:15.5px}
+  .lev .meta{font-size:12.5px;color:var(--muted);margin-bottom:6px}
+  .lev p{margin:6px 0;font-size:14px}
+  .kbd{font-size:12px;color:var(--muted)}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:18px 0;text-align:center}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:10px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;font-size:12.5px;margin-top:8px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  ol.steps{padding-left:20px} ol.steps li{margin:8px 0}
+  .pill{font-size:11px;padding:1px 7px;border-radius:6px;background:#0c0f13;color:#cfe6ff;margin-left:4px}
+  .top3{counter-reset:t}
+  .top3 .item{position:relative;padding-left:44px;margin:14px 0}
+  .top3 .item::before{counter-increment:t;content:counter(t);position:absolute;left:0;top:-2px;
+    width:30px;height:30px;border-radius:50%;background:var(--accent);color:#04121b;
+    font-weight:800;display:flex;align-items:center;justify-content:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>티츄 AI — 세계수 무차별 검증 &amp; 강화 로드맵</h1>
+  <div class="sub">Phase 2 PIMC · 2026-07-03 · 격리 self-play 벤치 + 다중에이전트 탐색(25 에이전트 · 18 레버)</div>
+
+  <div class="verdict">
+    <strong>한 줄 결론.</strong> 세계수는 <b>강한 수확체감</b>이 확정됐다 — ~4–8세계에서 강도의 대부분이 나오고,
+    그 위로는 <b>3× 확대(8→24)조차 +약35/R·57.5%(경계 비유의)</b>에 그친다. 양성 대조(<code>탐색 OFF → 16세계</code>가
+    <b>+60/R·62%</b>로 명확)가 하니스 민감도를 입증하므로 이 무차별은 실제다.
+    <b>“AI가 아직 약하다”의 원인은 세계수가 아니라 ‘전략 융합(strategy fusion) + 롤아웃 정책 천장’</b>이며,
+    강화 레버는 그쪽에 있다.
+  </div>
+
+  <p class="mut">이 문서는 (1) 세계수 무차별을 어떻게 엄밀히 검증했는지와 그 수치, (2) 왜 세계수로는 더 못 세지는지,
+  (3) 그럼 무엇으로 세지는지 — 18개 후보를 적대적으로 검증해 우선순위화한 로드맵을 담는다.</p>
+
+  <!-- ============ PART 1 : VERIFICATION ============ -->
+  <h2>1. 검증 — 세계수는 정말 차이가 없나?</h2>
+
+  <h3>방법론</h3>
+  <p>기존 “휴리스틱 대비” 벤치는 상대가 약해 마진이 압축된다(천장 효과). 그래서 <b>세계수만 격리한 self-play 정면(head-to-head)</b>으로
+  측정했다: 두 설정을 각각 팀 A/B에 배치하고 <b>같은 딜을 좌우 미러</b>(딜 운 상쇄), 롤아웃·ε 고정, caller 유지.
+  핵심은 두 가지 방어 장치다:</p>
+  <ul>
+    <li><b>양성 대조</b> — <code>탐색 OFF(0세계)</code> vs <code>16세계</code>가 <em>반드시</em> 큰 차이를 보여야
+      “하니스가 진짜 강도차를 감지한다”가 증명된다. 이게 통과해야 무승부가 “버그”가 아닌 “진짜 포화”로 확정된다.</li>
+    <li><b>배치 재현</b> — 결정적 비교는 서로 다른 시드 베이스로 2배치 실행해 부호 안정성을 확인
+      (과거 reach-prob에서 배치1 +25/R → 배치2 −13/R로 부호가 뒤집힌 교훈).</li>
+  </ul>
+
+  <h3>측정 결과</h3>
+  <table>
+    <thead><tr><th>비교 (세계수 격리)</th><th class="num">표본</th><th>승률 (뒤 설정)</th><th class="num">평균 점수차/R</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>탐색 OFF vs 16</b> <span class="mut">(대조군)</span></td><td class="num">48R</td><td>16세계 <b>62%</b></td><td class="num">+60.2</td><td><span class="tag t-keep">명확 · 대조 통과</span></td></tr>
+      <tr><td>4 vs 16</td><td class="num">64R</td><td>16세계 55%</td><td class="num">+13.9</td><td class="mut">소폭 · 비유의</td></tr>
+      <tr><td>8 vs 16</td><td class="num">32R</td><td>16세계 56%</td><td class="num">≈ 0</td><td class="mut">무승부</td></tr>
+      <tr><td>16 vs 24</td><td class="num">24R</td><td>24세계 54%</td><td class="num">≈ +10</td><td class="mut">무승부</td></tr>
+      <tr><td><b>8 vs 24</b> <span class="mut">(3× · 2배치)</span></td><td class="num">80R</td><td>24세계 <b>57.5%</b></td><td class="num">+29 ~ +41</td><td class="mut">소폭 · 부호안정 · 경계 비유의</td></tr>
+    </tbody>
+  </table>
+  <p class="kbd">보조(vs-휴리스틱 앵커, ms 신뢰): 4세계 ~1.3s/R · 8 ~5.3s · 16 ~9.2s · 24 ~20.7s. move당 환산 16세계 ~300ms · 24세계 ~700ms.</p>
+
+  <figure class="fig">
+    <svg viewBox="0 0 720 360" width="100%" style="max-width:720px">
+      <!-- axes -->
+      <line x1="80" y1="320" x2="700" y2="320" stroke="#3a4552" stroke-width="1.5"/>
+      <line x1="80" y1="40" x2="80" y2="320" stroke="#3a4552" stroke-width="1.5"/>
+      <!-- y gridlines 40/50/60 -->
+      <line x1="80" y1="226.7" x2="700" y2="226.7" stroke="#232a33" stroke-dasharray="3 4"/>
+      <line x1="80" y1="133.3" x2="700" y2="133.3" stroke="#3d5a44" stroke-dasharray="5 4"/>
+      <line x1="80" y1="40" x2="700" y2="40" stroke="#232a33" stroke-dasharray="3 4"/>
+      <text x="70" y="324" fill="#9aa7b6" font-size="12" text-anchor="end">30%</text>
+      <text x="70" y="231" fill="#9aa7b6" font-size="12" text-anchor="end">40%</text>
+      <text x="70" y="138" fill="#8fd0a4" font-size="12" text-anchor="end">50%</text>
+      <text x="70" y="44"  fill="#9aa7b6" font-size="12" text-anchor="end">60%</text>
+      <text x="708" y="130" fill="#6fce8a" font-size="11">동률선</text>
+      <!-- curve -->
+      <polyline points="80,245 230,180 380,189 530,133 680,96" fill="none" stroke="#5cc8ff" stroke-width="3"/>
+      <!-- points -->
+      <circle cx="80" cy="245" r="6" fill="#f2748a"/>
+      <circle cx="230" cy="180" r="6" fill="#5cc8ff"/>
+      <circle cx="380" cy="189" r="6" fill="#5cc8ff"/>
+      <circle cx="530" cy="133" r="6" fill="#5cc8ff"/>
+      <circle cx="680" cy="96" r="6" fill="#5cc8ff"/>
+      <!-- point labels -->
+      <text x="80" y="266" fill="#f2748a" font-size="12" text-anchor="middle">38%</text>
+      <text x="230" y="168" fill="#cfe6ff" font-size="12" text-anchor="middle">45%</text>
+      <text x="380" y="177" fill="#cfe6ff" font-size="12" text-anchor="middle">44%</text>
+      <text x="530" y="121" fill="#cfe6ff" font-size="12" text-anchor="middle">50%</text>
+      <text x="680" y="84" fill="#cfe6ff" font-size="12" text-anchor="middle">54%</text>
+      <!-- x labels -->
+      <text x="80" y="340" fill="#9aa7b6" font-size="12" text-anchor="middle">0 (OFF)</text>
+      <text x="230" y="340" fill="#9aa7b6" font-size="12" text-anchor="middle">4</text>
+      <text x="380" y="340" fill="#9aa7b6" font-size="12" text-anchor="middle">8</text>
+      <text x="530" y="340" fill="#9aa7b6" font-size="12" text-anchor="middle">16</text>
+      <text x="680" y="340" fill="#9aa7b6" font-size="12" text-anchor="middle">24 (세계수)</text>
+      <!-- annotate control -->
+      <text x="96" y="230" fill="#f2748a" font-size="11.5">← 대조: 탐색 없음</text>
+      <text x="300" y="70" fill="#8fa0b2" font-size="12">4세계 이후 거의 평평 (수확체감)</text>
+    </svg>
+    <figcaption>세로축 = 16세계 대비 정면 승률. 탐색 OFF는 명확히 열세(대조 통과)이나, 4→24세계(6× 연산)에서 승률은 45%→54%로만 움직인다 — 대부분 개별로는 비유의. <b>세계수는 소진된 레버.</b></figcaption>
+  </figure>
+
+  <div class="verdict warn">
+    <strong>검증 판정.</strong> 세계수 무차별은 <b>정밀 검증에서 확정</b>(강한 수확체감, 대조로 하니스 검증됨).
+    → 난이도 티어를 세계수로 벌리는 방향(24·32)은 <b>허울뿐인 티어</b>가 되므로 폐기. “더 세게”는 세계수 밖에서 찾아야 한다.
+  </div>
+
+  <!-- ============ PART 2 : WHY ============ -->
+  <h2>2. 왜 세계수로는 못 세지나</h2>
+  <div class="card">
+    <p>PIMC는 매 결정마다 <b>은닉 패를 N개 세계로 확정(determinize)</b>한 뒤, 각 세계를 <em>완전정보 게임처럼</em> 풀어
+    평균 EV가 최대인 수를 고른다. 두 가지 상한이 존재한다:</p>
+    <p>① <b>전략 융합(strategy fusion).</b> 각 세계를 독립적으로 풀고 평균 내므로, “세계 A에선 크게 이기고 B에선 지는” 수가
+    합산 +로 선택된다 — 실제 상대는 자기 패(=세계)를 알기에 B를 응징한다. 그래서 PIMC는 <b>정보 은닉·시그널·혼합전략을 가치화 못 한다.</b>
+    세계를 더 뽑아도(너비↑) 이 편향은 안 줄어든다 — 방금 측정한 포화의 근본 원인.</p>
+    <p>② <b>롤아웃 정책 천장.</b> 각 세계를 <code>AiAgent(휴리스틱)+ε</code>로 끝까지 플레이해 EV를 잰다. 그 값은
+    <b>휴리스틱이 얼마나 잘 두느냐에 갇힌다.</b> P2-E에서 휴리스틱을 강화하니 +95/R가 나온 것 — 휴리스틱 품질이 유일하게 검증된 강도 레버였다.</p>
+    <p class="mut">따라서 진짜 강화 = <b>(A) 롤아웃 천장을 올리거나</b>, <b>(B) 전략 융합을 구조적으로 탈출하거나</b>,
+    <b>(C) 세계를 더 현실적으로 뽑거나</b>, <b>(D) 관측된 특정 약점을 라이브 가드로 직접 고치는</b> 것. 세계수↑는 이 중 어디에도 해당 안 됨.</p>
+  </div>
+
+  <!-- ============ PART 3 : ROADMAP ============ -->
+  <h2>3. 강화 로드맵 — 18 후보 → 적대검증 → 우선순위</h2>
+  <p>6개 각도로 팬아웃해 18개 레버를 도출하고, 각 레버를 회의적 검증에 넘겼다(핵심 질문: <em>“이건 강도 <b>천장</b>을 올리나,
+  아니면 포화된 <b>너비/정밀도</b>를 반복하나?”</em>). <b>kill 3개는 전부 “포화 렌즈”에 걸린 정밀/성능 레버</b>였다. 살아남은 것을 4계열로 묶는다.</p>
+
+  <div class="legend">
+    <span><span class="dot" style="background:var(--A)"></span>A 롤아웃 천장</span>
+    <span><span class="dot" style="background:var(--B)"></span>B 전략융합 탈출</span>
+    <span><span class="dot" style="background:var(--C)"></span>C 믿음/결정화</span>
+    <span><span class="dot" style="background:var(--D)"></span>D 라이브가드/효율</span>
+  </div>
+
+  <figure class="fig">
+    <svg viewBox="0 0 720 430" width="100%" style="max-width:720px">
+      <line x1="70" y1="380" x2="700" y2="380" stroke="#3a4552" stroke-width="1.5"/>
+      <line x1="70" y1="30" x2="70" y2="380" stroke="#3a4552" stroke-width="1.5"/>
+      <text x="700" y="400" fill="#9aa7b6" font-size="12" text-anchor="end">노력 →</text>
+      <text x="60" y="26" fill="#9aa7b6" font-size="12" text-anchor="end">레버리지(천장) ↑</text>
+      <!-- effort columns -->
+      <text x="150" y="400" fill="#7b8794" font-size="12" text-anchor="middle">S</text>
+      <text x="330" y="400" fill="#7b8794" font-size="12" text-anchor="middle">M</text>
+      <text x="500" y="400" fill="#7b8794" font-size="12" text-anchor="middle">L</text>
+      <text x="650" y="400" fill="#7b8794" font-size="12" text-anchor="middle">XL</text>
+      <!-- bubbles: cx by effort, cy by leverage -->
+      <!-- D1 opponent block M / med-high -->
+      <circle cx="330" cy="150" r="15" fill="#6fce8a" opacity=".9"/><text x="330" y="154" font-size="11" fill="#08130c" text-anchor="middle" font-weight="700">D1</text>
+      <!-- B1 alpha-mu L / high -->
+      <circle cx="500" cy="90" r="17" fill="#b78bff" opacity=".95"/><text x="500" y="94" font-size="11" fill="#160a26" text-anchor="middle" font-weight="700">B1</text>
+      <!-- A1 length-first lead L / med-high -->
+      <circle cx="500" cy="165" r="15" fill="#f2b350" opacity=".9"/><text x="500" y="169" font-size="11" fill="#1c1305" text-anchor="middle" font-weight="700">A1</text>
+      <!-- A2 bomb tempo M / med -->
+      <circle cx="330" cy="235" r="14" fill="#f2b350" opacity=".85"/><text x="330" y="239" font-size="11" fill="#1c1305" text-anchor="middle" font-weight="700">A2</text>
+      <!-- C2 void rejection L / med -->
+      <circle cx="500" cy="245" r="14" fill="#4fd6c6" opacity=".85"/><text x="500" y="249" font-size="11" fill="#04201d" text-anchor="middle" font-weight="700">C2</text>
+      <!-- C1 exchange pin S / low-med -->
+      <circle cx="150" cy="300" r="13" fill="#4fd6c6" opacity=".8"/><text x="150" y="304" font-size="11" fill="#04201d" text-anchor="middle" font-weight="700">C1</text>
+      <!-- D2 eps right-size S / low -->
+      <circle cx="150" cy="345" r="12" fill="#6fce8a" opacity=".75"/><text x="150" y="349" font-size="10.5" fill="#08130c" text-anchor="middle" font-weight="700">D2</text>
+      <!-- B3 SO-ISMCTS XL / high -->
+      <circle cx="650" cy="95" r="16" fill="#b78bff" opacity=".8"/><text x="650" y="99" font-size="11" fill="#160a26" text-anchor="middle" font-weight="700">B3</text>
+      <!-- NET XL / highest -->
+      <circle cx="650" cy="55" r="14" fill="#b78bff" opacity=".55"/><text x="650" y="59" font-size="9.5" fill="#160a26" text-anchor="middle" font-weight="700">NET</text>
+      <text x="300" y="30" fill="#8fa0b2" font-size="11.5">↖ 저노력·즉효(빠른 승리)         고노력·고천장(연구) ↗</text>
+    </svg>
+    <figcaption>노력 × 레버리지 지도. <b>D1</b>(관측된 약점 즉시 수정) → <b>B1</b>(전략융합 탈출, 값싼 이식) → <b>A1/A2</b>(검증된 롤아웃 천장)가 스윗스팟. <b>B3/NET</b>은 최고 천장이나 XL 연구.</figcaption>
+  </figure>
+
+  <div class="top3">
+    <h3>권장 우선순위 (Top 3)</h3>
+    <div class="item"><b>D1 · 상대-팔로우 위협 블록 (라이브 가드)</b> <span class="tag t-scope">scope-down</span> <span class="tag t-live">live-guard</span> <span class="tag t-M">M</span><br>
+      <span class="mut">네가 관측한 “옆 상대가 아웃-상대의 낮은 리드에 올패스” (#1a/#2a)를 <b>정확히</b> 고친다. 라이브에 즉시 닿고 사람 눈에 보인다.
+      파트너-밟기 가드의 구조적 쌍둥이라 리스크·비용 낮음. 벤치 이득은 소폭이라도 <b>체감 품질</b> 개선이 확실.</span></div>
+    <div class="item"><b>B1 · α-μ 강건 백업 (평균-EV → 세계 간 최악/파레토)</b> <span class="tag t-keep">keep</span> <span class="tag t-roll">search-core</span> <span class="tag t-L">L</span><br>
+      <span class="mut">“feels weak”의 진짜 원인인 <b>전략 융합을 직접 공격</b>하는데도 이식이 값싸다 — 기존 롤아웃을 리프 오라클로 재사용하고
+      <b>선택 규칙만</b> 평균에서 강건(mean−λ·downside)으로 바꾼다. 브리지에서 동일 연산시간에 PIMC를 이긴 방식.</span></div>
+    <div class="item"><b>A1+A2 · 롤아웃 휴리스틱 강화 (리드 셰딩 + 템포 폭탄)</b> <span class="tag t-keep">keep</span>/<span class="tag t-scope">scope</span> <span class="tag t-L">L</span>/<span class="tag t-M">M</span><br>
+      <span class="mut">P2-E에서 +95/R를 낸 <b>검증된 계열</b>. 모든 세계의 롤아웃 품질을 올려 EV 천장을 전반 상승. A1은 “항상 최저 싱글만 흘리고 콤보를 쟁여
+      엔드게임에 갇히는” 최미조정 라인, A2는 “아웃/티츄 저지 폭탄”(15점 트릭에만 반응하던 맹점).</span></div>
+  </div>
+
+  <h3 style="color:var(--A)">A. 롤아웃 천장 올리기 <span class="mut" style="font-size:13px">— 검증된 계열(P2-E +95/R). 대부분 롤아웃 경유라 체감은 느리지만 EV 전반 상승.</span></h3>
+  <div class="lev A"><h4>A1. 리드 셰딩 재설계 — “항상 최저 싱글”을 멈춘다 <span class="tag t-keep">keep</span> <span class="tag t-roll">rollout</span> <span class="tag t-L">L</span></h4>
+    <div class="meta">코드: <code>AiAgent.DecideLead</code> 기본값(L222-228) · <code>MoveOrder.Strength</code></div>
+    <p>비-엔드게임 리드가 언제나 <b>가장 낮은 싱글</b>을 내고 콤보를 쟁인다 → 라운드가 흐를수록 싱글을 소진하고 페어·스트레이트를 쥔 채
+    엔드게임에 갇혀 아웃-레이스를 진다. 대안: 무점수일 때 <b>최저 비점수 콤보</b>를 흘리되 고 싱글 ≥1장 보존, 스트레이트/<b>폭탄·풀하우스 파괴 금지</b>.</p>
+    <p class="kbd">⚠ 검증 지적: <code>BreaksStraight</code>는 ≥5 스트레이트만 보호 → 4카드 폭탄·풀하우스 씨앗 페어를 깰 수 있음(별도 가드 필수). 임계값 스윕 필요. 대칭 롤아웃 변경은 무승부화 쉬움 → <code>HeuristicStrengthBench</code>+<code>PimcBench</code> 이중 게이트 필수. 최대 상방이지만 wash 위험도 최대.</p>
+  </div>
+  <div class="lev A"><h4>A2. 템포/아웃-저지 폭탄 — 15점 트릭에만 터뜨리지 않는다 <span class="tag t-scope">scope-down</span> <span class="tag t-live">both</span> <span class="tag t-M">M</span></h4>
+    <div class="meta">코드: <code>AiAgent.DecideBomb</code>(L340-358) · 라이브 경로 이미 배선됨</div>
+    <p>현재는 상대 Top + 누적 ≥15점일 때만 폭탄. 티츄의 최고-EV 용법(<b>아웃/티츄 임박 상대를 폭탄으로 저지, ±100~200점</b>)에 눈이 멀어 있다.
+    2차 트리거 추가: 상대(파트너 아님)가 Top + (티츄콜 ≤4장 <b>또는</b> 아무 상대 ≤2장)이면 15점 미만이라도 최소 폭탄. 내 유일 아웃 루트면 아낀다.</p>
+    <p class="kbd">이점: 한 번 고치면 라이브 폭탄 인터럽트 + 모든 롤아웃 동시 개선. 리스크: 과폭탄 → ≤2장/티츄콜 게이트로 억제.</p>
+  </div>
+  <div class="lev A"><h4>A3. 팔로우 — 아웃임박 상대를 패스 말고 막기(공개 갭 #6) <span class="tag t-scope">scope-down</span> <span class="tag t-live">both</span> <span class="tag t-M">M</span></h4>
+    <div class="meta">코드: <code>AiAgent.DecideFollow</code> 아웃임박 락아웃(L275-280) · 페어드 라이브가드는 D1과 공유</div>
+    <p>현재 락아웃은 “상대 정확히 1장 + 낮은 싱글 리드”만. 2–3장 아웃-레이스 상대는 저가치 트릭 패스로 새어나간다. ≤2장(→3장 벤치)까지 확장,
+    <code>CheapestNonStructural</code>로 템포 탈취. <b>라이브 반영엔 D1 가드가 필수</b>(순수 EV는 이 팔로우 개선을 라이브 수에 안 씀).</p>
+  </div>
+
+  <h3 style="color:var(--B)">B. 전략 융합 탈출 <span class="mut" style="font-size:13px">— PIMC 값 <b>위로</b> 천장을 올림. 너비로는 절대 못 넘는 상한.</span></h3>
+  <div class="lev B"><h4>B1. α-μ 강건 백업 — 평균-EV를 세계 간 강건 선택으로 <span class="tag t-keep">keep</span> <span class="tag t-roll">search-core</span> <span class="tag t-L">L</span></h4>
+    <div class="meta">코드: <code>PimcAgent.DecideTurnAnytime</code> 누적·argmax(L80-134) · 롤아웃/결정화는 그대로 리프</div>
+    <p>지금은 후보별 세계 EV를 <b>독립 평균</b> 후 argmax(=전략 융합 그 자체). Cazenave·Ventos의 α-μ는 스칼라 평균 대신 <b>세계별 결과 벡터</b>를 두고
+    내(Max) 노드에서 파레토 비지배, 상대(Min)에서 세계별 최악을 백업해 <b>모든 세계에 강건한 단일 루트 수</b>를 강제. 가장 값싼 이식은
+    선택 규칙만 <code>max(mean − λ·downside)</code> 또는 1-ply 세계-최악으로 교체. 순수 C#·학습 불요·기존 자산 전부 재사용.</p>
+    <p class="kbd">주의: 브리지 α-μ는 리프가 <b>정확</b> 더블더미 솔버지만 여기 리프는 노이즈 롤아웃 → 최악백업이 변량을 쫓을 수 있음. λ 감쇠 + 세계당 k-미니롤아웃 평균으로 완화, 벤치 게이트 필수(과거 리드변경 회귀 이력).</p>
+  </div>
+  <div class="lev B"><h4>B2. 세계 내 심화 — 평면 롤아웃 → 깊이제한 최선응답(Ginsberg식) <span class="tag t-scope">scope-down</span> <span class="tag t-roll">search-core</span> <span class="tag t-L">L</span></h4>
+    <div class="meta">코드: <code>Pimc.Rollout</code> · <code>PimcAgent</code> 후보평가 루프</div>
+    <p>결정화된 세계는 완전정보 게임이므로 관측자의 다음 K결정에 대해 negamax/알파베타(나=최선응답, 상대=휴리스틱)가 <b>정확</b>하다.
+    “내 미래 플레이가 휴리스틱만큼만”이라는 편향을 제거(bias↓, 정밀↑ 아님). 세계수 16→8로 낮춘 연산을 깊이에 재투자.</p>
+  </div>
+  <div class="lev B"><h4>B3. SO-ISMCTS — 정보집합 위 단일 트리 <span class="tag t-scope">scope-down</span> <span class="tag t-roll">search-core</span> <span class="tag t-XL">XL</span></h4>
+    <div class="meta">신규 <code>IsmctsAgent</code> · <code>Determinizer</code>+<code>HeuristicRolloutPolicy</code>+<code>GameEngine</code> 재사용</div>
+    <p>세계별 독립해를 없애고 관측자 정보집합 위 <b>단일 MCTS 트리</b>로 하나의 정책을 강제 → 구조적으로 전략융합 안 함.
+    모바일 실증됨(AI Factory의 Spades/Hearts가 중급폰 &lt;0.25s/2500반복; Dou Di Zhu에서 지식기반 AI 대비 ~62% 승). 다만 롤아웃 정책 천장에 여전히 부분 종속(→ A계열과 병행), 티츄 조합 분기 폭 때문에 progressive widening 필요. <b>가장 큰 천장, XL 노력.</b></p>
+  </div>
+
+  <h3 style="color:var(--C)">C. 믿음/결정화 — 세계를 현실적으로 <span class="mut" style="font-size:13px">— reach-prob “가중”은 무효였음. 이건 “제약(rejection)”이라 범주가 다름.</span></h3>
+  <div class="lev C"><h4>C1. 교환 카드 핀 — 내가 넘긴 3장을 정확히 배치 <span class="tag t-keep">keep(권장)</span> <span class="tag t-roll">search-core</span> <span class="tag t-S">S</span></h4>
+    <div class="meta">코드: <code>Determinizer.Sample</code> · <code>PimcAgent.ChooseExchange</code></div>
+    <p>관측자는 교환에서 <b>누구에게 무엇을 줬는지 정확히</b> 안다. 그런데 결정화는 이를 버리고 균등 셔플 → 내 넘긴 카드를 ~2/3 오배치.
+    미플레이 넘긴 카드를 수령 좌석에 <b>핀 고정</b>(100% 정확·변량 0). 특히 약패 교환 시 파트너에게 준 <b>최고 카드</b>를 롤아웃이 제대로 가치화.
+    작지만 항상 옳고 무공짜 — 가장 값싼 보험, 다른 레버와 가산.</p>
+  </div>
+  <div class="lev C"><h4>C2. 패스-일관 void 제약 — 패스 이력으로 자기모순 세계 기각 <span class="tag t-scope">scope-down</span> <span class="tag t-roll">search-core</span> <span class="tag t-L">L</span></h4>
+    <div class="meta">코드: <code>Determinizer.Sample</code> + <code>Trick.History</code> 패스 · 롤아웃 정책과 자기일관</div>
+    <p>균등 딜은 “이길 수 있었는데 패스한” 좌석에 그 카드를 태연히 쥐여준다 → PIMC-티츄 최대 믿음오류(상대가 실제보다 강해 보여 과방어).
+    딜 후 각 상대의 기록된 패스를 <code>AiAgent.DecideFollow</code>로 재생해 “뒀어야 했다”면 세계를 <b>기각·재샘플</b>. 소원 강제 패스는 그 랭크 무조건 금지.
+    가장 큰 믿음 레버(추정 +10~30/R)지만 미검증 — 벤치 필수.</p>
+  </div>
+  <div class="lev C"><h4>C3. 티츄콜 강도 제약 — 가중이 아닌 지지집합 제한 <span class="tag t-scope">scope-down</span> <span class="tag t-roll">search-core</span> <span class="tag t-M">M</span></h4>
+    <div class="meta">코드: <code>Determinizer</code> + <code>ReachWeight.HandStrength</code></div>
+    <p>실패한 reach “가중치” 대신 <b>하드 기각</b>: 콜한 좌석의 손패를 AiAgent가 그 콜에 요구하는 강도 하한(티츄=용/봉황/폭탄, 그랜드=HandPower≥10)까지 재샘플.
+    가중은 쓰레기 세계의 변량이 새어 무효였지만, 지지집합 제한은 표본을 타당 부분집합에 <b>집중</b>(변량↓). 콜 있는 라운드에서만 작동.</p>
+  </div>
+
+  <h3 style="color:var(--D)">D. 라이브 가드 &amp; 효율 <span class="mut" style="font-size:13px">— 관측 약점 직격 + 예산/역전 정리.</span></h3>
+  <div class="lev D"><h4>D1. 상대-팔로우 위협 블록 — 공개 플레이테스트 갭 <span class="tag t-scope">scope-down</span> <span class="tag t-live">live-guard</span> <span class="tag t-M">M</span></h4>
+    <div class="meta">코드: <code>PimcAgent.DecideTurnAnytime</code> 파트너가드 뒤(L65)+ 신규 <code>AiAgent.OpponentThreatBlockMove</code></div>
+    <p>상대가 Top 소유 + 아웃임박(≤1장 낮은싱글 → 최고 싱글로 봉쇄 / 티츄·≤2장 위협 → <code>CheapestNonStructural</code>)이면 EV 전에 블록. 파트너-밟기 가드의 정확한 쌍둥이.
+    <b>네가 본 “옆 상대 올패스” 증상을 직접 제거.</b> 기본 OFF 플래그로 게이트(비트불변) → ON/OFF 벤치. 전체 점수 이득은 소폭이라도 체감 품질↑.</p>
+  </div>
+  <div class="lev D"><h4>D2. ε·롤아웃수 정상화 — ε=0의 중복 롤아웃 제거 + ε를 강도로 검증 <span class="tag t-keep">keep(권장)</span> <span class="tag t-roll">search-core</span> <span class="tag t-S">S</span></h4>
+    <div class="meta">코드: <code>PolicyConfig.For</code> · <code>PimcAgent</code>(L71)</div>
+    <p>ε=0이면 롤아웃 정책이 RNG를 안 써 <b>R회 롤아웃이 동일</b>(용 양보 타이만 예외). 그런데 Expert=(24,<b>6</b>,0)는 6× 동일 롤아웃을 반복 → <b>Expert move당 ~6× 공짜 절감</b>.
+    또 ε=0.05 vs ε=0을 A/B로 재보면 ε 블런더가 천장을 낮추는지 판정 가능. 가장 고신뢰·저리스크(주로 지연/모바일 예산 개선).</p>
+  </div>
+  <div class="lev D"><h4>D3. 잠재값 EV 동점깨기 — 자의적 <code>MoveOrder.Strength</code> 대체 <span class="tag t-scope">scope-down</span> <span class="tag t-roll">search-core</span> <span class="tag t-M">M</span></h4>
+    <p>롤아웃이 준결정적이라 다수 후보의 합산 EV가 동점 → 현재 동점깨기는 전략맹인 “최저 Strength”. 롤아웃 중 저변량 위치신호(획득점 마진·아웃근접)를 축적해 동점 시 우선.
+    잠재기반 셰이핑이라 진짜 EV 선호를 뒤집지 않음(무위험). 먼저 동점 빈도 계측으로 기회 크기 확인.</p>
+  </div>
+
+  <h3 style="color:#f2879e">폐기(kill) — 포화 렌즈에 걸린 정밀/성능 레버</h3>
+  <div class="card" style="border-color:#4a2530">
+    <p><span class="tag t-kill">kill</span> <b>리치-트릭 확실회복 가드</b> — 강한 즉시-점수 신호는 이미 EV 평균에서 살아남을 가능성 → 대체로 무위(inert). 포화와 충돌.</p>
+    <p><span class="tag t-kill">kill</span> <b>절단 롤아웃 + 휴리스틱 값 추정(인에이블러)</b> — 벌어준 연산을 재투자할 곳이 없음(너비 포화). 티츄 보너스는 엔드게임 속성이라 조기 절단 시 최중요 신호 파괴.</p>
+    <p><span class="tag t-kill">kill</span> <b>절단 롤아웃 + 위치 리프값(엔드게임)</b> — 성능만 이득(포화 하 강도중립), 오보정 시 천장 하락, XL·고위험.</p>
+    <p class="kbd">※ 이 3개가 kill된 것은 적대검증이 “포화 = 너비/정밀도는 죽은 레버”를 제대로 강제했다는 증거다.</p>
+  </div>
+
+  <h3 style="color:var(--B)">연구 지평 (XL, 장기)</h3>
+  <div class="lev B"><h4>학습 롤아웃/값 네트워크 — DouZero(Deep-MC)/PerfectDou(완전정보 증류) <span class="tag t-roll">both</span> <span class="tag t-XL">XL</span></h4>
+    <p>롤아웃 정책 천장을 신경망으로 대체 — 오프라인(파이썬/PyTorch, 기존 <code>GameEngine</code>을 시뮬레이터로) 학습 → ONNX/Unity Sentis로 온디바이스.
+    조합-셰딩 초인 플레이의 유일 검증 경로(DouZero/PerfectDou가 Dou Di Zhu 전 에이전트 압도). 현실: 학습 파이프라인+GPU+온디바이스 예산 → move당 스텝별 추론은 과중 → <b>리프 값</b>으로 쓰는 게 현실적.
+    <code>Tichu.GameFlow.Agents</code>는 UnityEngine 무의존이라 추론은 주입 인터페이스 뒤(Sentis 래퍼는 순수트리 밖).</p>
+    <p class="kbd">참고: 스카트 “카드위치 학습 샘플링” 결과는 이 저장소가 이미 시도해 무효였던 reach-prob의 정석판 → <b>믿음 샘플링이 아니라 정책/값 네트가</b> 유망 서브레버.</p>
+  </div>
+
+  <!-- ============ PART 4 : TIER ============ -->
+  <h2>4. 난이도 티어 재정렬 함의</h2>
+  <div class="card">
+    <p>세계수가 죽은 레버이므로 티어는 <b>세계수가 아니라 알고리즘/정책으로 차별화</b>해야 한다. 또한 별개로 발견한
+    <b>예산 역전</b>(Normal 900ms ≫ Hard 250ms인데 둘 다 16세계 → 인게임 Normal ≥ Hard)은 어느 방향이든 반드시 수정.</p>
+    <table>
+      <thead><tr><th>티어</th><th>차별화 축(제안)</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>Easy</td><td>휴리스틱 + 블런더(ε↑, 탐색 OFF)</td><td>현행 유지 — 명확히 약함</td></tr>
+        <tr><td>Normal</td><td>PIMC 8–12세계 (예산이 완주 커버)</td><td>16 대비 체감 동일·응답 여유</td></tr>
+        <tr><td>Hard</td><td>PIMC + <b>B1 α-μ 강건 백업</b></td><td>알고리즘으로 진짜 위</td></tr>
+        <tr><td>Expert</td><td>ISMCTS(B3) 또는 값-네트(연구)</td><td>천장 최상</td></tr>
+      </tbody>
+    </table>
+    <p class="mut">즉 “세계수 사다리”를 “알고리즘 사다리”로 교체. 이게 성립하려면 B1이 벤치를 통과해야 하므로 — 아래 액션이 그 전제.</p>
+  </div>
+
+  <!-- ============ PART 5 : NEXT ============ -->
+  <h2>5. 다음 액션 (제안 순서)</h2>
+  <ol class="steps">
+    <li><b>D1 상대-팔로우 블록 가드</b> — TDD로 <code>PimcAgentTests</code>에 near-out 블록/폴백 케이스 → 기본 OFF 플래그 게이트 → <code>PimcBench</code> ON/OFF. 네가 본 증상을 즉시 제거하고, 저리스크로 라이브에 닿는다. <span class="pill">가장 먼저</span></li>
+    <li><b>B1 α-μ 강건 백업 프로토타입</b> — 선택 규칙만 <code>max(mean−λ·downside)</code>로 교체(리프=기존 롤아웃), λ 스윕, self-play head-to-head vs 현 PIMC. 통과 시 <b>Hard 티어의 정체성</b>이자 “feels weak”의 근본 해법. <span class="pill">최고 레버리지</span></li>
+    <li><b>A1+A2 롤아웃 강화</b> — A2(폭탄)부터(리스크 낮음), 그다음 A1(리드, 폭탄/풀하우스 가드 포함). <code>HeuristicStrengthBench</code>+<code>PimcBench</code> 이중 게이트. <span class="pill">검증된 계열</span></li>
+    <li><b>값싼 보험 병행</b> — C1(교환 핀, S)·D2(ε 정상화, S). 항상 옳거나 순수 이득.</li>
+    <li><b>예산 역전 수정 + 티어 재정렬</b> — B1 벤치 결과로 §4 표 확정.</li>
+    <li><b>연구 트랙(선택)</b> — B3 ISMCTS / 값-네트는 별도 스파이크로 범위·비용 산정 후 결정.</li>
+  </ol>
+
+  <div class="verdict">
+    <strong>요약.</strong> 세계수는 끝났다(검증 완료). 강도는 <b>① 관측 약점 라이브 가드(D1)</b>로 즉시,
+    <b>② 전략융합 탈출(B1 α-μ)</b>로 근본적으로, <b>③ 롤아웃 천장(A1/A2)</b>으로 전반적으로 올린다.
+    난이도는 세계수가 아니라 <b>알고리즘</b>으로 벌린다. 첫 수는 <b>D1</b>, 최고 레버리지는 <b>B1</b>.
+  </div>
+
+  <div class="sub" style="margin-top:34px;border-top:1px solid var(--line);padding-top:14px">
+    부록 · 방법론: 정면 self-play(미러드 딜, 세계수 격리, roll=2·ε=.05·caller). 대조군 <code>탐색 OFF</code>로 하니스 민감도 검증, 결정 비교 2배치 부호안정성.
+    탐색: 25 에이전트 · 6각도 팬아웃 → 레버별 적대검증(포화 렌즈) → 18레버 중 10 keep/scope·3 kill·5 미판정(직접 판정 반영).
+    Synthesize는 세션 한도로 실패해 로드맵은 수기 종합. 모든 강도 주장은 채택 전 격리 벤치 필수(과거 인간직관 리드변경 다수 회귀).
+  </div>
+
+</div>
+</body>
+</html>

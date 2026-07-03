@@ -31,7 +31,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>강건 백업(B1)의 분산 페널티 계수 λ. UseRobustBackup=false면 무시.</summary>
         public readonly double RobustLambda;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0)
+        /// <summary>true면 상대 콤보를 비싼 자원으로 밟는 낭비(팀킬)를 EV 전에 패스로 막는다(Bug4). OFF면 비트불변.</summary>
+        public readonly bool UseComboOvertakeGuard;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -41,6 +44,7 @@ namespace Tichu.GameFlow.Agents
             UseOpponentThreatBlock = useOpponentThreatBlock;
             UseRobustBackup = useRobustBackup;
             RobustLambda = robustLambda;
+            UseComboOvertakeGuard = useComboOvertakeGuard;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

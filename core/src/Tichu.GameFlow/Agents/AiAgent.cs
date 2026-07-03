@@ -321,11 +321,17 @@ namespace Tichu.GameFlow.Agents
 
             // 가치 없는(점수 적은) 트릭: 점수카드를 버리거나, 비싼 족보(예: A 풀하우스로 3 풀하우스
             // 막기)를 낭비해야만 이길 수 있으면 패스가 낫다. 단 그 수로 나가면(아웃) 그냥 낸다.
-            var lowestWin = MoveOrder.Lowest(nonBomb)!;
+            // 봉황 단독은 스케일 랭크가 반칸 위라 Lowest 가 값싸게 오인 → 자연 승수 우선(귀한 봉황 보존).
+            // 단 봉황이 유일한 승수면 트릭을 헌납하지 않고 봉황으로 이긴다(과-패스는 템포 손해, 벤치 확인).
+            var lowestWin = CheapestNonPhoenixSingle(nonBomb) ?? MoveOrder.Lowest(nonBomb)!;
             bool goesOut = ctx.MyHand.Count == lowestWin.Cards.Count;
             bool wastesHighCombo = !goesOut && lowestWin.Cards.Count >= 3 && lowestWin.Rank >= HighComboSaveScaled;
+            // 엔드게임(팀메이트 아웃): 상대의 낮은 리드를 점수카드로라도 경합해 선/템포를 헌납하지 않는다
+            // (상대가 자유롭게 털어 아웃하는 것 저지). 단 비싼 족보를 깨는 건 여전히 아낀다.
+            bool teammateOut = ctx.State.Seats[ctx.PartnerSeat].IsOut;
+            bool wastesPoints = lowestWin.PointsInPlay > 0 && !teammateOut;
             if (ctx.CanPass && trick.AccumulatedPoints < RichTrickPoints
-                && (lowestWin.PointsInPlay > 0 || wastesHighCombo))
+                && (wastesPoints || wastesHighCombo))
                 return TurnDecision.Pass;
 
             return TurnDecision.Play(lowestWin);
@@ -451,6 +457,24 @@ namespace Tichu.GameFlow.Agents
             return null;
         }
 
+        /// <summary>Bug4 라이브 가드: 상대 콤보(≥2장) Top 을 비싼 자원(점수/고랭크 콤보)으로 밟는 낭비인가.
+        /// 팀 아웃용 콤보를 헛되이 소진하는 "팀킬" 방지 — 콤보는 안 막혀도 상대가 선을 가져가는 정도라
+        /// 티츄콜·나가기·리치트릭이 아니면 밟지 말고 보존(false=밟기 허용, true=패스 권고).
+        /// PimcAgent 가 플래그 ON 일 때 EV 전에 호출. 싱글 Top 은 Bug3(봉황/자연 우선) 영역.</summary>
+        public static bool WastefulComboOvertake(in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return false;
+            if (trick.Top == null || trick.Top.Cards.Count < 2) return false;   // 콤보 팔로우만(싱글 제외)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return false;       // 리치 트릭 → 회수
+            if (ctx.State.Seats[seat].Call != TichuCall.None) return false;     // 티츄 → 밟아 나가기 추진
+            var cheapest = MoveOrder.Lowest(nonBombWins);
+            if (cheapest == null) return false;
+            if (ctx.MyHand.Count == cheapest.Cards.Count) return false;         // 밟으면 아웃 → OK
+            bool wastesPoints = cheapest.PointsInPlay > 0;
+            bool wastesHighCombo = cheapest.Cards.Count >= 3 && cheapest.Rank >= HighComboSaveScaled;
+            return wastesPoints || wastesHighCombo;
+        }
+
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
 
         /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>
@@ -500,6 +524,24 @@ namespace Tichu.GameFlow.Agents
                 if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
                 int k = MoveOrder.Strength(m);
                 if (k > bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
+
+        /// <summary>봉황 단독인가(귀한 와일드카드 — 지출 비용이 높다).</summary>
+        private static bool IsPhoenixSingle(Combination m)
+            => m.Type == CombinationType.Single && m.Cards.Count == 1 && m.Cards[0].Special == SpecialKind.Phoenix;
+
+        /// <summary>봉황 단독이 아닌 가장 낮은(약한) 승수. 봉황 단독뿐이면 null.
+        /// 봉황 단독의 스케일 랭크(반칸 위)가 Lowest 를 값싸게 오인시키는 것을 막아 자연 승수를 우선한다.</summary>
+        private static Combination? CheapestNonPhoenixSingle(IReadOnlyList<Combination> wins)
+        {
+            Combination? best = null; int bestK = int.MaxValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                if (IsPhoenixSingle(wins[i])) continue;
+                int k = MoveOrder.Strength(wins[i]);
+                if (k < bestK) { bestK = k; best = wins[i]; }
             }
             return best;
         }

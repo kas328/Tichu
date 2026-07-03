@@ -326,8 +326,12 @@ namespace Tichu.GameFlow.Agents
             var lowestWin = CheapestNonPhoenixSingle(nonBomb) ?? MoveOrder.Lowest(nonBomb)!;
             bool goesOut = ctx.MyHand.Count == lowestWin.Cards.Count;
             bool wastesHighCombo = !goesOut && lowestWin.Cards.Count >= 3 && lowestWin.Rank >= HighComboSaveScaled;
+            // 엔드게임(팀메이트 아웃): 상대의 낮은 리드를 점수카드로라도 경합해 선/템포를 헌납하지 않는다
+            // (상대가 자유롭게 털어 아웃하는 것 저지). 단 비싼 족보를 깨는 건 여전히 아낀다.
+            bool teammateOut = ctx.State.Seats[ctx.PartnerSeat].IsOut;
+            bool wastesPoints = lowestWin.PointsInPlay > 0 && !teammateOut;
             if (ctx.CanPass && trick.AccumulatedPoints < RichTrickPoints
-                && (lowestWin.PointsInPlay > 0 || wastesHighCombo))
+                && (wastesPoints || wastesHighCombo))
                 return TurnDecision.Pass;
 
             return TurnDecision.Play(lowestWin);

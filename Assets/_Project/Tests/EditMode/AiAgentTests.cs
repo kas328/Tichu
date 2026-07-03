@@ -556,6 +556,43 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Cards[0].Special, Is.EqualTo(SpecialKind.Phoenix));
         }
 
+        // ── DecideTurn: 엔드게임 리드 경합(팀메이트 아웃, 플레이테스트 버그2) ─────────────
+        // 팀메이트(파트너)가 이미 아웃한 뒤엔 상대의 낮은 리드를 점수카드로라도 경합해 선/템포를
+        // 헌납하지 않는다(상대가 자유롭게 털어 아웃하는 것 저지). 미들게임 안티낭비는 유지.
+
+        [Test]
+        public void DecideFollow_contests_low_lead_when_teammate_out()
+        {
+            // 파트너(seat2)=팀메이트 아웃. 측면 상대(seat1, 5장)가 낮은 single 6 리드.
+            // seat0 의 이길 싱글이 점수카드(10)뿐 → 팀메이트 아웃이라 헌납 않고 10으로 경합.
+            var s = FollowState(0, Single(6), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(9, Suit.Sword), N(11, Suit.Sword)),
+                Hand(),                                                        // seat2 파트너 아웃
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(4, Suit.Jade), N(5, Suit.Jade), N(7, Suit.Jade)));
+            s.Seats[2].IsOut = true;
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(ctx.CanPass, Is.True);
+            var d = new AiAgent(1UL, 0).DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.False, "팀메이트 아웃 엔드게임 → 낮은 리드를 점수카드로라도 경합");
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(10).Rank), "10 으로 이긴다");
+        }
+
+        [Test]
+        public void DecideFollow_still_anti_waste_passes_when_teammate_not_out()
+        {
+            // 같은 상황이나 팀메이트(seat2) 미아웃 → 기존 안티낭비 유지(점수카드로 가치없는 트릭 안 이김).
+            var s = FollowState(0, Single(6), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(9, Suit.Sword), N(11, Suit.Sword)),
+                Hand(N(6, Suit.Pagoda), N(7, Suit.Pagoda)),                    // seat2 파트너 미아웃(손패 보유)
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(4, Suit.Jade), N(5, Suit.Jade), N(7, Suit.Jade)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(ctx.CanPass, Is.True);
+            var d = new AiAgent(1UL, 0).DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.True, "미들게임: 점수카드로 가치없는 트릭 이기는 건 낭비 → 패스");
+        }
+
         // ── DecideTurn: 위협 블로킹(#3, 비용 인지) ────────────────────────────────────
 
         [Test]

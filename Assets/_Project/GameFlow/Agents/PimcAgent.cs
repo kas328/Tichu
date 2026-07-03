@@ -64,6 +64,19 @@ namespace Tichu.GameFlow.Agents
                 // 패스 불가(소원 강제 등) → 아래 EV 탐색으로 폴백.
             }
 
+            // 상대가 Top 인 팔로우 + 아웃/티츄 위협: 순수 EV 는 전략융합·롤아웃 천장 탓에 이 블록을
+            // 라이브 수로 못 낸다(롤아웃에만 간접 반영) → 휴리스틱 블록 가드를 EV 전에 직접 건다
+            // (파트너-밟기 가드의 쌍둥이). OFF(기본)면 비트불변.
+            if (_config.UseOpponentThreatBlock && trick != null
+                && Seating.TeamOf(trick.TopOwnerSeat) != Seating.TeamOf(_seat))
+            {
+                var nonBomb = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBomb.Add(legal[i]);
+                var block = AiAgent.OpponentThreatBlockMove(ctx, trick, nonBomb);
+                if (block != null) return TurnDecision.Play(block);
+            }
+
             // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
             var candidates = TurnCandidates(legal);
 

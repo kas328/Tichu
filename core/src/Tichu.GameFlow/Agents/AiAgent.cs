@@ -420,6 +420,35 @@ namespace Tichu.GameFlow.Agents
             return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
         }
 
+        /// <summary>
+        /// 상대가 Top 을 소유한 팔로우에서 "아웃/티츄 위협을 저지할 블록 수"를 돌려준다(막지 말아야 하면 null).
+        /// DecideFollow 의 상대-위협 규율을 PIMC 라이브 경로에 공유한다(PimcAgent 가 플래그 ON 일 때 EV 전에 호출):
+        /// ① 낮은 싱글 Top + 상대 1장 → 가장 높은 이기는 싱글로 봉쇄(1장 상대가 받아 나가기 차단),
+        /// ② 상대 티츄콜/아웃임박(≤2장) → 스트레이트 안 깨는 최소 오버킬(CheapestNonStructural)로 저지.
+        /// 막을 수가 스트레이트를 깨는 싱글뿐이면 null(→ 보내준다). 순수 EV 는 전략융합/롤아웃 천장 탓에
+        /// 이 블록을 라이브 수로 못 내므로(롤아웃에만 간접 반영) 가드로 직접 건다.
+        /// 호출부(PimcAgent)가 "상대가 Top 소유"를 보장한다. PartnerOvertakeMove 의 구조적 쌍둥이.
+        /// </summary>
+        public static Combination? OpponentThreatBlockMove(
+            in DecisionContext ctx, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return null;
+
+            // ① 1장 상대가 낮은 싱글 트릭을 받아 나가는 것 봉쇄: 가장 높은 이기는 싱글.
+            if (trick.Top != null && trick.Top.Type == CombinationType.Single
+                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
+            {
+                var high = HighestWinningSingle(nonBombWins);
+                if (high != null) return high;
+            }
+
+            // ② 티츄콜/아웃임박 위협 → 스트레이트 안 깨는 최소 오버킬(없으면 null → 보내준다).
+            if (OpponentThreat(ctx))
+                return CheapestNonStructural(ctx.MyHand, nonBombWins);
+
+            return null;
+        }
+
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
 
         /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>

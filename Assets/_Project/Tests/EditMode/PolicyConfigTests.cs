@@ -60,6 +60,18 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void UseOpponentThreatBlock_on_for_pimc_tiers()
+        {
+            // D1 상대-위협 블록 가드: PIMC 티어(Normal/Hard/Expert) ON(정확성 바닥 — 티어 역전 방지).
+            // Easy(탐색 OFF)는 가드 미도달이라 무의미(false). ctor 기본 false(비트불변 경로).
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseOpponentThreatBlock, Is.False, "Easy 는 탐색 OFF라 무관");
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseOpponentThreatBlock, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseOpponentThreatBlock, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseOpponentThreatBlock, Is.True);
+            Assert.That(new PolicyConfig(4, 2, 0.10).UseOpponentThreatBlock, Is.False, "기본 false");
+        }
+
+        [Test]
         public void Normal_promoted_to_16_world_strong_preset()
         {
             // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.

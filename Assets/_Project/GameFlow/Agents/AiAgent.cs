@@ -455,6 +455,24 @@ namespace Tichu.GameFlow.Agents
             return null;
         }
 
+        /// <summary>Bug4 라이브 가드: 상대 콤보(≥2장) Top 을 비싼 자원(점수/고랭크 콤보)으로 밟는 낭비인가.
+        /// 팀 아웃용 콤보를 헛되이 소진하는 "팀킬" 방지 — 콤보는 안 막혀도 상대가 선을 가져가는 정도라
+        /// 티츄콜·나가기·리치트릭이 아니면 밟지 말고 보존(false=밟기 허용, true=패스 권고).
+        /// PimcAgent 가 플래그 ON 일 때 EV 전에 호출. 싱글 Top 은 Bug3(봉황/자연 우선) 영역.</summary>
+        public static bool WastefulComboOvertake(in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return false;
+            if (trick.Top == null || trick.Top.Cards.Count < 2) return false;   // 콤보 팔로우만(싱글 제외)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return false;       // 리치 트릭 → 회수
+            if (ctx.State.Seats[seat].Call != TichuCall.None) return false;     // 티츄 → 밟아 나가기 추진
+            var cheapest = MoveOrder.Lowest(nonBombWins);
+            if (cheapest == null) return false;
+            if (ctx.MyHand.Count == cheapest.Cards.Count) return false;         // 밟으면 아웃 → OK
+            bool wastesPoints = cheapest.PointsInPlay > 0;
+            bool wastesHighCombo = cheapest.Cards.Count >= 3 && cheapest.Rank >= HighComboSaveScaled;
+            return wastesPoints || wastesHighCombo;
+        }
+
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
 
         /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>

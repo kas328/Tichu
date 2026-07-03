@@ -327,6 +327,41 @@ namespace Tichu.Core.Tests
                 "플래그 OFF → 가드 미개입 → EV 경로 진입(블록으로 단락하지 않음)");
         }
 
+        // ── 콤보 밟기 팀킬 가드(Bug4) ─────────────────────────────────────────────────
+        private static Combination ConsecPairs(int lowRank) =>
+            CombinationRecognizer.Recognize(new[] {
+                Card.Normal(lowRank, Suit.Jade), Card.Normal(lowRank, Suit.Sword),
+                Card.Normal(lowRank + 1, Suit.Pagoda), Card.Normal(lowRank + 1, Suit.Star) }, TrickContext.Lead);
+
+        [Test]
+        public void DecideTurn_passes_wasteful_combo_overtake_when_flag_on()
+        {
+            // 상대(seat1) 7788 연페어. seat0 이길 수=991010(10s=점수)이나 팀 아웃용 콤보 → 플래그 ON 이면 EV 전에 패스.
+            var s = OpponentTopFollow(ConsecPairs(7), 1,
+                new List<Card> { Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Sword), Card.Normal(10, Suit.Pagoda), Card.Normal(10, Suit.Star), Card.Normal(2, Suit.Jade), Card.Normal(3, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Sword), Card.Normal(3, Suit.Sword), Card.Normal(4, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Pagoda) },
+                new List<Card> { Card.Normal(2, Suit.Star), Card.Normal(3, Suit.Star), Card.Normal(4, Suit.Star) });
+            var cfg = new PolicyConfig(4, 2, 0.1, useComboOvertakeGuard: true);
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "팀킬 콤보 밟기 → EV 전에 패스");
+        }
+
+        [Test]
+        public void DecideTurn_combo_overtake_guard_gated_off_by_default()
+        {
+            // 동일 상황, 플래그 OFF(기본) → 가드 미개입 → EV 경로 진입(합성 상태라 결정화 예외 = 게이팅 증거).
+            var s = OpponentTopFollow(ConsecPairs(7), 1,
+                new List<Card> { Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Sword), Card.Normal(10, Suit.Pagoda), Card.Normal(10, Suit.Star), Card.Normal(2, Suit.Jade), Card.Normal(3, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Sword), Card.Normal(3, Suit.Sword), Card.Normal(4, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Pagoda) },
+                new List<Card> { Card.Normal(2, Suit.Star), Card.Normal(3, Suit.Star), Card.Normal(4, Suit.Star) });
+            var cfgOff = new PolicyConfig(4, 2, 0.1);
+            Assert.Throws<System.InvalidOperationException>(
+                () => new PimcAgent(7UL, 0, cfgOff).DecideTurn(GameFlowHelpers.Context(s, 0)),
+                "OFF → 가드 미개입 → EV 진입(단락 안 함)");
+        }
+
         // ── 인-턴 폭탄 규율(③ 폭탄 타이밍) ───────────────────────────────────────────
         // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외해
         // 싼 트릭에 폭탄을 낭비하지 않는다(휴리스틱 DecideLead/Follow 와 동일 규율).

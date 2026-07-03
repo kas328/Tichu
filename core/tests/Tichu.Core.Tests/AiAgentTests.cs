@@ -593,6 +593,72 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.True, "미들게임: 점수카드로 가치없는 트릭 이기는 건 낭비 → 패스");
         }
 
+        // ── WastefulComboOvertake (Bug4): 콤보 밟기 팀킬 방지 라이브 가드 ─────────────────
+        // 상대 콤보(≥2장)를 비싼 자원(점수/고랭크 콤보)으로 밟으면 팀 아웃용 콤보 소진(팀킬).
+        // 티츄콜·나가기·리치트릭이면 밟아도 OK(false). PimcAgent 가 플래그 ON 일 때 EV 전 호출.
+
+        private static Combination ConsecPairs(int lowRank) =>
+            CombinationRecognizer.Recognize(new[]
+            {
+                N(lowRank, Suit.Jade), N(lowRank, Suit.Sword),
+                N(lowRank + 1, Suit.Pagoda), N(lowRank + 1, Suit.Star)
+            }, TrickContext.Lead);
+
+        [Test]
+        public void WastefulComboOvertake_true_for_point_combo_overtake()
+        {
+            // 상대(seat1) 7788 연페어. seat0 이길 수 = 991010(10s=20점)이나 밟으면 팀 아웃용 콤보 낭비.
+            // 티츄 미콜·나가기 아님·0점 트릭 → 팀킬 → true(패스해야).
+            var s = FollowState(0, ConsecPairs(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade), N(9, Suit.Sword), N(10, Suit.Pagoda), N(10, Suit.Star),
+                     N(2, Suit.Jade), N(3, Suit.Jade)),                       // 991010 + 여분(나가기 아님)
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(3, Suit.Star), N(4, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.True);
+        }
+
+        [Test]
+        public void WastefulComboOvertake_false_when_tichu_called()
+        {
+            var s = FollowState(0, ConsecPairs(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade), N(9, Suit.Sword), N(10, Suit.Pagoda), N(10, Suit.Star),
+                     N(2, Suit.Jade), N(3, Suit.Jade)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(3, Suit.Star), N(4, Suit.Star)));
+            s.Seats[0].Call = TichuCall.Tichu;
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False, "티츄 → 밟아 나가기 추진");
+        }
+
+        [Test]
+        public void WastefulComboOvertake_false_when_goes_out()
+        {
+            // seat0 손패가 정확히 991010(4장) → 밟으면 아웃 → OK(false).
+            var s = FollowState(0, ConsecPairs(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade), N(9, Suit.Sword), N(10, Suit.Pagoda), N(10, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(3, Suit.Star), N(4, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False, "밟으면 아웃 → OK");
+        }
+
+        [Test]
+        public void WastefulComboOvertake_false_for_single_top()
+        {
+            // 싱글 Top 은 이 가드 영역 아님(Bug3 봉황/자연 우선이 담당) → false.
+            var s = FollowState(0, Single(7), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(10, Suit.Jade), N(2, Suit.Jade), N(3, Suit.Jade)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(3, Suit.Star), N(4, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False);
+        }
+
         // ── DecideTurn: 위협 블로킹(#3, 비용 인지) ────────────────────────────────────
 
         [Test]

@@ -77,6 +77,18 @@ namespace Tichu.GameFlow.Agents
                 if (block != null) return TurnDecision.Play(block);
             }
 
+            // 상대 콤보(≥2장) 밟기 팀킬 가드(Bug4): 순수 EV 는 "상대 저지" 가치로 팀 아웃용 콤보를 헛되이
+            // 밟아 팀 아웃을 막을 수 있다 → 티츄/나가기/리치가 아니면 EV 전에 패스로 콤보 보존. OFF면 비트불변.
+            if (_config.UseComboOvertakeGuard && trick != null && ctx.CanPass
+                && Seating.TeamOf(trick.TopOwnerSeat) != Seating.TeamOf(_seat))
+            {
+                var nonBomb = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBomb.Add(legal[i]);
+                if (AiAgent.WastefulComboOvertake(ctx, _seat, trick, nonBomb))
+                    return TurnDecision.Pass;
+            }
+
             // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
             var candidates = TurnCandidates(legal);
 

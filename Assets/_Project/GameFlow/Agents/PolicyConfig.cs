@@ -57,8 +57,8 @@ namespace Tichu.GameFlow.Agents
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
                 case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-F 16세계 + caller(+22/R) + P2-G D1 위협 블록
-                case Difficulty.Hard:   return new PolicyConfig(16, 4, 0.05, useOpponentThreatBlock: true);  // reach-prob OFF(P2-D) + D1 위협 블록
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useOpponentThreatBlock: true);  // reach-prob OFF + D1 위협 블록
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-G 정합성: Normal+4세계 상향 사다리 + caller + D1(역전 제거)
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-G 정합성: 24세계 + caller + D1
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

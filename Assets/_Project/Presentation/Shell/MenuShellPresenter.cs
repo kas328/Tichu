@@ -1,6 +1,7 @@
 using System;
 using DG.Tweening;
 using R3;
+using Tichu.GameFlow.Agents;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -15,11 +16,16 @@ namespace Tichu.Presentation.Shell
     public sealed class MenuShellPresenter : IStartable, IDisposable
     {
         readonly AppFlowMachine _flow;
+        readonly MatchSettings _settings;   // 난이도 선택 기록(세션 유지).
         MenuShellView _view;
         IDisposable _sub;
         AudioSource _bgm;   // 메뉴 BGM(앱-수명, App 씬 상주). 인게임에선 정지.
 
-        public MenuShellPresenter(AppFlowMachine flow) => _flow = flow;
+        public MenuShellPresenter(AppFlowMachine flow, MatchSettings settings)
+        {
+            _flow = flow;
+            _settings = settings;
+        }
 
         public void Start()
         {
@@ -55,12 +61,24 @@ namespace Tichu.Presentation.Shell
             _view.AddButton(ScreenState.MainHub,    "게임 시작", () => _flow.Send(AppFlowEvent.OpenModeSelect));
             _view.AddButton(ScreenState.MainHub,    "게임 방법", () => _flow.Send(AppFlowEvent.OpenHowTo));
             _view.AddButton(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
-            _view.AddButton(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.StartAiMatch));   // → InGame
+            _view.AddButton(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.OpenDifficultySelect));   // → 난이도 선택
             _view.AddButton(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
             _view.AddButton(ScreenState.ModeSelect, "친구방",    () => { _flow.Send(AppFlowEvent.SelectFriendRoomStub); ShowToast("친구방은 Phase 3에서 제공됩니다"); });
             _view.AddButton(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
+            _view.AddButton(ScreenState.DifficultySelect, "쉬움",   () => StartAt(Difficulty.Easy));
+            _view.AddButton(ScreenState.DifficultySelect, "보통",   () => StartAt(Difficulty.Normal));
+            _view.AddButton(ScreenState.DifficultySelect, "어려움", () => StartAt(Difficulty.Hard));
+            _view.AddButton(ScreenState.DifficultySelect, "전문가", () => StartAt(Difficulty.Expert));
+            _view.AddButton(ScreenState.DifficultySelect, "뒤로",   () => _flow.Send(AppFlowEvent.Back));
             _view.AddButton(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             _view.AddButton(ScreenState.Settings,   "뒤로",      () => _flow.Send(AppFlowEvent.Back));            // 볼륨 슬라이더는 D5
+        }
+
+        // 난이도를 홀더에 기록하고 매치를 시작한다(→ InGame). GameSessionPresenter가 이 값을 읽는다.
+        void StartAt(Difficulty d)
+        {
+            _settings.Difficulty = d;
+            _flow.Send(AppFlowEvent.StartAiMatch);
         }
 
         /// <summary>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 난이도 선택 UI 설계</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 14px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:20px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 18px;margin:18px 0;text-align:center;overflow-x:auto}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:12px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .mut{color:var(--muted)}
+  .opts{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
+  .opt{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .opt.reco{border-color:#2c5c3d;background:linear-gradient(180deg,#15201a,#141a17)}
+  .opt h3{margin-top:0;color:var(--ink)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:6px}
+  .b-reco{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .b-alt{background:#20242c;color:#9fb0c2;border:1px solid #34404d}
+  .kbd{font-size:12.5px;color:var(--muted)}
+  ul{margin:8px 0}
+  .pro{color:#8fe6ab}.con{color:#f2a3b3}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>난이도 선택 UI — 설계 제안</h1>
+  <div class="sub">2026-07-04 · 승인 전 설계 · 앱 셸(VContainer DI + AppFlowMachine R3, 코드생성 메뉴)</div>
+
+  <div class="verdict">
+    <strong>요지.</strong> 현재 <code>GameSessionPresenter</code>가 <code>new GameLaunchArgs()</code>(=Normal 고정)로 매치를 시작한다. 셸 주석이
+    <b>"AI 난이도는 순수 reducer가 아니라 셸이 GameLaunchArgs로 별도 운반"</b>이라 명시 → 난이도를 <b>이벤트가 아닌 셸 상태 홀더</b>(<code>MatchSettings</code>)로
+    들고 가는 게 의도된 설계. 남은 결정은 <b>선택 UI를 흐름 어디에 넣을지</b>다.
+  </div>
+
+  <!-- ===== current + recommended flow ===== -->
+  <h2>1. 현재 흐름 & 삽입 지점</h2>
+  <div class="fig">
+    <svg viewBox="0 0 940 150" width="100%" style="max-width:940px" role="img" aria-label="메뉴 흐름">
+      <!-- boxes -->
+      <g font-size="14" text-anchor="middle">
+        <rect x="10"  y="55" width="120" height="44" rx="9" fill="#171b21" stroke="#2a323d"/><text x="70"  y="82" fill="#cfe6ff">Intro</text>
+        <rect x="170" y="55" width="130" height="44" rx="9" fill="#171b21" stroke="#2a323d"/><text x="235" y="82" fill="#cfe6ff">메인 허브</text>
+        <rect x="340" y="55" width="130" height="44" rx="9" fill="#171b21" stroke="#2a323d"/><text x="405" y="82" fill="#cfe6ff">모드 선택</text>
+        <rect x="510" y="47" width="150" height="60" rx="10" fill="#15201a" stroke="#54d18c" stroke-width="2"/>
+        <text x="585" y="72" fill="#7ee6a6" font-weight="700">난이도 선택</text><text x="585" y="92" fill="#8fe6ab" font-size="11">NEW</text>
+        <rect x="700" y="55" width="120" height="44" rx="9" fill="#132530" stroke="#245063"/><text x="760" y="82" fill="#79dcff">인게임</text>
+      </g>
+      <!-- arrows -->
+      <g stroke="#4a5560" stroke-width="1.5" fill="#4a5560">
+        <line x1="130" y1="77" x2="168" y2="77"/><polygon points="168,73 176,77 168,81"/>
+        <line x1="300" y1="77" x2="338" y2="77"/><polygon points="338,73 346,77 338,81"/>
+        <line x1="470" y1="77" x2="508" y2="77"/><polygon points="508,73 516,77 508,81"/>
+        <line x1="660" y1="77" x2="698" y2="77"/><polygon points="698,73 706,77 698,81"/>
+      </g>
+      <text x="405" y="128" fill="#7b8794" font-size="11" text-anchor="middle">"게임 시작"</text>
+      <text x="490" y="42" fill="#8fa0b2" font-size="11" text-anchor="middle">"AI 대전"</text>
+      <text x="680" y="42" fill="#8fa0b2" font-size="11" text-anchor="middle">난이도 탭 → 시작</text>
+    </svg>
+    <figcaption>추천안(A): "AI 대전"이 곧장 인게임으로 가는 대신 <b>난이도 선택 화면</b>을 한 단계 끼운다. 4개 난이도 버튼이 각각 그 난이도로 매치 시작.</figcaption>
+  </div>
+
+  <!-- ===== options ===== -->
+  <h2>2. 배치 3안</h2>
+  <div class="opts">
+    <div class="opt reco">
+      <h3>A. 전용 "난이도 선택" 화면 <span class="badge b-reco">추천</span></h3>
+      <p>새 <code>ScreenState.DifficultySelect</code> 패널에 4버튼(쉬움/보통/어려움/전문가) + 뒤로. "AI 대전" → 난이도 화면 → 탭 시 그 난이도로 시작.</p>
+      <ul>
+        <li class="pro">✔ 기존 패널/<code>AddButton</code> 인프라 <b>그대로 재사용</b>(신규 UI 코드 최소). 순수 reducer엔 전이 3개만 추가.</li>
+        <li class="pro">✔ 발견성 최고·표준 UX. 난이도 선택이 눈에 확실히 보임.</li>
+        <li class="con">△ 시작까지 탭 1회 증가(게임시작→모드→난이도→게임). 난이도 선택엔 표준적이라 수용 가능.</li>
+      </ul>
+    </div>
+    <div class="opt">
+      <h3>B. 모드 선택에 난이도 버튼 인라인 <span class="badge b-alt">대안</span></h3>
+      <p>모드 선택 패널에서 "AI 대전"을 4버튼("AI 대전 · 보통" 등)으로 펼치거나, 난이도 사이클러 컨트롤 + 시작 버튼.</p>
+      <ul>
+        <li class="pro">✔ 새 화면 없음·탭 수 적음.</li>
+        <li class="con">✗ 모드 선택 패널이 이미 랭킹/친구방/뒤로로 붐빔 → 난이도까지 섞이면 어수선.</li>
+        <li class="con">✗ 컴팩트 사이클러는 <code>MenuShellView</code>에 없는 <b>새 컨트롤 타입</b> 필요(=A보다 코드 많음).</li>
+      </ul>
+    </div>
+    <div class="opt">
+      <h3>C. 설정(Settings)에 난이도 옵션 <span class="badge b-alt">대안</span></h3>
+      <p>설정 화면에 난이도 선택 컨트롤. "AI 대전"은 현재 설정값을 사용. PlayerPrefs로 앱 재시작에도 유지.</p>
+      <ul>
+        <li class="pro">✔ 선호가 기억됨·모드 흐름은 깔끔.</li>
+        <li class="con">✗ 설정 화면엔 지금 "뒤로"뿐 → 새 컨트롤 타입 필요.</li>
+        <li class="con">✗ 매치 시작 지점에서 덜 보임(플레이어가 못 찾을 수 있음)·지속화로 범위↑.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== mechanism ===== -->
+  <h2>3. 난이도 운반 방식 (공통·확정)</h2>
+  <div class="card">
+    <p>어느 배치든 동일: 신규 앱-수명 홀더 <code>MatchSettings { Difficulty = Normal }</code>를 <code>AppScope</code>에 싱글톤 등록.
+    선택 UI가 <code>_settings.Difficulty = 선택값</code> 기록 → <code>GameSessionPresenter</code>가 <code>new GameLaunchArgs { Difficulty = _settings.Difficulty }</code>로 시작.
+    순수 <code>AppFlowReducer</code>/이벤트는 <b>ScreenState만</b> 다루고 난이도는 안 실음(주석 의도 준수).</p>
+    <p class="kbd">지속성: MVP는 <b>세션 인메모리</b>(앱 실행 중 마지막 선택 기억, 기본 Normal). 앱 재시작 유지(PlayerPrefs)는 쉬운 후속 옵션 — 기본은 YAGNI로 미포함.</p>
+  </div>
+
+  <!-- ===== impl sketch ===== -->
+  <h2>4. 구현 스케치 (A안 기준, 승인 후)</h2>
+  <table>
+    <thead><tr><th>파일</th><th>변경</th></tr></thead>
+    <tbody>
+      <tr><td><code>MatchSettings.cs</code> <span class="mut">(신규)</span></td><td>DI 홀더(Difficulty 필드). <code>AppScope</code>에 싱글톤 등록.</td></tr>
+      <tr><td><code>ScreenState.cs</code></td><td><code>DifficultySelect</code> 추가.</td></tr>
+      <tr><td><code>AppFlowEvent.cs</code></td><td><code>OpenDifficultySelect</code> 추가("AI 대전"이 발화).</td></tr>
+      <tr><td><code>AppFlowReducer.cs</code></td><td>전이 3개: ModeSelect→DifficultySelect, DifficultySelect→InGame(StartAiMatch), DifficultySelect→ModeSelect(Back).</td></tr>
+      <tr><td><code>MenuShellView.cs</code></td><td><code>MenuStates</code>/<code>PanelColor</code>/<code>PanelTitle</code>에 DifficultySelect.</td></tr>
+      <tr><td><code>MenuShellPresenter.cs</code></td><td><code>MatchSettings</code> 주입. "AI 대전"→OpenDifficultySelect. 난이도 4버튼(설정 기록 + StartAiMatch) + 뒤로.</td></tr>
+      <tr><td><code>GameSessionPresenter.cs</code></td><td><code>MatchSettings</code> 주입. <code>new GameLaunchArgs { Difficulty = _settings.Difficulty }</code>.</td></tr>
+      <tr><td><code>AppFlowReducerTests.cs</code> <span class="mut">외</span></td><td>전이 테스트 + MatchSettings 기본값/기록 테스트.</td></tr>
+    </tbody>
+  </table>
+  <p class="kbd">라벨: 쉬움 / 보통 / 어려움 / 전문가 (Easy/Normal/Hard/Expert). 비주얼은 기존 코드생성 플레이스홀더 스타일 준수(P1-D 관례).</p>
+
+  <div class="sub" style="margin-top:30px;border-top:1px solid var(--line);padding-top:14px">
+    근거: <code>AppFlowEvent.cs</code>(난이도=셸 운반 주석) · <code>AppFlowReducer.cs</code>(순수 전이) · <code>MenuShellView/Presenter</code>(패널+AddButton) · <code>GameSessionPresenter.cs:64</code>(new GameLaunchArgs 고정) · <code>AppScope</code>(싱글톤 DI).
+  </div>
+
+</div>
+</body>
+</html>

@@ -20,6 +20,7 @@ namespace Tichu.Presentation.Shell
         const string TableScene = "Table";
 
         readonly AppFlowMachine _flow;
+        readonly MatchSettings _settings;   // 메뉴가 고른 난이도를 GameLaunchArgs로 운반.
         IDisposable _sub;
 
         CanvasGroup _resultPanel;
@@ -27,7 +28,11 @@ namespace Tichu.Presentation.Shell
         MatchSummary _lastSummary;
         bool _tableLoaded;
 
-        public GameSessionPresenter(AppFlowMachine flow) => _flow = flow;
+        public GameSessionPresenter(AppFlowMachine flow, MatchSettings settings)
+        {
+            _flow = flow;
+            _settings = settings;
+        }
 
         public void Start()
         {
@@ -61,7 +66,7 @@ namespace Tichu.Presentation.Shell
             await SceneManager.LoadSceneAsync(TableScene, LoadSceneMode.Additive);
             var rb = UnityEngine.Object.FindFirstObjectByType<RoundBootstrap>();
             if (rb == null) { Debug.LogError("[GameSession] Table 씬에 RoundBootstrap이 없습니다"); return; }
-            rb.Begin(new GameLaunchArgs(), OnMatchEnded);   // 기본 args(목표 1000) — 난이도 선택은 추후
+            rb.Begin(new GameLaunchArgs { Difficulty = _settings.Difficulty }, OnMatchEnded);   // 메뉴에서 고른 난이도로 시작
         }
 
         void OnMatchEnded(MatchSummary summary)

@@ -322,6 +322,39 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void DecideTurn_goes_out_before_tichu_partner_who_has_many_cards()
+        {
+            // #4c 정제(①): 파트너(seat2) 라지티츄 콜했으나 카드가 많이 남아(6장, 나+3 이상) 곧 못 나감
+            // → AI(1장)가 나가서 라운드를 살린다(콜 성공 불가 시 사수하다 동반 실패 방지).
+            var s = FollowState(0, Single(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade)),                                   // seat0: 1장(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),                // seat1(상대)
+                Hand(N(6, Suit.Pagoda), N(7, Suit.Star), N(8, Suit.Jade),
+                     N(10, Suit.Sword), N(11, Suit.Pagoda), N(12, Suit.Star)),  // seat2(파트너) 6장
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));              // seat3(상대)
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "콜한 파트너가 곧 못 나가면(카드 많음) 나가서 살린다");
+        }
+
+        [Test]
+        public void DecideTurn_goes_out_before_stuck_tichu_partner_who_passed_repeatedly()
+        {
+            // #4c 정제(②): 파트너(seat2) 라지티츄 콜, 카드는 적으나(2장) 이 라운드 3회 패스(트릭 못 이겨 막힘)
+            // → AI(1장)가 나가서 살린다. 핸드사이즈 신호는 안 걸리고 패스 신호로 탈출.
+            var s = FollowState(0, Single(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade)),                                   // seat0: 1장(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),                // seat1(상대)
+                Hand(N(6, Suit.Pagoda), N(7, Suit.Star)),               // seat2(파트너) 2장(핸드사이즈 미발동)
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));              // seat3(상대)
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            for (int t = 0; t < 3; t++)   // 파트너가 완료 트릭에서 3회 패스 → 막힘 신호
+                s.CompletedTricks.Add(new Trick { History = new List<Play> { new Play { Seat = 2, Combination = null } } });
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "콜한 파트너가 반복 패스(막힘)면 나가서 살린다");
+        }
+
+        [Test]
         public void DecideTurn_plays_cheapest_winning_when_opponent_owns_points_rich_top()
         {
             // seat0 팔로우. Top 소유는 상대(seat1), 누적 점수 높음. 이길 수 있는 페어 8/10/13 중 8을 내야 한다.

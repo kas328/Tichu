@@ -420,11 +420,17 @@ namespace Tichu.GameFlow.Agents
             var cheap = MoveOrder.Lowest(nonBombWins);   // 최소 오버킬(점수카드 허용)
             if (cheap == null) return null;
 
-            // #4b/#4c: 파트너(Top 소유)가 티츄 콜 + 아직 안 나감 → 절대 밟지 않는다(콜한 파트너가 리드를
-            // 유지해 먼저 나가게 양보; 밟으면 리드를 뺏거나 goesOut 으로 먼저 아웃해 티츄 200점을 파탄낸다).
+            // #4b/#4c: 파트너(Top 소유)가 티츄 콜 + 아직 안 나감 → 기본 밟지 않는다(콜한 파트너가 리드를
+            // 유지해 먼저 나가게 양보; 밟으면 리드를 뺏거나 먼저 아웃해 티츄 200점을 파탄낸다).
+            // 단(#4c 정제): 내가 이 수로 나가고(goesOut) 파트너가 곧 못 나갈 것 같으면(약패·막힘) 살리러 나간다.
             if (ctx.State.Seats[trick.TopOwnerSeat].Call != TichuCall.None
                 && !ctx.State.Seats[trick.TopOwnerSeat].IsOut)
-                return null;
+            {
+                bool wouldGoOut = ctx.MyHand.Count == cheap.Cards.Count;
+                if (wouldGoOut && CallerCannotGoOutSoon(ctx, trick.TopOwnerSeat))
+                    return cheap;     // 살리기: 콜한 파트너가 못 나갈 것 같으니 내가 나가 라운드 확보
+                return null;          // 콜 보호: 밟지 않는다
+            }
 
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
@@ -433,6 +439,34 @@ namespace Tichu.GameFlow.Agents
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
             return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+        }
+
+        /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).
+        /// 보수적 — 진짜 티츄를 막으면 −200 대참사라, 명백한 신호만: ① 파트너가 나보다 카드 ≥3장 많음(먼 아웃),
+        /// 또는 ② 파트너가 이 라운드 3회 이상 패스(트릭을 못 이겨 막힘).</summary>
+        private static bool CallerCannotGoOutSoon(in DecisionContext ctx, int callerSeat)
+        {
+            int callerCards = ctx.State.Seats[callerSeat].Hand.Count;
+            if (callerCards >= ctx.MyHand.Count + 3) return true;
+            return CountSeatPasses(ctx.State, callerSeat) >= 3;
+        }
+
+        /// <summary>해당 좌석이 이 라운드(현재 + 완료 트릭)에 패스한 총 횟수(History 의 Combination==null).</summary>
+        private static int CountSeatPasses(GameState state, int seat)
+        {
+            int passes = 0;
+            var cur = state.CurrentTrick;
+            if (cur != null)
+                for (int i = 0; i < cur.History.Count; i++)
+                    if (cur.History[i].Seat == seat && cur.History[i].Combination == null) passes++;
+            var done = state.CompletedTricks;
+            for (int t = 0; t < done.Count; t++)
+            {
+                var h = done[t].History;
+                for (int i = 0; i < h.Count; i++)
+                    if (h[i].Seat == seat && h[i].Combination == null) passes++;
+            }
+            return passes;
         }
 
         /// <summary>

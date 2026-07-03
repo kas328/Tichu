@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using Cysharp.Threading.Tasks;
 using R3;
 using Tichu.Core;
@@ -12,6 +13,8 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
+
+[assembly: InternalsVisibleTo("Tichu.Presentation.Tests")]   // BudgetMsFor 정합성 테스트 접근용
 
 namespace Tichu.Presentation
 {
@@ -115,14 +118,16 @@ namespace Tichu.Presentation
         }
 
         /// <summary>난이도별 인게임 1수 시간예산(ms). 스펙 §5 시작값. 0=탐색 OFF(Easy).</summary>
-        private static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d)
+        internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d)
         {
             switch (d)
             {
                 case Tichu.GameFlow.Agents.Difficulty.Easy:   return 0;
-                case Tichu.GameFlow.Agents.Difficulty.Normal: return 900;  // P2-F: 겹치기 전제, 관전 딜레이(~900ms) 이내로 탐색 흡수
-                case Tichu.GameFlow.Agents.Difficulty.Hard:   return 250;
-                case Tichu.GameFlow.Agents.Difficulty.Expert: return 300;
+                // P2-G 정합성: 예산은 티어 오름차순 비감소. 탐색은 관전 딜레이(~900ms)와 겹쳐 돌아
+                // 900 이내는 체감 지연 0 → Hard/Expert 도 900으로 올려 예산 역전 제거(무지연).
+                case Tichu.GameFlow.Agents.Difficulty.Normal: return 900;
+                case Tichu.GameFlow.Agents.Difficulty.Hard:   return 900;
+                case Tichu.GameFlow.Agents.Difficulty.Expert: return 900;
                 default:                                       return 80;
             }
         }

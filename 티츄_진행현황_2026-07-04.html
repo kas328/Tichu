@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 진행 현황 & 다음 로드맵 (2026-07-04)</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:22px;margin:46px 0 14px;padding-top:16px;border-top:1px solid var(--line);letter-spacing:-.01em}
+  h3{font-size:16px;margin:22px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right}
+  .mut{color:var(--muted)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .t-done{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-park{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-todo{background:#20242c;color:#9fb0c2;border:1px solid #34404d}
+  .t-open{background:#301820;color:#f2879e;border:1px solid #5e2c3a}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 18px;margin:20px 0;text-align:center;overflow-x:auto}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:12px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:12.5px;margin-top:6px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:14px 0}
+  .lev{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--line);border-radius:0 10px 10px 0;padding:12px 14px}
+  .lev.A{border-left-color:#f2b350}.lev.B{border-left-color:#b78bff}.lev.C{border-left-color:#4fd6c6}.lev.D{border-left-color:#6fce8a}
+  .lev h4{margin:0 0 4px;font-size:14.5px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .lev p{margin:4px 0;font-size:12.5px;color:var(--muted)}
+  .eff{font-size:11px;color:var(--muted)}
+  .next{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:14px}
+  .opt{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .opt.reco{border-color:#2c5c3d;background:linear-gradient(180deg,#15201a,#141a17)}
+  .opt h4{margin:0 0 6px;font-size:15px}
+  .opt .why{font-size:13px;color:var(--muted);margin:6px 0 0}
+  .kbd{font-size:12.5px;color:var(--muted)}
+  .chip{font-size:11px;padding:1px 7px;border-radius:6px;background:#0c0f13;color:#cfe6ff;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>티츄 — 진행 현황 &amp; 다음 로드맵</h1>
+  <div class="sub">2026-07-04 · <code>main</code> 클린·origin 동기화 완료 · Phase 0 완료 · Phase 1 게이트만 남음 · Phase 2 AI 진행 중</div>
+
+  <div class="verdict">
+    <strong>한 줄 현황.</strong> 룰엔진·상태기계(Phase 0)와 MVP 구현(Phase 1)은 사실상 끝났고 <b>남은 건 사람 실기기 60fps 게이트</b> 하나다.
+    지금 무게중심은 <b>Phase 2 AI(PIMC) 강도</b>에 있다. 직전 세션(P2-G)에서 <b>“세계수는 죽은 레버”</b>를 격리 벤치로 확정하고 18개 강화 레버 로드맵을 세운 뒤,
+    그중 <b>D1(위협 블록)·A2(템포 폭탄)를 채택</b>, <b>B1(α-μ 강건백업)·콤보가드는 검증 후 보류</b>했다.
+    <b>미해결 구조 이슈 2건</b>(예산 역전, 티어 재정렬)이 남아 있다.
+  </div>
+
+  <!-- ============ TIMELINE ============ -->
+  <h2>1. 전체 타임라인</h2>
+  <div class="fig">
+    <svg viewBox="0 0 940 210" width="100%" style="max-width:940px" role="img" aria-label="프로젝트 페이즈 타임라인">
+      <!-- Phase 0 -->
+      <rect x="20" y="40" width="230" height="54" rx="9" fill="#153021" stroke="#2c5c3d"/>
+      <text x="135" y="63" fill="#7ee6a6" font-size="14" font-weight="700" text-anchor="middle">Phase 0 · 코어</text>
+      <text x="135" y="82" fill="#9aa7b6" font-size="11.5" text-anchor="middle">룰엔진·상태기계·정산·시뮬</text>
+      <text x="135" y="112" fill="#7ee6a6" font-size="11" text-anchor="middle">✔ 완료 (155 tests·10만판)</text>
+      <!-- Phase 1 -->
+      <rect x="270" y="40" width="300" height="54" rx="9" fill="#1c2a1e" stroke="#3d5a44"/>
+      <text x="420" y="63" fill="#8fe6ab" font-size="14" font-weight="700" text-anchor="middle">Phase 1 · MVP</text>
+      <text x="420" y="82" fill="#9aa7b6" font-size="11.5" text-anchor="middle">앱셸·비주얼·손맛·사운드·빌드</text>
+      <text x="420" y="112" fill="#f0cf7d" font-size="11" text-anchor="middle">✔ 구현 완료 · ⏳ 실기기 게이트 잔여</text>
+      <!-- Phase 2 -->
+      <rect x="590" y="40" width="330" height="54" rx="9" fill="#132530" stroke="#245063"/>
+      <text x="755" y="63" fill="#79dcff" font-size="14" font-weight="700" text-anchor="middle">Phase 2 · AI (PIMC)</text>
+      <text x="755" y="82" fill="#9aa7b6" font-size="11.5" text-anchor="middle">A→B→C→D→E→F→<b>G</b> (강화)</text>
+      <text x="755" y="112" fill="#79dcff" font-size="11" text-anchor="middle">▶ 진행 중 (P2-G 로드맵 실행)</text>
+      <!-- arrows -->
+      <text x="260" y="72" fill="#4a5560" font-size="18" text-anchor="middle">→</text>
+      <text x="580" y="72" fill="#4a5560" font-size="18" text-anchor="middle">→</text>
+      <!-- progress mini bar -->
+      <text x="20" y="150" fill="#9aa7b6" font-size="12">Phase 2 세부 진척</text>
+      <rect x="20" y="160" width="900" height="14" rx="7" fill="#1e232b" stroke="#2a323d"/>
+      <rect x="20" y="160" width="770" height="14" rx="7" fill="#245063"/>
+      <text x="405" y="171" fill="#cfe6ff" font-size="10.5" text-anchor="middle">A·B·C·D·E·F 완료 + G 로드맵/D1/A2/B1 판정</text>
+      <text x="855" y="192" fill="#9aa7b6" font-size="11" text-anchor="middle">남은 레버 →</text>
+    </svg>
+    <figcaption>Phase 0 완료 · Phase 1 구현 완료(사람 게이트만) · Phase 2는 A~F 완료 후 G(강화 로드맵) 실행 중.</figcaption>
+  </div>
+
+  <!-- ============ RECENT WORK ============ -->
+  <h2>2. 직전 세션(P2-G) 결과 — 무엇을 채택/보류했나</h2>
+  <p class="mut">2026-07-03 세계수 무차별 검증(수확체감 확정 → 세계수는 죽은 레버) + 18레버 로드맵. 이후 상위 레버부터 TDD·격리벤치로 판정:</p>
+  <table>
+    <thead><tr><th>항목</th><th>내용</th><th class="num">벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>D1</b> 상대-위협 블록 가드</td><td>상대가 Top+아웃/티츄 임박이면 EV 전에 휴리스틱 블록. 전 PIMC 티어 ON.</td><td class="num" style="color:var(--good)">+16.9/R<br><span class="mut">회귀 없음</span></td><td><span class="tag t-done">채택 · ON</span></td></tr>
+      <tr><td><b>A2</b> 템포/아웃-저지 폭탄</td><td><code>DecideBomb</code> 2차 트리거 — 15점 미만이라도 아웃/티츄 저지 폭탄.</td><td class="num">중립<br><span class="mut">회귀 없음</span></td><td><span class="tag t-done">채택</span></td></tr>
+      <tr><td>봉황 단독 낭비 교정</td><td>팔로우 시 자연 승수 우선 → 봉황 낭비 방지.</td><td class="num">+0.1/R</td><td><span class="tag t-done">채택</span></td></tr>
+      <tr><td>엔드게임 리드 경합</td><td>팀메이트 아웃 시 낮은 리드 헌납 금지.</td><td class="num">+0.4/R</td><td><span class="tag t-done">채택</span></td></tr>
+      <tr><td><b>B1</b> α-μ 강건 백업</td><td>최고 레버리지 후보(전략융합 탈출). <code>argmax(mean−λ·std)</code>.</td><td class="num" style="color:var(--bad)">부호 불안정<br><span class="mut">노이즈만 벌함</span></td><td><span class="tag t-park">보류 · OFF</span></td></tr>
+      <tr><td>콤보 밟기 팀킬 가드 (Bug4)</td><td>비싼 자원으로 상대 콤보 밟는 낭비 차단 시도.</td><td class="num" style="color:var(--bad)">−6.9/R<br><span class="mut">밟는 게 강함</span></td><td><span class="tag t-park">보류 · OFF</span></td></tr>
+    </tbody>
+  </table>
+  <p class="kbd">※ 보류 4건은 코드·테스트 보존(플래그 OFF·비트불변). “강도 주장은 격리 벤치+부호안정으로 검증” 규율이 B1의 8세계 거짓 신호(+32.5/R)를 정확히 걸러냄.</p>
+
+  <!-- ============ REMAINING LEVERS ============ -->
+  <h2>3. 남은 강화 레버 (로드맵 18개 중 미착수)</h2>
+  <div class="legend" style="margin-bottom:6px">
+    <span><span class="dot" style="background:#f2b350"></span>A 롤아웃 천장</span>
+    <span><span class="dot" style="background:#b78bff"></span>B 전략융합 탈출</span>
+    <span><span class="dot" style="background:#4fd6c6"></span>C 믿음/결정화</span>
+    <span><span class="dot" style="background:#6fce8a"></span>D 라이브가드/효율</span>
+  </div>
+  <div class="grid">
+    <div class="lev A"><h4>A1 리드 셰딩 재설계 <span class="tag t-todo">미착수</span></h4><p>“항상 최저 싱글”을 멈춤 — 콤보 쟁여 엔드게임 갇힘 교정.</p><p class="eff">노력 L · 최대 상방 / wash 위험 최대 · 폭탄·풀하우스 가드 필수</p></div>
+    <div class="lev A"><h4>A3 팔로우 아웃임박 확장 <span class="tag t-todo">미착수</span></h4><p>2–3장 아웃-레이스 상대 락아웃 확장(D1 가드 공유).</p><p class="eff">노력 M</p></div>
+    <div class="lev C"><h4>C1 교환 카드 핀 <span class="tag t-todo">미착수</span></h4><p>내가 넘긴 3장을 수령 좌석에 고정 — 항상 옳고 변량 0.</p><p class="eff">노력 S · 값싼 보험·무공짜</p></div>
+    <div class="lev D"><h4>D2 ε·롤아웃수 정상화 <span class="tag t-todo">미착수</span></h4><p>ε=0 Expert의 6× 중복 롤아웃 제거 → move당 ~6× 공짜 절감.</p><p class="eff">노력 S · 고신뢰·저리스크</p></div>
+    <div class="lev C"><h4>C2 패스-일관 void 제약 <span class="tag t-todo">미착수</span></h4><p>패스 이력으로 자기모순 세계 기각 — PIMC 최대 믿음오류 교정.</p><p class="eff">노력 L · 추정 +10~30/R·미검증</p></div>
+    <div class="lev C"><h4>C3 티츄콜 강도 제약 <span class="tag t-todo">미착수</span></h4><p>콜한 좌석 손패를 콜 요구 강도 하한까지 하드 재샘플.</p><p class="eff">노력 M</p></div>
+    <div class="lev D"><h4>D3 잠재값 EV 동점깨기 <span class="tag t-todo">미착수</span></h4><p>전략맹 “최저 Strength” 동점깨기를 위치신호로 대체.</p><p class="eff">노력 M · 무위험</p></div>
+    <div class="lev B"><h4>B2 세계 내 심화 negamax <span class="tag t-todo">미착수</span></h4><p>평면 롤아웃 → 깊이제한 최선응답(Ginsberg식).</p><p class="eff">노력 L</p></div>
+    <div class="lev B"><h4>B3 SO-ISMCTS <span class="tag t-todo">연구</span></h4><p>정보집합 위 단일 트리 — 구조적 전략융합 탈출.</p><p class="eff">노력 XL · 최고 천장·연구</p></div>
+  </div>
+
+  <!-- ============ OPEN ISSUES ============ -->
+  <h2>4. 미해결 구조 이슈 <span class="tag t-open" style="vertical-align:middle">우선 정리 대상</span></h2>
+  <div class="card" style="border-color:#4a2530">
+    <h3 style="color:var(--bad);margin-top:4px">① 예산 역전 — 인게임에서 Normal ≥ Hard</h3>
+    <p>시간 예산이 <code>Normal 900ms</code> &gt; <code>Hard 250ms</code> · <code>Expert 300ms</code>인데, Normal·Hard 둘 다 16세계다.
+    즉 <b>“Hard”를 고른 플레이어가 오히려 탐색 시간이 짧아 더 약한 AI를 만난다.</b> 난이도 선택기의 명백한 정합성 버그 — 로드맵이 “반드시 수정” 지적. <b>여전히 미수정.</b></p>
+    <table style="margin-top:6px">
+      <thead><tr><th>티어</th><th class="num">세계수</th><th class="num">롤아웃</th><th class="num">ε</th><th class="num">예산(ms)</th><th>플래그</th></tr></thead>
+      <tbody>
+        <tr><td>Easy</td><td class="num">0</td><td class="num">0</td><td class="num">.25</td><td class="num">0</td><td class="mut">탐색 OFF+블런더</td></tr>
+        <tr><td>Normal</td><td class="num">16</td><td class="num">4</td><td class="num">.05</td><td class="num" style="color:var(--bad)">900</td><td>caller+D1</td></tr>
+        <tr><td>Hard</td><td class="num">16</td><td class="num">4</td><td class="num">.05</td><td class="num" style="color:var(--bad)">250</td><td>D1</td></tr>
+        <tr><td>Expert</td><td class="num">24</td><td class="num">6</td><td class="num">.00</td><td class="num">300</td><td>D1</td></tr>
+      </tbody>
+    </table>
+    <h3 style="color:var(--bad)">② 티어 재정렬 미완 — “세계수 사다리” → “알고리즘 사다리”</h3>
+    <p>세계수가 죽은 레버로 확정됐으니 티어는 알고리즘으로 벌려야 한다(Normal 8–12세계, Hard=강건 알고리즘, Expert=ISMCTS).
+    그런데 <b>Hard의 정체성으로 삼으려던 B1이 보류</b>돼 현재 Normal↔Hard는 <code>callerAggression</code> 유무만 다르다. 알고리즘 축이 아직 비어 있음.</p>
+  </div>
+
+  <!-- ============ NEXT ============ -->
+  <h2>5. 다음 작업 — 선택지</h2>
+  <p class="mut">아래 4개 중 무엇을 먼저 할지 결정이 필요합니다(질문 창에서 선택). 강도 주장은 채택 전 격리 벤치 필수라는 규율은 유지합니다.</p>
+  <div class="next">
+    <div class="opt reco"><h4>A. 예산 역전 수정 + 티어 정합성 <span class="chip">빠름·필수</span></h4>
+      <p class="why">Hard/Expert 예산을 Normal 이상으로 올려 “Hard가 더 약한” 버그를 즉시 제거. 저리스크·짧음. 이후 티어 스토리의 전제.</p></div>
+    <div class="opt"><h4>B. A1 리드 셰딩 재설계 <span class="chip">강도 최대 상방</span></h4>
+      <p class="why">검증된 A계열(P2-E +95/R). 롤아웃 천장 전반 상승. 단 wash 위험 최대 → 폭탄/풀하우스 가드 + 이중 벤치 게이트 필요.</p></div>
+    <div class="opt"><h4>C. C1 교환핀 + D2 ε 정상화 <span class="chip">값싼 보험</span></h4>
+      <p class="why">둘 다 노력 S. C1은 항상 옳고 변량 0, D2는 Expert ~6× 공짜 절감. 저리스크로 확실한 개선 축적.</p></div>
+    <div class="opt"><h4>D. Phase 1 마무리 <span class="chip">출시 경로</span></h4>
+      <p class="why">실기기 D6 게이트(중저가 60fps·“한 판 더” 테스트) + D5.1 잔여(버튼SFX·볼륨패널·Pause·BGM). Phase 1을 공식 종료.</p></div>
+  </div>
+
+  <div class="sub" style="margin-top:34px;border-top:1px solid var(--line);padding-top:14px">
+    근거: <code>PolicyConfig.For</code>(티어 플래그)·<code>RoundBootstrap.BudgetMsFor</code>(예산)·git 로그(D1 <code>c161930</code>·A2 <code>d4d8d3e</code>·B1 <code>2ea6f13</code>·픽스 <code>cb28fde</code>) 대조.
+    로드맵 원문: <code>티츄_AI강화_검증_로드맵.html</code>. 모든 강도 주장은 격리 self-play 벤치·부호안정으로 검증(과거 인간직관 리드변경 다수 회귀).
+  </div>
+
+</div>
+</body>
+</html>

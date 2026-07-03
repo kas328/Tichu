@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 예산 역전 수정 & 티어 정합성 설계</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:21px;margin:44px 0 14px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:20px 0 8px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:24px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:13px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:16px 0}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:center;vertical-align:middle}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  td.l{text-align:left}
+  tr:nth-child(even) td{background:#131820}
+  .bad{color:var(--bad);font-weight:700} .good{color:var(--good);font-weight:700} .mut{color:var(--muted)}
+  .cellbad{background:#2a1319 !important;color:#f2879e;font-weight:700}
+  .cellgood{background:#12241a !important;color:#7ee6a6;font-weight:700}
+  .fig{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 18px;margin:20px 0;text-align:center;overflow-x:auto}
+  .fig figcaption{color:var(--muted);font-size:13px;margin-top:12px}
+  .opts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px}
+  @media(max-width:720px){.opts{grid-template-columns:1fr}}
+  .opt{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .opt.reco{border-color:#2c5c3d;background:linear-gradient(180deg,#15201a,#141a17)}
+  .opt h3{margin-top:0;color:var(--ink)}
+  .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;margin-left:6px}
+  .b-reco{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .b-alt{background:#20242c;color:#9fb0c2;border:1px solid #34404d}
+  .kbd{font-size:12.5px;color:var(--muted)}
+  ul{margin:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>예산 역전 수정 &amp; 티어 정합성 — 설계 제안</h1>
+  <div class="sub">2026-07-04 · 승인 전 설계 · 대상 <code>PolicyConfig.For</code> + <code>RoundBootstrap.BudgetMsFor</code></div>
+
+  <div class="verdict">
+    <strong>요지.</strong> 이 작업은 값 하나 수정이 아니라 <b>3중 역전</b>(예산·전술플래그·Expert 굶주림)을 <b>단조 정합성</b>으로 고치는 일이다.
+    핵심 지렛대는 동시성 모델: <b>탐색이 관전 딜레이(900ms)와 겹쳐 돌아 900ms 이내 탐색은 체감 지연 0</b> —
+    따라서 Hard/Expert 예산을 900까지 올려도 <b>공짜</b>다.
+  </div>
+
+  <!-- ===== overlap insight ===== -->
+  <h2>1. 왜 예산을 올려도 공짜인가</h2>
+  <div class="fig">
+    <svg viewBox="0 0 860 260" width="100%" style="max-width:860px" role="img" aria-label="딜레이-탐색 겹침 모델">
+      <text x="20" y="28" fill="#9aa7b6" font-size="13">체감 1수 시간 ≈ max(관전 딜레이, 탐색)  —  둘이 동시에 진행</text>
+      <!-- delay bar -->
+      <text x="20" y="70" fill="#79dcff" font-size="12">관전 딜레이</text>
+      <rect x="150" y="54" width="600" height="26" rx="6" fill="#132530" stroke="#245063"/>
+      <text x="450" y="72" fill="#79dcff" font-size="12" text-anchor="middle">AiDelayMs = 900ms (항상 대기)</text>
+      <!-- Normal search -->
+      <text x="20" y="118" fill="#6fce8a" font-size="12">Normal 탐색</text>
+      <rect x="150" y="102" width="200" height="26" rx="6" fill="#15301f" stroke="#2c5c3d"/>
+      <text x="250" y="120" fill="#7ee6a6" font-size="12" text-anchor="middle">16세계 ~300ms ✔완주</text>
+      <rect x="350" y="102" width="400" height="26" rx="6" fill="#12181e" stroke="#2a323d" stroke-dasharray="4 4"/>
+      <text x="550" y="120" fill="#5a6b52" font-size="11.5" text-anchor="middle">남는 딜레이(놀고 있음)</text>
+      <!-- Hard search current -->
+      <text x="20" y="166" fill="#f2b350" font-size="12">Hard 탐색(현재)</text>
+      <rect x="150" y="150" width="167" height="26" rx="6" fill="#2a1319" stroke="#5e2c3a"/>
+      <text x="233" y="168" fill="#f2879e" font-size="11.5" text-anchor="middle">예산 250ms — 잘림</text>
+      <rect x="317" y="150" width="433" height="26" rx="6" fill="#12181e" stroke="#2a323d" stroke-dasharray="4 4"/>
+      <text x="533" y="168" fill="#5a6b52" font-size="11.5" text-anchor="middle">← 여기까지 다 공짜인데 안 씀</text>
+      <!-- Hard search fixed -->
+      <text x="20" y="214" fill="#54d18c" font-size="12">Hard 탐색(수정)</text>
+      <rect x="150" y="198" width="200" height="26" rx="6" fill="#15301f" stroke="#2c5c3d"/>
+      <text x="250" y="216" fill="#7ee6a6" font-size="12" text-anchor="middle">16→20세계 완주</text>
+      <rect x="350" y="198" width="400" height="26" rx="6" fill="#12181e" stroke="#2a323d" stroke-dasharray="4 4"/>
+      <text x="550" y="216" fill="#5a6b52" font-size="11.5" text-anchor="middle">예산 900이어도 체감 지연 0</text>
+      <!-- scale -->
+      <line x1="150" y1="238" x2="750" y2="238" stroke="#3a4552"/>
+      <text x="150" y="252" fill="#7b8794" font-size="10.5" text-anchor="middle">0</text>
+      <text x="350" y="252" fill="#7b8794" font-size="10.5" text-anchor="middle">300ms</text>
+      <text x="750" y="252" fill="#7b8794" font-size="10.5" text-anchor="middle">900ms</text>
+    </svg>
+    <figcaption>탐색은 anytime — 예산 만료 시 best-so-far 반환. 900ms 이내면 딜레이에 가려져 무지연. 저사양폰에서 커지면 잘리지만 <b>anytime이라 단조성은 유지</b>(같은 예산에 세계수↑ → 완주 세계 ≥).</figcaption>
+  </div>
+
+  <!-- ===== current inversions ===== -->
+  <h2>2. 현재 티어 — 역전 3개</h2>
+  <table>
+    <thead><tr><th class="l">티어</th><th>세계수</th><th>롤아웃</th><th>ε</th><th>예산(ms)</th><th>caller 어그레션</th><th>D1 블록</th></tr></thead>
+    <tbody>
+      <tr><td class="l">Easy</td><td>0</td><td>0</td><td>.25</td><td>0</td><td class="mut">–</td><td class="mut">–</td></tr>
+      <tr><td class="l">Normal</td><td>16</td><td>4</td><td>.05</td><td class="cellgood">900</td><td class="cellgood">ON</td><td>ON</td></tr>
+      <tr><td class="l">Hard</td><td>16</td><td>4</td><td>.05</td><td class="cellbad">250</td><td class="cellbad">OFF</td><td>ON</td></tr>
+      <tr><td class="l">Expert</td><td>24</td><td>6</td><td>.00</td><td class="cellbad">300</td><td class="cellbad">OFF</td><td>ON</td></tr>
+    </tbody>
+  </table>
+  <p class="kbd">빨강 = 역전. Hard/Expert가 Normal보다 예산이 짧고(①), 검증된 전술(caller +22/R)이 빠져 있음(②). Expert는 24세계에 300ms라 완주 불가(③).</p>
+
+  <!-- ===== options ===== -->
+  <h2>3. 두 가지 정합성 안</h2>
+  <p class="mut">역전 제거(예산 900 통일 · caller 전 PIMC 티어)는 두 안 공통. 차이는 <b>세계수 배치</b>뿐 — 세계수는 “죽은 레버”(≥8부터 승률 씻김)라 상위 티어 간 강도차는 작지만, 배치 방식이 다르다.</p>
+
+  <div class="opts">
+    <div class="opt reco">
+      <h3>A. 상향 사다리 <span class="badge b-reco">추천</span></h3>
+      <table>
+        <thead><tr><th class="l">티어</th><th>세계</th><th>예산</th><th>플래그</th></tr></thead>
+        <tbody>
+          <tr><td class="l">Normal</td><td class="good">16</td><td>900</td><td>caller+D1</td></tr>
+          <tr><td class="l">Hard</td><td class="good">20</td><td>900</td><td>caller+D1</td></tr>
+          <tr><td class="l">Expert</td><td class="good">24</td><td>900</td><td>caller+D1</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li><b>Normal 불변(16)</b> → DoD 검증 티어 그대로, 재벤치 불요.</li>
+        <li>Hard=Normal+4세계, Expert=+8 → <b>구조적으로 단조</b>(상위 = 하위 전술 ⊇ + 세계 ≥ + 예산 ≥). 강도 회귀 불가.</li>
+        <li>20세계 ~375ms · 24 ~700ms → 모두 900ms 딜레이에 흡수, <b>체감 지연 0</b>.</li>
+        <li>티어 3개가 <b>구별</b>됨(붕괴 없음). 단 상위 간 실제 강도차는 작음(솔직).</li>
+      </ul>
+    </div>
+    <div class="opt">
+      <h3>B. 최소 수술 <span class="badge b-alt">대안</span></h3>
+      <table>
+        <thead><tr><th class="l">티어</th><th>세계</th><th>예산</th><th>플래그</th></tr></thead>
+        <tbody>
+          <tr><td class="l">Normal</td><td>16</td><td>900</td><td>caller+D1</td></tr>
+          <tr><td class="l">Hard</td><td class="mut">16</td><td>900</td><td>caller+D1</td></tr>
+          <tr><td class="l">Expert</td><td>24</td><td>900</td><td>caller+D1</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>세계수 불변 — 예산·플래그만 통일. 가장 적은 변경.</li>
+        <li>단 <b>Normal ≡ Hard 완전 동일</b> → 난이도 메뉴 두 칸이 똑같이 플레이됨(티어 붕괴).</li>
+        <li>“Hard는 아직 Normal과 같다”를 감수하는 정직한 축소.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="border-color:#4a3a1e;background:linear-gradient(180deg,#231d12,#1b1710)">
+    <p><b>공통 참고.</b> 상위 티어를 <b>의미 있게</b> 더 세게 만들려면 알고리즘 축이 필요(B1 α-μ=보류, ISMCTS=XL 연구). 이번 작업은 <b>역전 제거·정합성</b>까지이고,
+    진짜 강도 사다리는 알고리즘 레버가 생길 때의 후속이다. Expert의 <code>ε=0 × 6롤아웃</code>(동일 롤아웃 낭비, D2 레버)은 이번 범위에선 건드리지 않고 후속으로 남긴다.</p>
+  </div>
+
+  <!-- ===== plan ===== -->
+  <h2>4. 구현·검증 계획 (승인 후)</h2>
+  <ul>
+    <li><b>변경 파일 2개</b>: <code>PolicyConfig.For</code>(Hard/Expert에 <code>useCallerAggression:true</code> 추가, A안이면 Hard 세계 16→20) · <code>RoundBootstrap.BudgetMsFor</code>(Hard 250→900, Expert 300→900). Unity/core 미러 동기화.</li>
+    <li><b>테스트(TDD)</b>: 티어 단조성 가드 테스트 추가 — 예산·세계수·strength-positive 플래그가 티어 오름차순으로 비감소임을 <code>PolicyConfigTests</code>/부트스트랩에서 assert.</li>
+    <li><b>플레이테스트</b>: Hard/Expert 1수 체감 지연이 안 늘어남 육안 확인(딜레이 겹침 검증).</li>
+    <li>강도 회귀 벤치는 A안에선 구조적 단조라 <b>불요</b>(안심용 짧은 sanity만).</li>
+  </ul>
+
+  <div class="sub" style="margin-top:30px;border-top:1px solid var(--line);padding-top:14px">
+    근거: <code>PimcDecisionAgent.DecideTurnAsync</code>(L65–71, max(딜레이,연산) 겹침) · <code>PolicyConfig.For</code> · <code>RoundBootstrap.BudgetMsFor</code>(L118–128) · 세계수 수확체감=<code>티츄_AI강화_검증_로드맵.html</code>.
+  </div>
+
+</div>
+</body>
+</html>

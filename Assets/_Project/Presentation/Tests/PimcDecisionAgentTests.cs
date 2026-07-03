@@ -111,6 +111,21 @@ namespace Tichu.Presentation.Tests
                 $"겹침이면 f≈max({delayMs},c). 순차면 f≈{delayMs}+c. (c={c}ms, f={f}ms)");
         }
 
+        // ── P2-G 티어 정합성: 인게임 시간예산 단조 ──────────────────────────────────
+        // 예산 역전(Normal 900 > Hard 250 / Expert 300) 회귀 방지. 탐색이 관전 딜레이와
+        // 겹쳐 돌아 900ms 이내는 무지연이므로 상위 티어 예산을 낮출 이유가 없다.
+        [Test]
+        public void BudgetMsFor_is_monotonic_non_decreasing_across_tiers()
+        {
+            int e = RoundBootstrap.BudgetMsFor(Difficulty.Easy);
+            int n = RoundBootstrap.BudgetMsFor(Difficulty.Normal);
+            int h = RoundBootstrap.BudgetMsFor(Difficulty.Hard);
+            int x = RoundBootstrap.BudgetMsFor(Difficulty.Expert);
+            Assert.That(e, Is.LessThanOrEqualTo(n), "Easy ≤ Normal");
+            Assert.That(n, Is.LessThanOrEqualTo(h), "Normal ≤ Hard (역전 금지)");
+            Assert.That(h, Is.LessThanOrEqualTo(x), "Hard ≤ Expert");
+        }
+
         [Test, Timeout(60000)]
         public void DecideTurnAsync_aborted_throws_OCE()
         {

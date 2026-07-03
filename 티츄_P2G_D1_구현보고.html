@@ -178,16 +178,20 @@
     <strong>Normal·Hard·Expert 승격(D1 ON).</strong> 사용자 결정(A): 체감 확인을 우선해 PIMC 전 티어에서 D1 을 켰다.
     D1 은 난이도 차별 축이 아니라 관측된 나쁜-수를 고치는 <b>정확성 바닥</b>이라, Normal 만 켜면 Hard 가 같은 증상을 보이는
     <b>티어 역전</b>이 생기므로 세 티어 모두 ON(Easy 는 <code>Worlds=0</code> 라 가드 미도달·무관). 회귀 위험은 낮다 — 이미 검증된
-    <code>DecideFollow</code> 로직을 좁은 위협 조건에서만 재사용하기 때문. <b>비-회귀 확인용 PimcBench ON/OFF 는 백그라운드로 진행 중.</b>
+    <code>DecideFollow</code> 로직을 좁은 위협 조건에서만 재사용하기 때문. <b>비-회귀 벤치 완료 — 회귀 없음</b>
+    (동일 딜 32R·16세계: ON <b>+137.8/R</b> vs OFF +120.9/R = <b>delta +16.9/R</b>, 승률 동률 25/32).
   </div>
+  <p class="mut">delta +16.9/R 는 <b>회귀가 아님</b>을 분명히 보여주나(오히려 우세), <b>n=32 단일 배치</b>라 강도 확정 주장은 아니다
+    — 과거 reach-prob 가 배치1 +25/R → 배치2 −13/R 로 부호가 뒤집힌 전례가 있어, +16.9 는 “방향 신호”로만 해석한다.
+    <b>승률이 동률(25/32)</b>인 점은 D1 이 승패를 바꾸기보다 <b>마진(패배 폭 축소·아웃 저지)</b>을 개선하는 좁은 가드임과 일치한다.</p>
   <p class="mut">저장소의 “강도 주장은 격리 벤치 필수” 규율을 존중하되, D1 의 실제 검증은 <b>플레이테스트</b>(체감 증상 제거)이며 벤치는 점수 <b>비-회귀</b>를 사후 확인한다(로드맵도 점수 이득은 “소폭”으로 예측). 승격은 TDD(<code>UseOpponentThreatBlock_on_for_pimc_tiers</code> RED→GREEN)로 반영, 재검증 64/64 그린.</p>
 
   <h2>5. 진행 상태 &amp; 다음</h2>
   <div class="card">
     <ul class="tight">
       <li><span class="tag t-done">완료</span> D1 구현 · PIMC 티어 승격(Normal/Hard/Expert ON) · <code>--no-ff</code> main 병합.</li>
-      <li><span class="tag t-gate">진행 중</span> <code>PimcBench</code> ON/OFF 미러드 <b>비-회귀 벤치</b>(백그라운드) — 점수 회귀 없음 확인.</li>
-      <li><span class="tag t-new">검증</span> 플레이테스트로 “옆 상대 올패스” 증상 제거 체감 확인(D1 의 본 목적).</li>
+      <li><span class="tag t-done">완료</span> <code>PimcBench</code> ON/OFF 미러드 비-회귀 벤치(32R·16세계): ON +137.8 vs OFF +120.9 = <b>delta +16.9/R</b>·승률 동률 → <b>회귀 없음</b>(n=32 단일배치, 강도 확정 아님).</li>
+      <li><span class="tag t-new">다음</span> 플레이테스트로 “옆 상대 올패스” 증상 제거 체감 확인(D1 의 본 목적) · 이후 로드맵 B1.</li>
     </ul>
     <p class="mut">그다음 로드맵 순서는 <b>B1 α-μ 강건 백업</b>(최고 레버리지, 전략융합 탈출) → <b>A1/A2 롤아웃 강화</b>다.</p>
   </div>

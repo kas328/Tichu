@@ -508,6 +508,54 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.True, "가치 없는 트릭을 비싼 수로 이기는 건 낭비 → 패스해야 한다");
         }
 
+        // ── DecideTurn: 봉황 단독 보존(플레이테스트 버그) ─────────────────────────────
+        // 봉황 단독은 팔로우 시 스케일 랭크가 반칸 위(예: 5→11)라 MoveOrder.Lowest 가 자연 6/7(12/14)
+        // 보다 값싸게 오인 → 귀한 봉황을 싼 트릭에 낭비. 자연 승수 우선(단 봉황뿐이면 헌납 않고 이긴다).
+
+        [Test]
+        public void DecideTurn_prefers_natural_single_over_phoenix()
+        {
+            // 상대(seat1) 낮은 single 5 리드. seat0 = 봉황 + 자연 7. 자연 7 로 이겨 봉황을 아낀다.
+            var s = FollowState(0, Single(5), topOwner: 1, accumulatedPoints: 0,
+                Hand(Card.Phoenix, N(7, Suit.Jade), N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(6, Suit.Sword), N(8, Suit.Sword)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(9, Suit.Pagoda), N(10, Suit.Pagoda), N(11, Suit.Pagoda), N(12, Suit.Pagoda), N(13, Suit.Pagoda)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "자연 승수(7)가 있으니 이긴다");
+            Assert.That(d.Move!.Cards[0].Special, Is.Not.EqualTo(SpecialKind.Phoenix), "봉황을 낭비하지 않는다");
+            Assert.That(d.Move!.Cards[0].Rank, Is.EqualTo(7), "자연 7 로 이긴다");
+        }
+
+        [Test]
+        public void DecideTurn_uses_phoenix_when_it_is_the_only_winner()
+        {
+            // 상대(seat1) 낮은 single 5 리드. seat0 = 봉황 + 2·3(5 못 이김). 이기는 수가 봉황뿐 →
+            // 트릭을 헌납하지 않고 봉황으로 이긴다(자연 대안 없을 때; 과-패스는 템포 손해라 벤치서 확인).
+            var s = FollowState(0, Single(5), topOwner: 1, accumulatedPoints: 0,
+                Hand(Card.Phoenix, N(2, Suit.Pagoda), N(3, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(6, Suit.Sword), N(8, Suit.Sword)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(9, Suit.Pagoda), N(10, Suit.Pagoda), N(11, Suit.Pagoda), N(12, Suit.Pagoda), N(13, Suit.Pagoda)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "자연 대안이 없으면 봉황으로라도 이긴다(트릭 헌납 안 함)");
+            Assert.That(d.Move!.Cards[0].Special, Is.EqualTo(SpecialKind.Phoenix));
+        }
+
+        [Test]
+        public void DecideTurn_uses_phoenix_single_to_go_out()
+        {
+            // seat0 마지막 카드가 봉황뿐 → 밟아서 나가는 게 이득이면 봉황이라도 낸다(과-보존 방지).
+            var s = FollowState(0, Single(5), topOwner: 1, accumulatedPoints: 0,
+                Hand(Card.Phoenix),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(4, Suit.Sword), N(6, Suit.Sword), N(8, Suit.Sword)),
+                Hand(N(2, Suit.Jade)),
+                Hand(N(9, Suit.Pagoda), N(10, Suit.Pagoda), N(11, Suit.Pagoda), N(12, Suit.Pagoda), N(13, Suit.Pagoda)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "나가는 수면 봉황이라도 낸다");
+            Assert.That(d.Move!.Cards[0].Special, Is.EqualTo(SpecialKind.Phoenix));
+        }
+
         // ── DecideTurn: 위협 블로킹(#3, 비용 인지) ────────────────────────────────────
 
         [Test]

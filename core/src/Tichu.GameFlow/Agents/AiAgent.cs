@@ -321,7 +321,9 @@ namespace Tichu.GameFlow.Agents
 
             // 가치 없는(점수 적은) 트릭: 점수카드를 버리거나, 비싼 족보(예: A 풀하우스로 3 풀하우스
             // 막기)를 낭비해야만 이길 수 있으면 패스가 낫다. 단 그 수로 나가면(아웃) 그냥 낸다.
-            var lowestWin = MoveOrder.Lowest(nonBomb)!;
+            // 봉황 단독은 스케일 랭크가 반칸 위라 Lowest 가 값싸게 오인 → 자연 승수 우선(귀한 봉황 보존).
+            // 단 봉황이 유일한 승수면 트릭을 헌납하지 않고 봉황으로 이긴다(과-패스는 템포 손해, 벤치 확인).
+            var lowestWin = CheapestNonPhoenixSingle(nonBomb) ?? MoveOrder.Lowest(nonBomb)!;
             bool goesOut = ctx.MyHand.Count == lowestWin.Cards.Count;
             bool wastesHighCombo = !goesOut && lowestWin.Cards.Count >= 3 && lowestWin.Rank >= HighComboSaveScaled;
             if (ctx.CanPass && trick.AccumulatedPoints < RichTrickPoints
@@ -484,6 +486,24 @@ namespace Tichu.GameFlow.Agents
                 if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
                 int k = MoveOrder.Strength(m);
                 if (k > bestK) { bestK = k; best = m; }
+            }
+            return best;
+        }
+
+        /// <summary>봉황 단독인가(귀한 와일드카드 — 지출 비용이 높다).</summary>
+        private static bool IsPhoenixSingle(Combination m)
+            => m.Type == CombinationType.Single && m.Cards.Count == 1 && m.Cards[0].Special == SpecialKind.Phoenix;
+
+        /// <summary>봉황 단독이 아닌 가장 낮은(약한) 승수. 봉황 단독뿐이면 null.
+        /// 봉황 단독의 스케일 랭크(반칸 위)가 Lowest 를 값싸게 오인시키는 것을 막아 자연 승수를 우선한다.</summary>
+        private static Combination? CheapestNonPhoenixSingle(IReadOnlyList<Combination> wins)
+        {
+            Combination? best = null; int bestK = int.MaxValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                if (IsPhoenixSingle(wins[i])) continue;
+                int k = MoveOrder.Strength(wins[i]);
+                if (k < bestK) { bestK = k; best = wins[i]; }
             }
             return best;
         }

@@ -88,6 +88,20 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void PhoenixConservation_on_shedding_guard_parked_off_for_pimc_tiers()
+        {
+            // #2 봉황 보존: 격리벤치 중립(0.00/R)·관측 낭비 교정 → 전 PIMC 티어 ON.
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UsePhoenixConservation, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UsePhoenixConservation, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UsePhoenixConservation, Is.True);
+            // #3 끝내기 셰딩: 격리벤치 −18/R 회귀(EV 오버라이드 손해) → 전 티어 OFF(파킹·코드 보존).
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseEndgameSheddingGuard, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseEndgameSheddingGuard, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseEndgameSheddingGuard, Is.False);
+            Assert.That(new PolicyConfig(4, 2, 0.10).UsePhoenixConservation, Is.False, "기본 false(비트불변)");
+        }
+
+        [Test]
         public void Normal_promoted_to_16_world_strong_preset()
         {
             // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.

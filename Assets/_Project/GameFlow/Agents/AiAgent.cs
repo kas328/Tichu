@@ -409,6 +409,27 @@ namespace Tichu.GameFlow.Agents
         public static Combination? EndgameSheddingLead(IReadOnlyList<Combination> nonBombLeads)
             => MostShedding(nonBombLeads);
 
+        /// <summary>#2 봉황 보존(라이브 후보 필터): 낮은 싱글 팔로우에서 자연(비봉황) 승수 싱글이 있으면
+        /// 봉황 단독 후보를 제거해 자연 우선(귀한 봉황 낭비 방지). 강제/과-패스 안 함 — EV 가 자연·패스 중 선택.
+        /// 봉황이 유일 승수거나 봉황으로 나가면(손패 1장) 유지. 높은 싱글·리치 트릭은 봉황 정당이라 제외.
+        /// PimcAgent 가 플래그 ON 일 때 후보 생성 직후 호출. candidates 를 제자리 수정.</summary>
+        public static void FilterWastefulPhoenixSingle(List<Combination> candidates, Trick trick, int myHandCount)
+        {
+            if (trick?.Top == null || trick.Top.Type != CombinationType.Single) return;
+            if (trick.Top.Rank > LockoutTopScaled) return;             // 낮은 싱글만(높은 싱글은 봉황 정당)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return;    // 리치 트릭은 봉황으로라도 회수
+            int phoenixIdx = -1; bool hasNaturalSingle = false;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var m = candidates[i];
+                if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
+                if (m.Cards[0].Special == SpecialKind.Phoenix) phoenixIdx = i;
+                else hasNaturalSingle = true;
+            }
+            if (phoenixIdx >= 0 && hasNaturalSingle && myHandCount > 1)
+                candidates.RemoveAt(phoenixIdx);
+        }
+
         /// <summary>
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:

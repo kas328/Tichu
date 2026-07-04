@@ -354,6 +354,33 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False, "콜한 파트너가 반복 패스(막힘)면 나가서 살린다");
         }
 
+        // ── #2 봉황 보존 필터 (라이브 후보 필터) ──────────────────────────────────────
+
+        private static Combination PhoenixSingle() =>
+            CombinationRecognizer.Recognize(new[] { Card.Phoenix }, TrickContext.Lead);
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_drops_phoenix_when_natural_single_exists()
+        {
+            // 낮은 싱글(3) 팔로우, 후보 = 자연 싱글(9) + 봉황 단독 → 봉황 제거(자연 우선). myHand>1.
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { Single(9), PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황 단독 제거(자연 우선)");
+            Assert.That(candidates[0].Cards[0].Special, Is.EqualTo(SpecialKind.None), "자연 승수 유지");
+        }
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_keeps_phoenix_when_only_winner()
+        {
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황이 유일 승수면 유지");
+        }
+
         [Test]
         public void DecideTurn_plays_cheapest_winning_when_opponent_owns_points_rich_top()
         {

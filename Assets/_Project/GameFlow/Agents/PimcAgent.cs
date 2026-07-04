@@ -104,6 +104,11 @@ namespace Tichu.GameFlow.Agents
             // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
             var candidates = TurnCandidates(legal);
 
+            // #2 봉황 보존: 낮은 싱글 팔로우에서 자연 승수가 있으면 봉황 단독을 EV 후보에서 제거(자연 우선).
+            // 강제/과-패스 안 함(EV 가 자연·패스 중 선택) → −3/R 과-패스 회귀 회피. OFF(기본)면 비트불변.
+            if (_config.UsePhoenixConservation)
+                AiAgent.FilterWastefulPhoenixSingle(candidates, trick, ctx.MyHand.Count);
+
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
 

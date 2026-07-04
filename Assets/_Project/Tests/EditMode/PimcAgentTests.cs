@@ -212,6 +212,24 @@ namespace Tichu.Core.Tests
                 agent.DecideTurnAnytime(ctx, CancellationToken.None, abort.Token));
         }
 
+        [Test]
+        public void DecideTurn_endgame_shedding_guard_leads_pair_run()
+        {
+            // #3: ≤5장(7,8,8,9,9) 리드에서 셰딩 가드 ON → EV(결정화) 전에 MostShedding = 8899 연페어(4장).
+            // 가드가 결정화 전 단락하므로 합성 상태(손합≠56)여도 예외 없이 동작.
+            var cfg = new PolicyConfig(4, 2, 0.10, useEndgameSheddingGuard: true);
+            var hand = new List<Card> {
+                Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Sword), Card.Normal(8, Suit.Pagoda),
+                Card.Normal(9, Suit.Star), Card.Normal(9, Suit.Jade) };
+            var s = GameFlowHelpers.PlayState(0, hand,
+                new List<Card> { Card.Normal(2, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Pagoda) },
+                new List<Card> { Card.Normal(2, Suit.Star) });
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Cards.Count, Is.EqualTo(4), "8899 연페어(4장 셰딩) 리드");
+        }
+
         // ── 파트너-Top 가드(휴리스틱 규칙 공유) ───────────────────────────────────────
 
         private static Combination Pair(int rank) =>

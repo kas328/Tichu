@@ -53,6 +53,18 @@ namespace Tichu.GameFlow.Agents
             // 파트너가 Top 인 팔로우: 휴리스틱과 동일한 파트너 규칙(기본 패스, 조건부 싼-밟기)을
             // 공유한다. EV 탐색이 파트너를 비싼 카드(A·용)로 무의미하게 밟는 낭비를 막는다.
             var trick = ctx.State.CurrentTrick;
+
+            // #3 끝내기 셰딩(라이브 가드): 순수 EV 가 ≤5장 리드에서 콤보 셰딩(빠른 아웃)을 안 골라 싱글
+            // 남발 → 휴리스틱 MostShedding 을 EV 전에 강제(리드만). OFF(기본)면 비트불변.
+            if (_config.UseEndgameSheddingGuard && trick == null && ctx.MyHand.Count <= 5)
+            {
+                var nonBombLeads = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
+                var shed = AiAgent.EndgameSheddingLead(nonBombLeads);
+                if (shed != null) return TurnDecision.Play(shed);
+            }
+
             if (trick != null && Seating.Partner(_seat) == trick.TopOwnerSeat)
             {
                 var nonBomb = new System.Collections.Generic.List<Combination>(legal.Count);

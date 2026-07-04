@@ -34,7 +34,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 상대 콤보를 비싼 자원으로 밟는 낭비(팀킬)를 EV 전에 패스로 막는다(Bug4). OFF면 비트불변.</summary>
         public readonly bool UseComboOvertakeGuard;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false)
+        /// <summary>true면 끝내기(≤5장) 리드에서 EV 대신 MostShedding(콤보 우선 빠른 아웃)을 강제한다(#3). OFF면 비트불변.</summary>
+        public readonly bool UseEndgameSheddingGuard;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -45,6 +48,7 @@ namespace Tichu.GameFlow.Agents
             UseRobustBackup = useRobustBackup;
             RobustLambda = robustLambda;
             UseComboOvertakeGuard = useComboOvertakeGuard;
+            UseEndgameSheddingGuard = useEndgameSheddingGuard;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

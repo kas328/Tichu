@@ -404,6 +404,11 @@ namespace Tichu.GameFlow.Agents
             return best;
         }
 
+        /// <summary>#3 끝내기 셰딩 라이브 가드: 가장 많이 터는 리드(콤보 우선, 동수면 강한 수). 없으면 null.
+        /// PimcAgent 가 플래그 ON 일 때 ≤5장 리드에서 EV 대신 호출(휴리스틱 DecideLead 끝내기 라인과 동일 규칙).</summary>
+        public static Combination? EndgameSheddingLead(IReadOnlyList<Combination> nonBombLeads)
+            => MostShedding(nonBombLeads);
+
         /// <summary>
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:

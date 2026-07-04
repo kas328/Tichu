@@ -186,6 +186,20 @@ namespace Tichu.Core.Tests
             Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "티츄 의향 아니면 파트너에게 최고 카드(A)");
         }
 
+        [Test]
+        public void ChooseExchange_partner_called_tichu_gives_highest_even_if_own_hand_strong()
+        {
+            // #4a: 파트너(seat2)가 라지 티츄 콜 → 내 패가 강해도(용 보유) 파트너에게 최고 카드(A)를
+            // 줘 콜을 돕는다(200점 지원). 콜 없으면 티츄-의향 분기라 낮은 카드를 줬을 것.
+            var hand = Hand(Card.Dragon, N(14, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            s.Seats[2].Call = TichuCall.GrandTichu;   // 파트너 라지 티츄
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "파트너 티츄 콜 → 최고 카드(A) 헌납해 콜 지원");
+        }
+
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────
 
         [Test]
@@ -275,6 +289,96 @@ namespace Tichu.Core.Tests
             var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
             Assert.That(d.IsPass, Is.False, "밟으면 손패가 비어 아웃 → 밟는다");
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank));
+        }
+
+        [Test]
+        public void DecideTurn_passes_when_partner_called_grand_tichu_even_if_could_go_out()
+        {
+            // #4c: 파트너(seat2)가 라지 티츄 콜 + 아직 안 나감. seat0 는 Pair8로 밟으면 아웃이지만,
+            // 콜한 파트너보다 먼저 나가면 티츄(200점) 파탄 → 밟지 말고 패스(파트너가 먼저 나가게 양보).
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword)),          // seat0: Pair8 = 남은 전부(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),          // seat1(상대) 2장
+                Hand(N(9, Suit.Pagoda), N(10, Suit.Star)),        // seat2(파트너) 아직 안 나감
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));        // seat3(상대) 2장
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "콜한 파트너보다 먼저 나가지 않는다(200점 보호)");
+        }
+
+        [Test]
+        public void DecideTurn_passes_when_partner_called_grand_tichu_low_combo()
+        {
+            // #4b: 파트너(seat2)가 라지 티츄 콜 + 아직 안 나감, 낮은 콤보(Pair5)로 주도 중.
+            // 밟으면 콜한 파트너의 리드를 뺏어 콜을 방해 → 패스(파트너가 계속 주도해 먼저 나가게).
+            var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(8, Suit.Jade), N(8, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),  // 밟아도 아웃 아님
+                Hand(N(2, Suit.Jade)),
+                Hand(N(9, Suit.Sword), N(10, Suit.Pagoda)),   // seat2(파트너) 아직 안 나감
+                Hand(N(2, Suit.Star)));
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "콜한 파트너를 밟아 리드 뺏지 않는다");
+        }
+
+        [Test]
+        public void DecideTurn_goes_out_before_tichu_partner_who_has_many_cards()
+        {
+            // #4c 정제(①): 파트너(seat2) 라지티츄 콜했으나 카드가 많이 남아(6장, 나+3 이상) 곧 못 나감
+            // → AI(1장)가 나가서 라운드를 살린다(콜 성공 불가 시 사수하다 동반 실패 방지).
+            var s = FollowState(0, Single(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade)),                                   // seat0: 1장(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),                // seat1(상대)
+                Hand(N(6, Suit.Pagoda), N(7, Suit.Star), N(8, Suit.Jade),
+                     N(10, Suit.Sword), N(11, Suit.Pagoda), N(12, Suit.Star)),  // seat2(파트너) 6장
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));              // seat3(상대)
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "콜한 파트너가 곧 못 나가면(카드 많음) 나가서 살린다");
+        }
+
+        [Test]
+        public void DecideTurn_goes_out_before_stuck_tichu_partner_who_passed_repeatedly()
+        {
+            // #4c 정제(②): 파트너(seat2) 라지티츄 콜, 카드는 적으나(2장) 이 라운드 3회 패스(트릭 못 이겨 막힘)
+            // → AI(1장)가 나가서 살린다. 핸드사이즈 신호는 안 걸리고 패스 신호로 탈출.
+            var s = FollowState(0, Single(5), topOwner: 2, accumulatedPoints: 0,
+                Hand(N(9, Suit.Jade)),                                   // seat0: 1장(밟으면 아웃)
+                Hand(N(2, Suit.Jade), N(3, Suit.Sword)),                // seat1(상대)
+                Hand(N(6, Suit.Pagoda), N(7, Suit.Star)),               // seat2(파트너) 2장(핸드사이즈 미발동)
+                Hand(N(2, Suit.Star), N(3, Suit.Pagoda)));              // seat3(상대)
+            s.Seats[2].Call = TichuCall.GrandTichu;
+            for (int t = 0; t < 3; t++)   // 파트너가 완료 트릭에서 3회 패스 → 막힘 신호
+                s.CompletedTricks.Add(new Trick { History = new List<Play> { new Play { Seat = 2, Combination = null } } });
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "콜한 파트너가 반복 패스(막힘)면 나가서 살린다");
+        }
+
+        // ── #2 봉황 보존 필터 (라이브 후보 필터) ──────────────────────────────────────
+
+        private static Combination PhoenixSingle() =>
+            CombinationRecognizer.Recognize(new[] { Card.Phoenix }, TrickContext.Lead);
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_drops_phoenix_when_natural_single_exists()
+        {
+            // 낮은 싱글(3) 팔로우, 후보 = 자연 싱글(9) + 봉황 단독 → 봉황 제거(자연 우선). myHand>1.
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { Single(9), PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황 단독 제거(자연 우선)");
+            Assert.That(candidates[0].Cards[0].Special, Is.EqualTo(SpecialKind.None), "자연 승수 유지");
+        }
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_keeps_phoenix_when_only_winner()
+        {
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황이 유일 승수면 유지");
         }
 
         [Test]

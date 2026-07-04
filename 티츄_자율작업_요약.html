@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 5시간 자율작업 요약</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:40px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .mut{color:var(--muted)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-adopt{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-park{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-doc{background:#20242c;color:#9fb0c2;border:1px solid #34404d}
+  ul{margin:8px 0}
+  .good{color:var(--good)}.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>5시간 자율작업 요약</h1>
+  <div class="sub">2026-07-04 · 브랜치 <code>feat/partner-tichu-support</code> (커밋 5개, 미머지·미푸시) · Expert 관측 #4·#1·#2·#3 처리</div>
+
+  <div class="verdict">
+    <strong>한 줄.</strong> 관측 4종 + 정제 1건을 <b>TDD + 격리벤치</b>로 처리했다. <b>#4(라지티츄 지원)·#4c(살리기 정제)·#2(봉황 보존) 채택</b>,
+    <b>#3(끝내기 셰딩) 파킹</b>(벤치 −18/R 회귀), <b>#1(리드 순서) EV 존중</b>(가드 미구현). 핵심 재확인: <b>라이브 EV 오버라이드는 상습 회귀 — EV가 대개 옳다.</b>
+    모든 테스트 그린. <b>플레이테스트 확인 + 랜딩(머지/푸시)이 남았다.</b>
+  </div>
+
+  <h2>1. 관측 처리 결과</h2>
+  <table>
+    <thead><tr><th style="width:24%">관측</th><th>조치</th><th class="num">격리벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>#4</b> 라지티츄 팀 사보타주<br><span class="mut">(교환·밟기·먼저나가기)</span></td>
+        <td>AI가 파트너 티츄콜 무시하던 것 수정 — 교환 시 최고카드 주고, 콜한 파트너 안 밟고, 먼저 안 나감.</td>
+        <td class="num mut">공유행동<br>(격리불가)</td>
+        <td><span class="tag t-adopt">채택</span><br><span class="mut">win-win, 단위테스트+플레이테스트</span></td>
+      </tr>
+      <tr>
+        <td><b>#4c</b> 정제: 파트너 못 나갈 때</td>
+        <td>전면 차단이 과공격적 → 파트너가 곧 못 나갈 것 같으면(카드 많음/3회+ 패스) 나가서 살리는 탈출 추가.</td>
+        <td class="num mut">–</td>
+        <td><span class="tag t-adopt">채택</span></td>
+      </tr>
+      <tr>
+        <td><b>#2</b> 싱글 3에 봉황 낭비</td>
+        <td>낮은 싱글 팔로우 + 자연 승수 있으면 봉황 단독만 EV 후보서 제거(강제/과-패스 안 함).</td>
+        <td class="num good">0.00/R<br><span class="mut">중립</span></td>
+        <td><span class="tag t-adopt">채택</span><br><span class="mut">회귀無+관측 교정, 전 PIMC 티어 ON</span></td>
+      </tr>
+      <tr>
+        <td><b>#3</b> 5장 싱글 남발<br><span class="mut">(8899+7 대신)</span></td>
+        <td>≤5장 리드서 EV 대신 MostShedding(콤보 우선) 강제.</td>
+        <td class="num bad">−18.13/R<br><span class="mut">회귀</span></td>
+        <td><span class="tag t-park">파킹</span><br><span class="mut">EV 오버라이드 손해, 플래그 OFF·코드 보존</span></td>
+      </tr>
+      <tr>
+        <td><b>#1</b> QQ·용 리드 + 개로 선 넘김</td>
+        <td>가드 미구현 — 리드 제한은 과거 3회 회귀(−15~−20). EV 아티팩트/전략적으로 판단.</td>
+        <td class="num mut">미벤치</td>
+        <td><span class="tag t-doc">EV 존중</span><br><span class="mut">정공법=노이즈↓(티어수정)</span></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>2. 벤치 상세 (PimcBench 미러드 48R · 16세계 · 같은 딜)</h2>
+  <table>
+    <thead><tr><th>구성</th><th class="num">margin/R</th><th class="num">delta</th><th class="num">wins</th></tr></thead>
+    <tbody>
+      <tr><td>베이스라인 (가드 OFF)</td><td class="num">122.92</td><td class="num mut">–</td><td class="num">37/48</td></tr>
+      <tr><td>#2 봉황 보존만</td><td class="num">122.92</td><td class="num good">0.00</td><td class="num">37/48</td></tr>
+      <tr><td>#3 끝내기 셰딩만</td><td class="num">104.79</td><td class="num bad">−18.13</td><td class="num">36/48</td></tr>
+      <tr><td>#2+#3 조합</td><td class="num">104.79</td><td class="num bad">−18.13</td><td class="num">36/48</td></tr>
+    </tbody>
+  </table>
+  <p class="mut">#3 이 회귀의 전적 원인, #2 는 완전 중립(자기대전서 드물어 무발화 — 실게임 봉황 낭비만 교정). 확립된 기준(드문상황 교정 + 회귀無 = 채택) 적용.</p>
+
+  <h2>3. 검증 & 커밋</h2>
+  <ul>
+    <li><b>TDD 전부 그린</b>: AiAgentTests 52(Unity)/54(core)·PimcAgentTests·PolicyConfigTests 등. core 미러 동기화.</li>
+    <li>브랜치 <code>feat/partner-tichu-support</code> 커밋 5개: <code>1c240b9</code>(#4)·<code>1fae017</code>(#4c)·<code>549145e</code>(#3 OFF)·<code>5f4c0b3</code>(#2 OFF)·<code>8345c15</code>(#2 채택/#3 파킹).</li>
+  </ul>
+
+  <h2>4. 돌아오시면 할 것</h2>
+  <ul>
+    <li><b>플레이테스트</b> — 에디터가 이 브랜치라 채택분이 이미 라이브. 라지 티츄 외쳐 파트너 지원(#4·#4c) + 봉황 보존(#2) 체감 확인.</li>
+    <li><b>랜딩</b> — 확인되면 <code>feat/partner-tichu-support</code>(5커밋) <code>main</code> 머지 + <b>누적 미푸시 전체 origin 푸시</b>(티어 정합성·선택기·AI 픽스). 원하시면 진행.</li>
+    <li><b>#1</b>은 EV 존중으로 뒀습니다. 원하면 좁은 Dog-보존 가드를 시도+벤치할 수 있으나 speculative(리드 회귀 위험).</li>
+  </ul>
+
+  <div class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:14px">
+    벤치 원자료: <code>scratchpad/guard_bench.txt</code>·<code>guard_bench2.txt</code>. 진단: <code>티츄_Expert진단_2차.html</code>. 라이브 반영: <code>PimcAgent</code> 가드 공유 + 교환 휴리스틱 위임.
+  </div>
+
+</div>
+</body>
+</html>

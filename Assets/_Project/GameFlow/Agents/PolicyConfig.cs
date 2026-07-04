@@ -34,7 +34,13 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 상대 콤보를 비싼 자원으로 밟는 낭비(팀킬)를 EV 전에 패스로 막는다(Bug4). OFF면 비트불변.</summary>
         public readonly bool UseComboOvertakeGuard;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false)
+        /// <summary>true면 끝내기(≤5장) 리드에서 EV 대신 MostShedding(콤보 우선 빠른 아웃)을 강제한다(#3). OFF면 비트불변.</summary>
+        public readonly bool UseEndgameSheddingGuard;
+
+        /// <summary>true면 낮은 싱글 팔로우에서 자연 승수가 있으면 봉황 단독을 EV 후보에서 제거한다(#2 봉황 보존). OFF면 비트불변.</summary>
+        public readonly bool UsePhoenixConservation;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -45,6 +51,8 @@ namespace Tichu.GameFlow.Agents
             UseRobustBackup = useRobustBackup;
             RobustLambda = robustLambda;
             UseComboOvertakeGuard = useComboOvertakeGuard;
+            UseEndgameSheddingGuard = useEndgameSheddingGuard;
+            UsePhoenixConservation = usePhoenixConservation;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
@@ -56,9 +64,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-F 16세계 + caller(+22/R) + P2-G D1 위협 블록
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-G 정합성: Normal+4세계 상향 사다리 + caller + D1(역전 제거)
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true);  // P2-G 정합성: 24세계 + caller + D1
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존(벤치 중립·관측버그 교정)
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

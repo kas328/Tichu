@@ -53,6 +53,18 @@ namespace Tichu.GameFlow.Agents
             // 파트너가 Top 인 팔로우: 휴리스틱과 동일한 파트너 규칙(기본 패스, 조건부 싼-밟기)을
             // 공유한다. EV 탐색이 파트너를 비싼 카드(A·용)로 무의미하게 밟는 낭비를 막는다.
             var trick = ctx.State.CurrentTrick;
+
+            // #3 끝내기 셰딩(라이브 가드): 순수 EV 가 ≤5장 리드에서 콤보 셰딩(빠른 아웃)을 안 골라 싱글
+            // 남발 → 휴리스틱 MostShedding 을 EV 전에 강제(리드만). OFF(기본)면 비트불변.
+            if (_config.UseEndgameSheddingGuard && trick == null && ctx.MyHand.Count <= 5)
+            {
+                var nonBombLeads = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
+                var shed = AiAgent.EndgameSheddingLead(nonBombLeads);
+                if (shed != null) return TurnDecision.Play(shed);
+            }
+
             if (trick != null && Seating.Partner(_seat) == trick.TopOwnerSeat)
             {
                 var nonBomb = new System.Collections.Generic.List<Combination>(legal.Count);
@@ -91,6 +103,11 @@ namespace Tichu.GameFlow.Agents
 
             // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
             var candidates = TurnCandidates(legal);
+
+            // #2 봉황 보존: 낮은 싱글 팔로우에서 자연 승수가 있으면 봉황 단독을 EV 후보에서 제거(자연 우선).
+            // 강제/과-패스 안 함(EV 가 자연·패스 중 선택) → −3/R 과-패스 회귀 회피. OFF(기본)면 비트불변.
+            if (_config.UsePhoenixConservation)
+                AiAgent.FilterWastefulPhoenixSingle(candidates, trick, ctx.MyHand.Count);
 
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
             int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;

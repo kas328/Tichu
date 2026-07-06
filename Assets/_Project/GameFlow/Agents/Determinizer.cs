@@ -23,7 +23,7 @@ namespace Tichu.GameFlow.Agents
         /// 나머지 풀만 셔플·분배한다(관측자가 아는 배치 정보를 보존해 결정화 정확도를 올림).
         /// </summary>
         public static GameState Sample(GameState src, int observerSeat, ref Rng rng,
-            IReadOnlyList<(Card card, int seat)> pinned = null)
+            IReadOnlyList<(Card card, int seat)> pinned = null, bool constrainCalls = false)
         {
             var clone = src.Clone();
 
@@ -79,22 +79,43 @@ namespace Tichu.GameFlow.Agents
                 }
             }
 
-            // 6) 잔여 풀 셔플(주입 Rng).
-            Deck.Shuffle(pool, ref rng);
-
-            // 7) 상대 좌석 분배: 핀 카드 먼저, 남은 슬롯을 셔플된 풀로 채운다(공개된 장수 정확히 일치).
-            int idx = 0;
-            for (int i = 0; i < 4; i++)
+            // 6~7) 잔여 풀 셔플 + 분배(핀 먼저, 남은 슬롯을 셔플된 풀로). C3 제약 ON이면 콜한 좌석의
+            //      재구성 강도가 하한 미만인 세계를 재셔플로 기각한다(경계 MaxConstraintAttempts, 초과 시 마지막 수용).
+            for (int attempt = 0; attempt < (constrainCalls ? MaxConstraintAttempts : 1); attempt++)
             {
-                if (i == observerSeat) continue;
-                int count = clone.Seats[i].Hand.Count;
-                var newHand = new List<Card>(count);
-                if (pinnedBySeat[i] != null) newHand.AddRange(pinnedBySeat[i]);
-                while (newHand.Count < count) newHand.Add(pool[idx++]);
-                clone.Seats[i].Hand = newHand;
+                Deck.Shuffle(pool, ref rng);
+                int idx = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    if (i == observerSeat) continue;
+                    int count = clone.Seats[i].Hand.Count;
+                    var newHand = new List<Card>(count);
+                    if (pinnedBySeat[i] != null) newHand.AddRange(pinnedBySeat[i]);
+                    while (newHand.Count < count) newHand.Add(pool[idx++]);
+                    clone.Seats[i].Hand = newHand;
+                }
+                if (!constrainCalls || CallsSatisfied(clone, observerSeat)) break;
             }
 
             return clone;
+        }
+
+        // C3 재샘플 상한(과도한 rejection 루프 방지). 실제 라운드 풀은 강도가 넉넉해 대개 1~2회에 충족.
+        private const int MaxConstraintAttempts = 24;
+
+        /// <summary>콜한 히든 좌석의 재구성 콜시점 강도가 콜 종류별 하한 이상인가(C3 지지집합 제약).
+        /// AiAgent 콜 게이트 미러: 그랜드=HandPower≥10, 티츄=용/봉황(강도 3) 근사. 관측자 자신은 실손이라 제외.</summary>
+        private static bool CallsSatisfied(GameState world, int observerSeat)
+        {
+            for (int seat = 0; seat < 4; seat++)
+            {
+                if (seat == observerSeat) continue;
+                var call = world.Seats[seat].Call;
+                if (call == TichuCall.None) continue;
+                int floor = call == TichuCall.GrandTichu ? 10 : 3;
+                if (ReachWeight.AtCallStrength(world, seat) < floor) return false;
+            }
+            return true;
         }
     }
 }

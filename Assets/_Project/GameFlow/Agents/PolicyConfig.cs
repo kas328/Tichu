@@ -43,7 +43,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 결정화 시 관측자가 교환에서 넘긴 미플레이 카드를 수령 좌석에 고정한다(C1 교환 핀). OFF면 비트불변.</summary>
         public readonly bool UseExchangePin;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false)
+        /// <summary>true면 결정화 시 콜한 좌석의 손을 콜 강도 하한까지 재샘플로 제약한다(C3 티츄콜 지지집합 제약). OFF면 비트불변.</summary>
+        public readonly bool UseTichuCallConstraint;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -57,6 +60,7 @@ namespace Tichu.GameFlow.Agents
             UseEndgameSheddingGuard = useEndgameSheddingGuard;
             UsePhoenixConservation = usePhoenixConservation;
             UseExchangePin = useExchangePin;
+            UseTichuCallConstraint = useTichuCallConstraint;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

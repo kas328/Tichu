@@ -131,7 +131,7 @@ namespace Tichu.GameFlow.Agents
             var pins = _config.UseExchangePin ? _passed : null;   // C1: OFF면 null → 기존 균등 분배(비트불변).
             for (int w = 0; w < _config.Worlds && !budgetHit; w++)
             {
-                var world = Determinizer.Sample(ctx.State, _seat, ref rng, pins);
+                var world = Determinizer.Sample(ctx.State, _seat, ref rng, pins, _config.UseTichuCallConstraint);
                 double weight = _config.UseReachProb ? ReachWeight.WorldWeight(world, _seat) : 1.0;
                 double[] worldSum = robust ? new double[candidates.Count] : null;
                 int rolloutsThisWorld = 0;
@@ -181,7 +181,7 @@ namespace Tichu.GameFlow.Agents
                 && ctx.State.Seats[_seat].Call != TichuCall.None;
             if (ctx.CanPass && !budgetHit && !callerSuppressPass)
             {
-                var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng, pins);
+                var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng, pins, _config.UseTichuCallConstraint);
                 var passSim = passWorld.Clone();
                 if (GameEngine.Apply(passSim, GameAction.Pass(_seat)).Ok)
                 {

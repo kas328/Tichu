@@ -33,6 +33,10 @@ namespace Tichu.GameFlow.Agents
             return score;
         }
 
+        /// <summary>콜시점 손 강함 재구성 = 현재 배정 손 + 히스토리상 그 좌석이 낸 카드의 강함. C3 제약도 공유.</summary>
+        public static int AtCallStrength(GameState world, int seat)
+            => HandStrength(world.Seats[seat].Hand) + PlayedStrength(world, seat);
+
         /// <summary>관측자 외 콜한 좌석의 콜시점 손 강함으로 세계 가중. 콜 없으면 1.0.</summary>
         public static double WorldWeight(GameState world, int observerSeat)
         {
@@ -41,7 +45,7 @@ namespace Tichu.GameFlow.Agents
             {
                 if (seat == observerSeat) continue;
                 if (world.Seats[seat].Call == TichuCall.None) continue;
-                int atCall = HandStrength(world.Seats[seat].Hand) + PlayedStrength(world, seat);
+                int atCall = AtCallStrength(world, seat);
                 weight *= 1.0 + K * atCall;
             }
             return weight;

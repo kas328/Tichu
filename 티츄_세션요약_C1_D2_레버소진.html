@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — C1·D2 랜딩 + 잔여 레버 소진</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:38px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .mut{color:var(--muted)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-go{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-defer{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-skip{background:#301820;color:#f2879e;border:1px solid #5e2c3a}
+  ul{margin:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>C1·D2 랜딩 + 잔여 레버 소진</h1>
+  <div class="sub">2026-07-07 · ultracode 세션 · 브레인스토밍→TDD→격리벤치→적대검증 워크플로(13에이전트)</div>
+
+  <div class="verdict">
+    <strong>한 줄.</strong> 이번 세션 <b>C1 교환핀</b> + <b>D2 ε정상화</b> 두 레버를 구현·검증·<b>origin 푸시</b>(main <code>c8444bb</code>).
+    이어서 잔여 레버를 적대검증으로 판정한 결과 <b>값싼 레버는 D2로 소진</b> — 남은 5개(C3·C2·D3·A1·A3)는 전부
+    프로젝트가 이미 파킹한 실패 카테고리라 <b>더 강한 근거 없이는 빌드 금지</b>. 다음 강도는 <b>연구티어</b> 아니면 <b>강도-체감 트레이드오프</b>.
+  </div>
+
+  <h2>1. 이번 세션 채택 (2건, main 라이브·푸시)</h2>
+  <table>
+    <thead><tr><th>레버</th><th>내용</th><th class="num">격리벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>C1</b> 교환 카드 핀</td>
+        <td>관측자가 넘긴 미플레이 카드를 결정화 시 수령 좌석에 고정(균등셔플 ~2/3 오배치 교정). #4 파트너-티츄와 시너지.</td>
+        <td class="num">배치1 +42.9<br>배치2 −4.6<br><span class="mut">풀링 동률</span></td>
+        <td><span class="tag t-go">채택</span><br><span class="mut">정확도 수정·회귀無</span></td>
+      </tr>
+      <tr>
+        <td><b>D2</b> ε 정상화</td>
+        <td>ε=0이면 롤아웃 결정적(용양도 타이만 예외)→Expert 6롤아웃 중복을 1로 붕괴(<code>EffectiveRollouts</code>).</td>
+        <td class="num good">+10.8/R 중립<br><b>5.80× 가속</b></td>
+        <td><span class="tag t-go">채택</span><br><span class="mut">순수 효율·굶주린 Expert 직격</span></td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="mut">둘 다 프로젝트의 유일 채택 카테고리(정확도/효율/그라운드트루스 벨리프)에 속함 — LegalMoves −91%·#2·D1과 동류.</p>
+
+  <h2>2. 잔여 레버 적대검증 판정 — D2만 go</h2>
+  <table>
+    <thead><tr><th>레버</th><th>노력</th><th>판정</th><th>이유(적대검증)</th></tr></thead>
+    <tbody>
+      <tr><td><b>D2</b> ε정상화</td><td>S</td><td><span class="tag t-go">GO·완료</span></td><td>순수 효율, EV오버라이드·게이트 없음, PIMC전용 격리, 최악 중립</td></tr>
+      <tr><td><b>C3</b> 티츄콜 강도제약</td><td>M</td><td><span class="tag t-defer">defer</span></td><td>opponent 강도를 <b>추측</b>하는 모델근사(C1은 그라운드트루스) → reach-prob wash 계열 + 벤치 안 보이는 perf 드래그</td></tr>
+      <tr><td><b>C2</b> 패스-일관 void</td><td>L</td><td><span class="tag t-defer">defer</span></td><td>모델기반(자발적 패스≠약함) + L노력 + 예산하 세계수 굶김. 최약 전제</td></tr>
+      <tr><td><b>D3</b> 잠재값 동점깨기</td><td>M</td><td><span class="tag t-defer">defer</span></td><td>라이브 tiebreak 건드림→셰딩계열(−18/R) 위험 + 신호 순환(롤아웃정책=벤치 상대)</td></tr>
+      <tr><td><b>A1</b> 리드셰딩</td><td>L</td><td><span class="tag t-defer">defer</span></td><td>대칭 리드오버라이드=최악 회귀(리드 4회) + <b>shipped 티어서 측정 불가</b>(PimcBench wash·HeuristicStrengthBench는 Easy만)</td></tr>
+      <tr><td><b>A3</b> near-out 확장</td><td>S</td><td><span class="tag t-skip">SKIP</span></td><td>유일 <b>음성 예측</b>. 3장 상대는 아웃확실 아님→정확성 근거 상실→FOLLOW 오버라이드, 재현버그 없음</td></tr>
+    </tbody>
+  </table>
+  <p><b>결정 테스트</b>(프로젝트 규율): ①정확도/효율/벨리프-제약 수정이냐, 라이브EV와 싸우는 근사/휴리스틱 오버라이드냐 ②PimcBench로 격리 가능하냐. D2만 둘 다 통과. 나머지는 <b>재현버그/강한 근거 전까지 미착수</b> — 인간 눈 "낭비"수 상당수가 실제 EV상 옳다는 반복 교훈과 정합.</p>
+
+  <h2>3. 다음 프론티어 (사용자 결정)</h2>
+  <div class="verdict warn">
+    <ul>
+      <li><b>연구티어</b> — 진짜 천장: B2(세계내 심화 negamax)·B3(SO-ISMCTS)·값넷(DouZero/PerfectDou). 전략융합 구조탈출, 더 큰 노력. 범위·비용 스코핑 스파이크 필요.</li>
+      <li><b>C3 빌드+벤치 확인</b> — 판정은 defer지만 벤치가 최종 판정. 플래그 OFF 빌드→격리벤치→비-회귀면 채택·wash면 파킹(코드 보존). 예측은 wash.</li>
+      <li><b>통합+플레이테스트</b> — 이번 5변경(C1·#4·#4c·#2·D2) 실기 확인 + Phase1 60fps 게이트. 정직한 "값싼 레버 완료" 마무리.</li>
+    </ul>
+  </div>
+
+  <div class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:14px">
+    상세: 스펙 <code>docs/superpowers/specs/2026-07-0{6,7}-...</code> · C1 리포트 <code>티츄_C1_교환핀_벤치결과.html</code> · 로드맵 <code>티츄_AI강화_검증_로드맵.html</code>.
+    커밋: C1 <code>fa031a1</code> · D2 <code>c8444bb</code> (origin 동기화).
+  </div>
+
+</div>
+</body>
+</html>

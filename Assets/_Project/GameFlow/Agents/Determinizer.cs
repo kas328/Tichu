@@ -17,8 +17,13 @@ namespace Tichu.GameFlow.Agents
         /// <summary>
         /// src 의 복제본에서 observerSeat 외 좌석 손패를 미관측 풀로 재분배한 새 GameState 를 반환한다.
         /// src 는 변형하지 않는다. 56장 폐쇄가 맞지 않으면(불완전 상태) InvalidOperationException.
+        ///
+        /// pinned(C1 교환 핀): 관측자가 교환에서 넘긴 (카드,수령좌석) 목록. null 이면 기존 균등 분배(비트불변).
+        /// 지정되면, 아직 플레이되지 않아 미관측 풀에 남아있는 핀 카드를 수령 좌석에 정확히 고정하고
+        /// 나머지 풀만 셔플·분배한다(관측자가 아는 배치 정보를 보존해 결정화 정확도를 올림).
         /// </summary>
-        public static GameState Sample(GameState src, int observerSeat, ref Rng rng)
+        public static GameState Sample(GameState src, int observerSeat, ref Rng rng,
+            IReadOnlyList<(Card card, int seat)> pinned = null)
         {
             var clone = src.Clone();
 
@@ -58,17 +63,34 @@ namespace Tichu.GameFlow.Agents
                 throw new InvalidOperationException(
                     $"determinize closure mismatch: pool={pool.Count} need={need} (observer={observerSeat})");
 
-            // 5) 풀 셔플(주입 Rng).
+            // 5) C1 교환 핀: 관측자가 넘긴 미플레이 카드를 수령 좌석에 고정(풀에서 제거).
+            //    풀에 없는(이미 플레이됨/관측자 보유) 핀 카드는 무시. 좌석당 최대 1장(좌/파트너/우 구별).
+            //    남은 슬롯이 없는 좌석엔 핀하지 않아(풀 유지) 56장 폐쇄를 항상 지킨다.
+            var pinnedBySeat = new List<Card>[4];
+            if (pinned != null)
+            {
+                foreach (var (card, seat) in pinned)
+                {
+                    if (seat < 0 || seat >= 4 || seat == observerSeat) continue;
+                    int already = pinnedBySeat[seat]?.Count ?? 0;
+                    if (already >= clone.Seats[seat].Hand.Count) continue;   // 남은 슬롯 없음 → 스킵
+                    if (!pool.Remove(card)) continue;                       // 풀에 없음 → 무시
+                    (pinnedBySeat[seat] ??= new List<Card>()).Add(card);
+                }
+            }
+
+            // 6) 잔여 풀 셔플(주입 Rng).
             Deck.Shuffle(pool, ref rng);
 
-            // 6) 상대 좌석에 순차 분배(공개된 장수 정확히 일치).
+            // 7) 상대 좌석 분배: 핀 카드 먼저, 남은 슬롯을 셔플된 풀로 채운다(공개된 장수 정확히 일치).
             int idx = 0;
             for (int i = 0; i < 4; i++)
             {
                 if (i == observerSeat) continue;
                 int count = clone.Seats[i].Hand.Count;
                 var newHand = new List<Card>(count);
-                for (int k = 0; k < count; k++) newHand.Add(pool[idx++]);
+                if (pinnedBySeat[i] != null) newHand.AddRange(pinnedBySeat[i]);
+                while (newHand.Count < count) newHand.Add(pool[idx++]);
                 clone.Seats[i].Hand = newHand;
             }
 

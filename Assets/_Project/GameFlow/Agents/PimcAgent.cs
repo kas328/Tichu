@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using Tichu.Core;
+using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
 
@@ -21,6 +22,7 @@ namespace Tichu.GameFlow.Agents
         private readonly PolicyConfig _config;
         private readonly HeuristicRolloutPolicy _policy; // 비-턴 결정 위임 + Easy 직접결정(ε-휴리스틱).
         private Rng _rng;                                 // 결정화 세계 샘플링.
+        private (Card card, int seat)[] _passed;          // C1: 교환에서 넘긴 (카드,수령좌석). 결정화 핀용.
 
         public PimcAgent(ulong roundSeed, int seat, PolicyConfig config)
         {
@@ -126,9 +128,10 @@ namespace Tichu.GameFlow.Agents
             double[] robSumSq = robust ? new double[candidates.Count] : null;
             int worldsCounted = 0;
 
+            var pins = _config.UseExchangePin ? _passed : null;   // C1: OFF면 null → 기존 균등 분배(비트불변).
             for (int w = 0; w < _config.Worlds && !budgetHit; w++)
             {
-                var world = Determinizer.Sample(ctx.State, _seat, ref rng);
+                var world = Determinizer.Sample(ctx.State, _seat, ref rng, pins);
                 double weight = _config.UseReachProb ? ReachWeight.WorldWeight(world, _seat) : 1.0;
                 double[] worldSum = robust ? new double[candidates.Count] : null;
                 int rolloutsThisWorld = 0;
@@ -178,7 +181,7 @@ namespace Tichu.GameFlow.Agents
                 && ctx.State.Seats[_seat].Call != TichuCall.None;
             if (ctx.CanPass && !budgetHit && !callerSuppressPass)
             {
-                var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng);
+                var passWorld = Determinizer.Sample(ctx.State, _seat, ref rng, pins);
                 var passSim = passWorld.Clone();
                 if (GameEngine.Apply(passSim, GameAction.Pass(_seat)).Ok)
                 {
@@ -246,7 +249,23 @@ namespace Tichu.GameFlow.Agents
         }
 
         public bool CallGrandTichu(in DecisionContext ctx) => _policy.CallGrandTichu(ctx);
-        public ExchangeChoice ChooseExchange(in DecisionContext ctx) => _policy.ChooseExchange(ctx);
+
+        public ExchangeChoice ChooseExchange(in DecisionContext ctx)
+        {
+            var ex = _policy.ChooseExchange(ctx);
+            _passed = PassedPins(ex, _seat);   // C1: 넘긴 3장을 수령 좌석에 매핑해 기억(결정화 핀용).
+            return ex;
+        }
+
+        /// <summary>교환에서 넘긴 3장을 수령 좌석에 매핑한다(C1 결정화 핀).
+        /// left=(seat+1)%4, partner=(seat+2)%4, right=(seat+3)%4 (GameEngine.FinalizeExchange 와 동일).</summary>
+        public static (Card card, int seat)[] PassedPins(ExchangeChoice ex, int seat) => new[]
+        {
+            (ex.ToLeft,    (seat + 1) % 4),
+            (ex.ToPartner, (seat + 2) % 4),
+            (ex.ToRight,   (seat + 3) % 4),
+        };
+
         public bool CallTichu(in DecisionContext ctx) => _policy.CallTichu(ctx);
         public Combination? DecideBomb(in DecisionContext ctx) => _policy.DecideBomb(ctx);
         public int ChooseDragonRecipient(in DecisionContext ctx) => _policy.ChooseDragonRecipient(ctx);

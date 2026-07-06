@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — C1 교환 핀 벤치 결과</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:27px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:38px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .mut{color:var(--muted)}
+  .good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-adopt{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-hold{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  ul{margin:8px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>C1 교환 카드 핀 — 격리벤치 결과</h1>
+  <div class="sub">2026-07-06 · 로드맵 C1(믿음/결정화) · <code>PimcBench.RunMirrored</code> 24페어·동일딜 · <code>UseExchangePin</code> OFF vs ON</div>
+
+  <div class="verdict">
+    <strong>한 줄.</strong> 관측자가 교환에서 넘긴 미플레이 카드를 결정화 시 수령 좌석에 <b>고정</b>하는 순수
+    정확도 수정. 벤치 2배치가 <b>부호반전(+42.92 / −4.58/R)</b>으로 <b>노이즈 지배</b> — 강도 향상은 미입증이나
+    <b>회귀도 없다</b>(풀링 96R 동률). 손해 메커니즘 없는 정확도 수정이라 <b>#2 봉황 선례(중립 채택)</b>대로
+    <span class="tag t-adopt">채택</span> — 전 PIMC 티어 ON. <b>강도 주장은 하지 않는다.</b>
+  </div>
+
+  <h2>1. 벤치 수치 (미러드 48R/배치 · PIMC vs 휴리스틱)</h2>
+  <table>
+    <thead><tr><th>배치 (baseSeed)</th><th class="num">OFF margin/R</th><th class="num">ON margin/R</th><th class="num">delta(ON−OFF)</th><th class="num">승 (ON)</th></tr></thead>
+    <tbody>
+      <tr><td>배치 1 <span class="mut">(20260706)</span></td><td class="num">91.67</td><td class="num">134.58</td><td class="num good">+42.92</td><td class="num">39/48</td></tr>
+      <tr><td>배치 2 <span class="mut">(88123457)</span></td><td class="num">111.67</td><td class="num">107.08</td><td class="num bad">−4.58</td><td class="num">38/48</td></tr>
+      <tr><td><b>풀링 (96R)</b></td><td class="num">—</td><td class="num">—</td><td class="num warn">+19.2</td><td class="num">77 vs 76</td></tr>
+    </tbody>
+  </table>
+  <p class="mut">배치 변량(~±40/R)이 실효과를 삼킴 → 매그니튜드는 0과 구별 불가. 승수는 사실상 동률.
+  reach-prob(배치1 +25 → 배치2 −13)와 같은 부호반전 패턴.</p>
+
+  <h2>2. 그럼에도 채택하는 이유 — 근사 vs 정확도 수정</h2>
+  <p>이 저장소가 <b>reach-prob·B1을 파킹</b>한 것과 C1을 <b>채택</b>하는 것의 차이는 범주다:</p>
+  <table>
+    <thead><tr><th>레버</th><th>성격</th><th>손해 메커니즘</th><th>부호반전 시</th></tr></thead>
+    <tbody>
+      <tr><td>reach-prob</td><td>세계 <b>가중</b>(근사)</td><td class="bad">있음 — 쓰레기 세계 변량 누출</td><td>무효과 → OFF</td></tr>
+      <tr><td>C1 교환 핀</td><td>결정화 <b>정확도 수정</b></td><td class="good">없음 — 관측자가 아는 정보만</td><td>여전히 정확한 모델 → 채택</td></tr>
+      <tr><td>#2 봉황 필터</td><td>후보 필터(교정)</td><td class="good">없음</td><td>0.00/R 중립에 채택(선례)</td></tr>
+    </tbody>
+  </table>
+  <ul>
+    <li>결정화는 지금까지 넘긴 3장을 균등 셔플에 섞어 <b>~2/3 오배치</b>했다 — 관측자가 정확히 아는 공개정보를 버린 것.</li>
+    <li>C1은 그 카드를 실제 수령 좌석에 고정(변량 0). <b>최근 채택한 #4</b>(약패/파트너-티츄 콜 시 파트너에게 최고카드)와 직접 시너지 — 롤아웃이 그 카드를 파트너 손에 올바로 둔다.</li>
+    <li>더 정확한 믿음은 EV 를 <b>해칠 수 없다</b>(이론) → 회귀 없음과 정합.</li>
+  </ul>
+
+  <h2>3. 구현 &amp; 검증</h2>
+  <ul>
+    <li><code>Determinizer.Sample</code> 선택 <code>pinned</code> 파라미터 — 풀에 남은 핀 카드를 수령 좌석에 배치·잔여만 셔플(56장 폐쇄 유지). <code>PimcAgent.PassedPins</code> 캡처 → 2 결정화 호출부 전달.</li>
+    <li><code>PolicyConfig.UseExchangePin</code>(기본 OFF·<b>비트불변</b>) 게이트 → 전 PIMC 티어 ON.</li>
+    <li>TDD RED→GREEN: <code>DeterminizerTests</code> 핀 3케이스(전수 안착·폐쇄보존·풀밖 무시) + <code>PimcAgentTests</code> 매핑. <b>EditMode 47/47 그린.</b> Unity 전용(core 미러 없음).</li>
+  </ul>
+
+  <div class="verdict warn">
+    <strong>랜딩 상태.</strong> <code>main</code> 로컬 머지 완료(<code>fa031a1</code>, 4커밋) · <b>origin 미푸시</b>
+    <span class="tag t-hold">푸시 승인 대기</span>. 부호반전+외부반영이라 푸시만 확인용으로 남김.
+    파킹 원하시면 티어 플래그만 OFF 로 되돌리면 됨(코드·스펙 보존).
+  </div>
+
+</div>
+</body>
+</html>

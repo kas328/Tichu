@@ -167,5 +167,75 @@ namespace Tichu.Core.Tests
             for (int i = 0; i < 4; i++) all.UnionWith(det.Seats[i].Hand);
             Assert.That(all.Count, Is.EqualTo(56));
         }
+
+        // ── C3 티츄콜 강도 제약 ────────────────────────────────────────────────────────
+
+        // 관측자(0)가 고카드(용·A·K)를 독점 → 미관측 풀의 유일한 ≥3 강도 카드는 봉황(3)뿐.
+        // 좌석 1이 Tichu 콜 → 제약 ON이면 봉황을 좌석1에 배치해야 하한(3)을 넘긴다.
+        private static GameState CallerHoardState()
+        {
+            var obs = new List<Card>
+            {
+                Card.Dragon,
+                Card.Normal(14, Suit.Jade), Card.Normal(14, Suit.Sword), Card.Normal(14, Suit.Pagoda), Card.Normal(14, Suit.Star),
+                Card.Normal(13, Suit.Jade), Card.Normal(13, Suit.Sword), Card.Normal(13, Suit.Pagoda), Card.Normal(13, Suit.Star),
+                Card.Normal(2, Suit.Jade), Card.Normal(3, Suit.Jade), Card.Normal(4, Suit.Jade), Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade),
+            };
+            var obsSet = new HashSet<Card>(obs);
+            var rest = new List<Card>();
+            foreach (var c in Deck.CreateStandard())
+                if (!obsSet.Contains(c)) rest.Add(c);            // 42장, 봉황 포함
+
+            var hands = new IReadOnlyList<Card>[4];
+            hands[0] = obs;
+            hands[1] = rest.GetRange(0, 14);
+            hands[2] = rest.GetRange(14, 14);
+            hands[3] = rest.GetRange(28, 14);
+            var state = GameFlowHelpers.PlayState(0, hands);
+            state.Seats[1].Call = TichuCall.Tichu;
+            return state;
+        }
+
+        [Test]
+        public void Sample_call_constraint_raises_caller_to_floor_far_more_than_uniform()
+        {
+            var src = CallerHoardState();
+            int onOk = 0, offOk = 0;
+            for (ulong seed = 1; seed <= 60; seed++)
+            {
+                var r1 = new Rng(seed);
+                var on = Determinizer.Sample(src, 0, ref r1, null, constrainCalls: true);
+                if (ReachWeight.AtCallStrength(on, 1) >= 3) onOk++;
+
+                var r2 = new Rng(seed);
+                var off = Determinizer.Sample(src, 0, ref r2, null, constrainCalls: false);
+                if (ReachWeight.AtCallStrength(off, 1) >= 3) offOk++;
+            }
+            Assert.That(onOk, Is.GreaterThanOrEqualTo(58), $"제약 ON은 거의 항상 콜 하한 충족 (실제 {onOk}/60)");
+            Assert.That(onOk - offOk, Is.GreaterThanOrEqualTo(20), $"ON이 uniform보다 훨씬 자주 충족 (ON {onOk} vs OFF {offOk})");
+        }
+
+        [Test]
+        public void Sample_call_constraint_off_is_bit_invariant()
+        {
+            var src = CallerHoardState();
+            var r1 = new Rng(9UL); var a = Determinizer.Sample(src, 0, ref r1, null, constrainCalls: false);
+            var r2 = new Rng(9UL); var b = Determinizer.Sample(src, 0, ref r2, null);   // 4-arg = 기본 false
+            for (int seat = 1; seat < 4; seat++)
+                Assert.That(a.Seats[seat].Hand, Is.EqualTo(b.Seats[seat].Hand), "제약 OFF는 기존 분배와 비트불변");
+        }
+
+        [Test]
+        public void Sample_call_constraint_preserves_closure()
+        {
+            var src = CallerHoardState();
+            var rng = new Rng(3UL);
+            var det = Determinizer.Sample(src, 0, ref rng, null, constrainCalls: true);
+            var all = new HashSet<Card>();
+            for (int i = 0; i < 4; i++) all.UnionWith(det.Seats[i].Hand);
+            Assert.That(all.Count, Is.EqualTo(56));
+            for (int i = 1; i < 4; i++)
+                Assert.That(det.Seats[i].Hand.Count, Is.EqualTo(src.Seats[i].Hand.Count));
+        }
     }
 }

@@ -46,6 +46,29 @@ namespace Tichu.Core.Tests
             CollectionAssert.Contains(pins0, (ex.ToRight, 3));
         }
 
+        // ── D2 ε 정상화 ──────────────────────────────────────────────────────────────
+
+        [Test]
+        public void EffectiveRollouts_collapses_to_one_when_epsilon_zero()
+        {
+            Assert.That(PimcAgent.EffectiveRollouts(0.0, 6), Is.EqualTo(1), "ε=0 → 롤아웃 결정적이라 6회 중복 → 1회");
+            Assert.That(PimcAgent.EffectiveRollouts(0.0, 1), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void EffectiveRollouts_keeps_count_when_epsilon_positive()
+        {
+            Assert.That(PimcAgent.EffectiveRollouts(0.05, 4), Is.EqualTo(4), "ε>0 → 노이즈 평균화에 R회 의미");
+            Assert.That(PimcAgent.EffectiveRollouts(0.25, 3), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EffectiveRollouts_guards_below_one()
+        {
+            Assert.That(PimcAgent.EffectiveRollouts(0.05, 0), Is.EqualTo(1));
+            Assert.That(PimcAgent.EffectiveRollouts(0.0, 0), Is.EqualTo(1));
+        }
+
         // ── Rollout 정확성 ───────────────────────────────────────────────────────────
 
         [Test]

@@ -112,7 +112,7 @@ namespace Tichu.GameFlow.Agents
                 AiAgent.FilterWastefulPhoenixSingle(candidates, trick, ctx.MyHand.Count);
 
             ulong policyBase = _roundSeed ^ 0x5043_0000_0000_0001UL ^ (ulong)_seat;
-            int rolloutsPerWorld = _config.RolloutsPerWorld < 1 ? 1 : _config.RolloutsPerWorld;
+            int rolloutsPerWorld = EffectiveRollouts(_config.Epsilon, _config.RolloutsPerWorld);
 
             // 각 후보의 가중 누적 EV(Σ weightᵥ·evᵥ). reach-prob off면 weight=1.0 → 균등(P2-C 불변).
             var weightedSum = new double[candidates.Count];
@@ -207,6 +207,18 @@ namespace Tichu.GameFlow.Agents
             if (c.Count == 0)
                 for (int i = 0; i < legal.Count; i++) c.Add(legal[i]);
             return c;
+        }
+
+        /// <summary>
+        /// 유효 롤아웃 수(D2 ε 정상화). ε≤0이면 롤아웃 디폴트 정책이 결정적이라(HeuristicRolloutPolicy 가
+        /// RNG 미사용, AiAgent 도 용양도 좌우타이 코인플립 1곳만 시드 사용) R회 반복이 사실상 중복 →
+        /// 1회로 정규화(Expert 24세계×6롤아웃의 ~6× 낭비 제거·굶주린 Expert 완화). ε&gt;0이면 노이즈
+        /// 평균화에 R회 의미 있으므로 그대로. r&lt;1이면 1로 보정.
+        /// </summary>
+        public static int EffectiveRollouts(double epsilon, int rolloutsPerWorld)
+        {
+            int r = rolloutsPerWorld < 1 ? 1 : rolloutsPerWorld;
+            return epsilon <= 0.0 ? 1 : r;
         }
 
         /// <summary>강건 백업 점수 = mean − λ·std(세계 간). count≤0이면 −∞. B1 순수 함수.</summary>

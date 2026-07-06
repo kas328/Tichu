@@ -68,9 +68,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존(벤치 중립·관측버그 교정)
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존 + C1 교환핀
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

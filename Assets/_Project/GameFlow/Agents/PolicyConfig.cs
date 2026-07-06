@@ -40,7 +40,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 낮은 싱글 팔로우에서 자연 승수가 있으면 봉황 단독을 EV 후보에서 제거한다(#2 봉황 보존). OFF면 비트불변.</summary>
         public readonly bool UsePhoenixConservation;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false)
+        /// <summary>true면 결정화 시 관측자가 교환에서 넘긴 미플레이 카드를 수령 좌석에 고정한다(C1 교환 핀). OFF면 비트불변.</summary>
+        public readonly bool UseExchangePin;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -53,6 +56,7 @@ namespace Tichu.GameFlow.Agents
             UseComboOvertakeGuard = useComboOvertakeGuard;
             UseEndgameSheddingGuard = useEndgameSheddingGuard;
             UsePhoenixConservation = usePhoenixConservation;
+            UseExchangePin = useExchangePin;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
@@ -64,9 +68,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존(벤치 중립·관측버그 교정)
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true);  // P2-G 정합성 + #2 봉황보존
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존 + C1 교환핀
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

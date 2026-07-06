@@ -109,5 +109,63 @@ namespace Tichu.Core.Tests
             var res = GameEngine.Apply(det, GameAction.Play(0, legal[0].Cards));
             Assert.That(res.Ok, Is.True, res.RejectReason);
         }
+
+        // ── C1 교환 핀 ─────────────────────────────────────────────────────────
+
+        [Test]
+        public void Sample_pins_passed_card_to_recipient_seat_for_every_seed()
+        {
+            var src = FreshPlayState(0);
+            // 미관측 풀에 있는 카드 하나를 "관측자가 좌석 1에게 넘긴 카드"로 삼는다.
+            var pinnedCard = src.Seats[3].Hand[0];
+            var pinned = new List<(Card, int)> { (pinnedCard, 1) };
+
+            // 핀이 없으면 이 카드는 균등 셔플로 좌석 1에 ~1/3 만 안착 → 전 시드 안착은 핀이 있어야만 성립.
+            for (ulong seed = 1; seed <= 40; seed++)
+            {
+                var rng = new Rng(seed);
+                var det = Determinizer.Sample(src, 0, ref rng, pinned);
+                Assert.That(det.Seats[1].Hand.Contains(pinnedCard), Is.True,
+                    $"핀한 카드가 시드 {seed} 에서 수령 좌석 1 에 없다");
+                Assert.That(det.Seats[1].Hand.Count, Is.EqualTo(src.Seats[1].Hand.Count));
+            }
+        }
+
+        [Test]
+        public void Sample_with_pin_preserves_closure_and_observer_hand()
+        {
+            var src = FreshPlayState(0);
+            var observerBefore = new List<Card>(src.Seats[0].Hand);
+            var pinned = new List<(Card, int)> { (src.Seats[2].Hand[3], 3) };
+
+            var rng = new Rng(17UL);
+            var det = Determinizer.Sample(src, 0, ref rng, pinned);
+
+            // 관측 손패 불변 + 56장 폐쇄 + 상대 장수 일치.
+            Assert.That(det.Seats[0].Hand, Is.EqualTo(observerBefore));
+            var all = new HashSet<Card>();
+            for (int i = 0; i < 4; i++) all.UnionWith(det.Seats[i].Hand);
+            Assert.That(all.Count, Is.EqualTo(56));
+            for (int i = 1; i < 4; i++)
+                Assert.That(det.Seats[i].Hand.Count, Is.EqualTo(src.Seats[i].Hand.Count));
+        }
+
+        [Test]
+        public void Sample_ignores_pin_for_card_not_in_unseen_pool()
+        {
+            var src = FreshPlayState(0);
+            // 관측자 자기 손패 카드는 미관측 풀에 없다(이미 보임) → 핀은 무시돼야 하고 관측 손패에 그대로 남는다.
+            var ownCard = src.Seats[0].Hand[0];
+            var pinned = new List<(Card, int)> { (ownCard, 2) };
+
+            var rng = new Rng(23UL);
+            var det = Determinizer.Sample(src, 0, ref rng, pinned);
+
+            Assert.That(det.Seats[0].Hand.Contains(ownCard), Is.True, "관측자 카드는 그대로 관측자에게");
+            Assert.That(det.Seats[2].Hand.Contains(ownCard), Is.False, "풀에 없는 핀 카드를 상대에 강제 배치하면 안 됨");
+            var all = new HashSet<Card>();
+            for (int i = 0; i < 4; i++) all.UnionWith(det.Seats[i].Hand);
+            Assert.That(all.Count, Is.EqualTo(56));
+        }
     }
 }

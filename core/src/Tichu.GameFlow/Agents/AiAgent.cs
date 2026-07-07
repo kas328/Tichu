@@ -76,6 +76,20 @@ namespace Tichu.GameFlow.Agents
             return false;
         }
 
+        private static bool HasDragon(IReadOnlyList<Card> hand)
+        {
+            for (int i = 0; i < hand.Count; i++)
+                if (hand[i].Special == SpecialKind.Dragon) return true;
+            return false;
+        }
+
+        private static bool HasPhoenix(IReadOnlyList<Card> hand)
+        {
+            for (int i = 0; i < hand.Count; i++)
+                if (hand[i].Special == SpecialKind.Phoenix) return true;
+            return false;
+        }
+
         // ── 교환 ───────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -100,10 +114,20 @@ namespace Tichu.GameFlow.Agents
 
             candidates.Sort(CompareLow);
 
-            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면, 또는 파트너가 티츄를 콜했으면: 가장 높은 카드를
-            // 파트너에게 줘 팀/콜을 강화한다(#4a 파트너 티츄 지원 — 200점). 가장 낮은 둘은 상대(Left/Right)에게.
+            // 파트너가 티츄를 콜했으면: 내 탑패(용/봉황 포함)를 헌납해 파트너의 아웃·카운팅을 돕는다(Issue 1).
+            // 파트너 콜 시엔 내가 스몰티츄를 못 외치므로(중복 금지) 최고 카드를 아낄 이유가 없다. 최저 둘은 상대에게.
             bool partnerCalledTichu = ctx.State.Seats[ctx.PartnerSeat].Call != TichuCall.None;
-            if (!IntendsTichu(hand) || partnerCalledTichu)
+            if (partnerCalledTichu)
+            {
+                Card topGift = HasDragon(hand) ? Card.Dragon
+                             : HasPhoenix(hand) ? Card.Phoenix
+                             : candidates[candidates.Count - 1];
+                return new ExchangeChoice(candidates[0], topGift, candidates[1]); // ToLeft, ToPartner, ToRight
+            }
+
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 비특수 카드를 파트너에게 줘 팀을 강화한다.
+            // (특수카드는 내 자원이라 이 경우엔 보존 — 불변식.) 가장 낮은 둘은 상대(Left/Right)에게.
+            if (!IntendsTichu(hand))
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];

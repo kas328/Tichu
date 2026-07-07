@@ -16,6 +16,7 @@ namespace Tichu.GameFlow.Agents
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
+        private const int SmallTichuThreshold = 6; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(#3 남발 방지).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
@@ -165,7 +166,7 @@ namespace Tichu.GameFlow.Agents
             // 파트너가 이미 콜했으면 중복 회피.
             if (seats[ctx.PartnerSeat].Call != TichuCall.None) return false;
 
-            // 강한 손: 용/봉황 보유 또는 폭탄 보유.
+            // 강한 손: (용/봉황 보유 + 손 강도 하한) 또는 폭탄 보유. 강도 하한이 없으면 봉황만 든 약패도 남발(#3).
             bool hasHighSpecial = false;
             var hand = ctx.MyHand;
             for (int i = 0; i < hand.Count; i++)
@@ -173,7 +174,7 @@ namespace Tichu.GameFlow.Agents
                 var sp = hand[i].Special;
                 if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) { hasHighSpecial = true; break; }
             }
-            if (hasHighSpecial) return true;
+            if (hasHighSpecial && HandPower(hand) >= SmallTichuThreshold) return true;
 
             // 폭탄 보유 여부는 리드(=CurrentTrick null) 시점의 LegalMoves 로 판단.
             var moves = ctx.LegalMoves;

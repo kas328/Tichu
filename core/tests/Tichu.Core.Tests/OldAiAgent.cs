@@ -233,6 +233,15 @@ namespace Tichu.Core.Tests.Bench
                 }
             }
 
+            // Issue 2: 상대 1장(아웃 임박)인데 리드가 낮은 싱글이면 상대가 받아 나간다 → 가장 높은 싱글로 교체해
+            // 봉쇄한다(콤보 선택은 이미 1장이 못 받으므로 건드리지 않는다). 최고 싱글도 낮으면 최선을 다한 것.
+            if (chosen.Cards.Count == 1 && AnyOpponentNearOut(ctx, 1))
+            {
+                var high = HighestWinningSingle(pool);
+                if (high != null && MoveOrder.Strength(high) > MoveOrder.Strength(chosen))
+                    chosen = high;
+            }
+
             int? wish = MaybeWish(ctx, chosen);
             return TurnDecision.Play(chosen, wish);
         }

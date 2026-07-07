@@ -187,17 +187,32 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void ChooseExchange_partner_called_tichu_gives_highest_even_if_own_hand_strong()
+        public void ChooseExchange_partner_called_tichu_gives_top_card_including_dragon()
         {
-            // #4a: 파트너(seat2)가 라지 티츄 콜 → 내 패가 강해도(용 보유) 파트너에게 최고 카드(A)를
-            // 줘 콜을 돕는다(200점 지원). 콜 없으면 티츄-의향 분기라 낮은 카드를 줬을 것.
+            // Issue 1: 파트너(seat2)가 라지 티츄 콜 → 내 탑패(용)를 헌납해 콜·아웃·카운팅을 돕는다.
+            // 용/봉황을 숨기면 파트너가 카운팅 못해 스몰티츄도 못 외침. 콜 시엔 내 스몰티츄 각도 없음(중복 금지).
             var hand = Hand(Card.Dragon, N(14, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
                             N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
             var s = GameFlowHelpers.PlayState(0, hand,
                 Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
             s.Seats[2].Call = TichuCall.GrandTichu;   // 파트너 라지 티츄
             var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
-            Assert.That(ex.ToPartner.Rank, Is.EqualTo(14), "파트너 티츄 콜 → 최고 카드(A) 헌납해 콜 지원");
+            Assert.That(ex.ToPartner.Special, Is.EqualTo(SpecialKind.Dragon), "파트너 티츄 콜 → 탑패(용) 헌납");
+            Assert.That(ex.ToLeft.IsSpecial, Is.False, "상대에겐 특수카드 안 줌");
+            Assert.That(ex.ToRight.IsSpecial, Is.False);
+        }
+
+        [Test]
+        public void ChooseExchange_partner_called_tichu_gives_phoenix_when_no_dragon()
+        {
+            // 용 없고 봉황 보유 → 파트너 콜 시 봉황을 헌납(탑패).
+            var hand = Hand(Card.Phoenix, N(13, Suit.Jade), N(3, Suit.Pagoda), N(4, Suit.Star),
+                            N(5, Suit.Jade), N(6, Suit.Sword), N(7, Suit.Pagoda), N(8, Suit.Star));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Sword)), Hand(N(2, Suit.Pagoda)), Hand(N(2, Suit.Star)));
+            s.Seats[2].Call = TichuCall.Tichu;
+            var ex = new AiAgent(1UL, 0).ChooseExchange(GameFlowHelpers.Context(s, 0));
+            Assert.That(ex.ToPartner.Special, Is.EqualTo(SpecialKind.Phoenix), "용 없으면 봉황을 헌납");
         }
 
         // ── DecideTurn (follow) ──────────────────────────────────────────────────────

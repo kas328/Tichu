@@ -449,6 +449,23 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void DecideLead_locks_out_one_card_opponent_with_highest_single_when_no_combo()
+        {
+            // 상대(seat1) 1장. 내 손은 콤보가 안 나오는 흩어진 싱글뿐 → 최저(마작)로 내면 상대가 받아 나감.
+            // 가장 높은 싱글(A)로 리드해 상대 1장이 못 넘기게 봉쇄해야 한다(Issue 2).
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(Card.Mahjong, N(4, Suit.Jade), N(6, Suit.Sword), N(8, Suit.Pagoda),
+                     N(10, Suit.Star), N(12, Suit.Jade), N(13, Suit.Sword), N(14, Suit.Pagoda)),
+                Hand(N(7, Suit.Star)),                        // seat1: 1장(아웃 임박)
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(3, Suit.Star), N(5, Suit.Star), N(9, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Single));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(14).Rank), "콤보 없으면 최고 싱글(A)로 봉쇄");
+        }
+
+        [Test]
         public void DecideFollow_locks_out_one_card_opponent_over_partner()
         {
             // 파트너(seat2)가 싼 싱글(4)을 냄. 상대(seat3)가 1장 남아 그 싱글을 받아 나갈 수 있음 →

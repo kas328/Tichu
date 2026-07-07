@@ -209,7 +209,7 @@ namespace Tichu.GameFlow.Agents
             if (ctx.MyHand.Count <= FinishHandSize)
             {
                 // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 콤보를 자연히 우선 → 1장 상대도 봉쇄).
-                // 동수면 가장 강한 수(이겨서 주도권 유지).
+                // 동수면 가장 약한 수(고카드 제어를 남겨 저카드 먼저 흘리고 아웃 확보 — ①).
                 chosen = MostShedding(pool)!;
             }
             else
@@ -411,17 +411,18 @@ namespace Tichu.GameFlow.Agents
 
         // ── 보조 ───────────────────────────────────────────────────────────────────
 
-        // 끝내기 리드용: 가장 많은 카드를 터는 수(아웃 추진). 동수면 가장 강한(주도권 유지) 수.
+        // 끝내기 리드용: 가장 많은 카드를 터는 수(아웃 추진). 동수면 가장 약한 수 — 고카드 제어를 남겨
+        // 저카드부터 흘리고 재진입/아웃을 확보한다(①: 고카드 먼저 덤프 후 저싱글 남고 못나가는 것 방지).
         private static Combination? MostShedding(IReadOnlyList<Combination> moves)
         {
             Combination? best = null;
-            int bestCount = -1, bestStrength = -1;
+            int bestCount = -1, bestStrength = int.MaxValue;
             for (int i = 0; i < moves.Count; i++)
             {
                 var m = moves[i];
                 int cnt = m.Cards.Count;
                 int st = MoveOrder.Strength(m);
-                if (cnt > bestCount || (cnt == bestCount && st > bestStrength))
+                if (cnt > bestCount || (cnt == bestCount && st < bestStrength))
                 { bestCount = cnt; bestStrength = st; best = m; }
             }
             return best;

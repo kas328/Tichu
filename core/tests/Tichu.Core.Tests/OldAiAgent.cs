@@ -19,6 +19,7 @@ namespace Tichu.Core.Tests.Bench
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
+        private const int SmallTichuThreshold = 6; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(#3 남발 방지).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
@@ -168,7 +169,7 @@ namespace Tichu.Core.Tests.Bench
             // 파트너가 이미 콜했으면 중복 회피.
             if (seats[ctx.PartnerSeat].Call != TichuCall.None) return false;
 
-            // 강한 손: 용/봉황 보유 또는 폭탄 보유.
+            // 강한 손: (용/봉황 보유 + 손 강도 하한) 또는 폭탄 보유. 강도 하한이 없으면 봉황만 든 약패도 남발(#3).
             bool hasHighSpecial = false;
             var hand = ctx.MyHand;
             for (int i = 0; i < hand.Count; i++)
@@ -176,7 +177,7 @@ namespace Tichu.Core.Tests.Bench
                 var sp = hand[i].Special;
                 if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) { hasHighSpecial = true; break; }
             }
-            if (hasHighSpecial) return true;
+            if (hasHighSpecial && HandPower(hand) >= SmallTichuThreshold) return true;
 
             // 폭탄 보유 여부는 리드(=CurrentTrick null) 시점의 LegalMoves 로 판단.
             var moves = ctx.LegalMoves;
@@ -369,6 +370,28 @@ namespace Tichu.Core.Tests.Bench
             return MoveOrder.Smallest(bombs);
         }
 
+        /// <summary>⑧ 폭탄 세이브 판정: 상대-Top 상황에서 파트너가 아직 안 나갔고 이 Top 이후 행동(패스)을
+        /// 안 했다면 자연 오버테이크 여지가 있으므로 폭탄을 지연한다(true=지연). 파트너가 패스/플레이하면
+        /// 폭탄 창이 다시 열린다(GameDriver). PimcAgent 가 UseBombSave 플래그 ON 일 때 사용.</summary>
+        public static bool ShouldDeferBombForPartner(in DecisionContext ctx, int seat, Trick trick)
+        {
+            if (trick == null) return false;
+            if (ctx.State.Seats[Seating.Partner(seat)].IsOut) return false;       // 파트너 아웃 → 지연 무의미
+            return !PartnerActedSinceTop(trick, Seating.Partner(seat));           // 파트너 미행동 → 자연 오버테이크 여지
+        }
+
+        // 파트너가 현재 Top(마지막 실제 플레이) 이후 행동(패스)했는가.
+        private static bool PartnerActedSinceTop(Trick trick, int partner)
+        {
+            var h = trick.History;
+            int topIdx = -1;
+            for (int i = h.Count - 1; i >= 0; i--)
+                if (h[i].Combination != null) { topIdx = i; break; }
+            for (int i = topIdx + 1; i < h.Count; i++)
+                if (h[i].Seat == partner) return true;
+            return false;
+        }
+
         // ── 용 양도 ─────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -512,18 +535,30 @@ namespace Tichu.Core.Tests.Bench
         {
             if (nonBombWins.Count == 0) return null;
 
-            // ① 1장 상대가 낮은 싱글 트릭을 받아 나가는 것 봉쇄: 가장 높은 이기는 싱글.
-            if (trick.Top != null && trick.Top.Type == CombinationType.Single
-                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
-            {
-                var high = HighestWinningSingle(nonBombWins);
-                if (high != null) return high;
-            }
+            // ① near-out 싱글 락아웃(⑦ 로 공유 추출 — 상대-Top 케이스).
+            var lockout = NearOutSingleLockout(ctx, trick, nonBombWins);
+            if (lockout != null) return lockout;
 
             // ② 티츄콜/아웃임박 위협 → 스트레이트 안 깨는 최소 오버킬(없으면 null → 보내준다).
             if (OpponentThreat(ctx))
                 return CheapestNonStructural(ctx.MyHand, nonBombWins);
 
+            return null;
+        }
+
+        /// <summary>⑦ near-out 싱글 락아웃: Top 이 낮은 싱글(Rank≤LockoutTopScaled)이고 상대 1장(아웃 임박)이면
+        /// 가장 높은 이기는 싱글로 봉쇄한다. Top 소유자 무관(파트너-Top 케이스도 커버 — PimcAgent 라이브 호출).
+        /// nonBombWins 는 Top 을 이기는 비폭탄 수. 없거나 조건 미충족이면 null.</summary>
+        public static Combination? NearOutSingleLockout(
+            in DecisionContext ctx, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0 || trick?.Top == null) return null;
+            if (trick.Top.Type == CombinationType.Single
+                && trick.Top.Rank <= LockoutTopScaled && AnyOpponentNearOut(ctx, 1))
+            {
+                var high = HighestWinningSingle(nonBombWins);
+                if (high != null) return high;
+            }
             return null;
         }
 

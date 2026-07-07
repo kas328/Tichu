@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 플레이테스트 체크리스트</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 100px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:38px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  .mut{color:var(--muted)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:14px 18px;margin:12px 0}
+  .item h3{margin:0 0 4px;font-size:15.5px}
+  .item .how{color:var(--muted);font-size:13.5px;margin:4px 0}
+  .item .look{font-size:14px;margin:6px 0 2px}
+  .chk{display:inline-block;font-family:monospace;color:var(--muted);margin-right:6px}
+  .rep{font-size:12.5px;color:#8fa0b2;margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#132a33;color:#79dcff;border:1px solid #244e5e;margin-left:6px}
+  .verdict{background:linear-gradient(180deg,#231d12,#1b1710);border:1px solid #4a3a1e;border-radius:14px;padding:16px 20px;margin:16px 0}
+  .a{border-left-color:var(--good)} .b{border-left-color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>티츄 플레이테스트 체크리스트</h1>
+  <div class="sub">2026-07-07 · 이번 세션 랜딩(C1·D2 채택 / C3 파킹) + 누적 미확인(#4·#4c·#2) 실기 확인 · Phase 1 60fps 게이트</div>
+
+  <div class="verdict">
+    <strong>목적.</strong> 벤치는 강도를 검증하지만 <b>체감은 사람만 검증</b>한다. 특히 <b>Expert가 D2로 "굶주림"이
+    풀렸는지</b>(지난 세션의 이상한 리드가 나아졌는지)와, 지난 세션 미확인 <b>#4 파트너-티츄 지원</b>이 핵심.
+    이상한 수를 보면 <b>구체 상황(내 손패·트릭·AI가 낸 수)</b>을 적어 주세요 — 그게 타깃 격리벤치-픽스의 재료입니다.
+  </div>
+
+  <h2>0. 지금 라이브인 설정 (런타임 검증됨 ✓)</h2>
+  <table>
+    <thead><tr><th>티어</th><th>세계</th><th>롤아웃</th><th>예산</th><th>켜진 것</th></tr></thead>
+    <tbody>
+      <tr><td>Easy</td><td>0 (탐색OFF)</td><td>—</td><td>0</td><td class="mut">휴리스틱+블런더</td></tr>
+      <tr><td>Normal</td><td>16</td><td>4</td><td>900ms</td><td>caller·D1·#2봉황·<b>C1핀</b></td></tr>
+      <tr><td>Hard</td><td>20</td><td>4</td><td>900ms</td><td>caller·D1·#2봉황·<b>C1핀</b></td></tr>
+      <tr><td><b>Expert</b></td><td>24</td><td>6 → <b>eff 1 (D2)</b></td><td>900ms</td><td>caller·D1·#2봉황·<b>C1핀</b></td></tr>
+    </tbody>
+  </table>
+  <p class="mut">C3·reach·robust = OFF(파킹). <b>Expert의 6→1 롤아웃 붕괴(D2)</b>로 900ms 안에 24세계를 훨씬 많이 완주 → 이게 체감되는지가 이번 최대 관전 포인트.</p>
+
+  <h2>A. AI 체감 — Expert 우선 (각 항목: 좋음 / 이상함+상황 / 확인못함)</h2>
+  <p class="mut">난이도 선택 → <b>Expert</b>로 몇 판. 여유되면 Normal도 한 판 비교. AI 3명(파트너 1+상대 2)이 전부 Expert.</p>
+
+  <div class="item a">
+    <h3>A1. Expert 리드 품질 <span class="badge">D2 검증</span></h3>
+    <div class="how">AI가 선(리드)을 잡았을 때 내는 첫 수를 관찰. 지난 세션 관측: A·K 낸 뒤 싱글 9 같은 이상한 리드.</div>
+    <div class="look"><span class="chk">☐</span> 리드가 합리적인가(무의미한 고카드 조기 소진·엉뚱한 싱글 없음)?</div>
+    <div class="look"><span class="chk">☐</span> AI 차례가 ~1초 내로 결정되는가(끊김·과도한 지연 없음)?</div>
+    <div class="look"><span class="chk">☐</span> Normal보다 Expert가 더 날카롭게 느껴지는가?</div>
+    <div class="rep">이상하면 → 그 순간 <b>AI 손패 추정·트릭 상황·AI가 낸 수·기대한 수</b>를 메모.</div>
+  </div>
+
+  <div class="item a">
+    <h3>A2. 파트너-티츄 지원 <span class="badge">#4 · 지난세션 미확인</span></h3>
+    <div class="how">당신이 <b>AI의 파트너</b>인 상태에서 (라지/스몰) 티츄를 외친 판을 만들어라. 200점 사보타주 버그였던 부분.</div>
+    <div class="look"><span class="chk">☐</span> (교환) AI가 당신에게 <b>가장 높은 카드</b>를 주는가?</div>
+    <div class="look"><span class="chk">☐</span> AI가 당신의 스트레이트/콤보를 <b>더 높은 걸로 밟지 않는가</b>?</div>
+    <div class="look"><span class="chk">☐</span> AI가 <b>당신보다 먼저 나가지 않는가</b>(티츄 성공하게 양보)?</div>
+    <div class="rep">셋 중 하나라도 위반하면 그 상황을 구체적으로.</div>
+  </div>
+
+  <div class="item a">
+    <h3>A3. 못 나갈 때 살리기 <span class="badge">#4c</span></h3>
+    <div class="how">당신(티츄 콜한 사람)이 폭탄 맞거나 손패가 막혀 <b>곧 못 나갈 것 같은</b> 상황.</div>
+    <div class="look"><span class="chk">☐</span> AI가 무작정 양보만 하지 않고 <b>대신 나가 라운드를 살리는가</b>?</div>
+  </div>
+
+  <div class="item a">
+    <h3>A4. 봉황 낭비 <span class="badge">#2</span></h3>
+    <div class="how">AI가 봉황(Phoenix)을 쓰는 타이밍.</div>
+    <div class="look"><span class="chk">☐</span> 낮은 싱글(2·3·9 등)에 봉황을 <b>낭비하지 않는가</b>(자연 카드로 이길 수 있을 때)?</div>
+  </div>
+
+  <div class="item a">
+    <h3>A5. 위협 차단 · 폭탄 <span class="badge">D1 · A2</span></h3>
+    <div class="how">상대가 아웃/티츄에 임박했을 때 AI 반응.</div>
+    <div class="look"><span class="chk">☐</span> 아웃 임박(1~2장) 상대의 낮은 리드를 <b>막는가</b>(무의미하게 올패스 안 함)?</div>
+    <div class="look"><span class="chk">☐</span> 상대의 아웃/티츄를 <b>폭탄으로 저지</b>하는 장면이 자연스러운가?</div>
+  </div>
+
+  <div class="item a">
+    <h3>A6. 전반 인상 (교환핀 C1 간접 포함)</h3>
+    <div class="how">C1(교환핀)은 내부 개선이라 직접 안 보임 — 파트너 지원 플레이가 전반적으로 똑똑해졌는지로 간접 판단.</div>
+    <div class="look"><span class="chk">☐</span> AI가 전반적으로 <b>"이기려고 두는"</b> 느낌인가(어이없는 헌납·자살수 없음)?</div>
+    <div class="look"><span class="chk">☐</span> 이번에 새로 거슬리는 수가 있었나? (있으면 상황 메모 — 최우선 픽스 후보)</div>
+  </div>
+
+  <h2>B. Phase 1 실기기 게이트 — 60fps (4/4 Pass면 Phase 1 종료)</h2>
+  <p class="mut">Android Dev Build APK → 중저가폰. (빌드가 필요하면 말씀해 주세요 — 빌드 설정/식별자는 정리돼 있음.)</p>
+
+  <div class="item b">
+    <h3>B1. 프레임</h3>
+    <div class="look"><span class="chk">☐</span> 한 라운드 완주 내내 <b>60fps 지속</b>(카드 애니·티츄 플래시·폭탄 빨강 아웃라인 포함)?</div>
+    <div class="look"><span class="chk">☐</span> Debug 빌드 FPS 오버레이로 실측(중저가 기준).</div>
+  </div>
+  <div class="item b">
+    <h3>B2. 안정성</h3>
+    <div class="look"><span class="chk">☐</span> 발열·튐·끊김·크래시 없음?</div>
+  </div>
+  <div class="item b">
+    <h3>B3. 입력·라우팅</h3>
+    <div class="look"><span class="chk">☐</span> 손패 터치·낼 카드 선택·티츄/폭탄 버튼이 정확히 반응?</div>
+  </div>
+  <div class="item b">
+    <h3>B4. 손맛</h3>
+    <div class="look"><span class="chk">☐</span> <b>"한 판 더"</b> 하고 싶은가? (진짜 게이트)</div>
+  </div>
+
+  <div class="verdict" style="border-color:#2c4a38;background:linear-gradient(180deg,#15201a,#141a17)">
+    <strong>보고 방식.</strong> 각 항목 <b>좋음 / 이상함(구체 상황 필수) / 확인 못함</b>.
+    "이상함"은 <b>재현 가능한 상황</b>일수록 좋습니다(내 손패·트릭·AI 수) — 그래야 격리벤치로 잡습니다(#4가 그렇게 잡혔죠).
+    결과 주시면: 체감 좋으면 → 마감(D5.1 사운드 잔여)·출시 준비 / 진짜 EV-옳지만-약한 수가 남으면 → 근거 있게 연구티어 착수.
+  </div>
+
+</div>
+</body>
+</html>

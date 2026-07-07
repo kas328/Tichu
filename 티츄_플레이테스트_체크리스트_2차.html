@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 플레이테스트 체크리스트 (2차)</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1000px;margin:0 auto;padding:40px 24px 100px}
+  h1{font-size:28px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:36px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  .mut{color:var(--muted)}.good{color:var(--good)}
+  .item{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:14px 18px;margin:12px 0}
+  .item.hot{border-left-color:var(--warn)}
+  .item h3{margin:0 0 4px;font-size:15.5px}
+  .item .how{color:var(--muted);font-size:13.5px;margin:4px 0}
+  .look{font-size:14px;margin:6px 0 2px}
+  .chk{display:inline-block;font-family:monospace;color:var(--muted);margin-right:6px}
+  .rep{font-size:12.5px;color:#8fa0b2;margin-top:8px;border-top:1px dashed var(--line);padding-top:6px}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap;background:#132a33;color:#79dcff;border:1px solid #244e5e;margin-left:6px}
+  .badge.new{background:#2a2214;color:#f0cf7d;border-color:#574a1e}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:16px 20px;margin:16px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>플레이테스트 체크리스트 — 2차</h1>
+  <div class="sub">2026-07-08 · 이번 배치 6채택분 실기 확인 (①엔드게임·⑦near-out·콜러밟기·③티츄게이트 + 연출④⑤) · main <code>19b3d19</code> = origin 동기화</div>
+
+  <div class="verdict">
+    <strong>목적.</strong> 이번 배치에서 <b>Expert AI가 실제로 덜 낭비하고 잘 나가는지</b> 확인.
+    특히 <b>콜러(라지티츄 외친 AI)가 이제 고카드를 아껴 아웃하는지</b>와 <b>엔드게임(①)에서 저싱글 안 남기고 나가는지</b>가 핵심.
+    이상하면 <b>구체 상황(내 손패·트릭·AI 수)</b>을 적어 주세요 — 격리벤치 픽스의 재료입니다.
+  </div>
+
+  <h2>0. 라이브 설정 (검증됨 ✓)</h2>
+  <table>
+    <thead><tr><th>티어</th><th>세계·롤아웃·예산</th><th>이번 배치 반영</th></tr></thead>
+    <tbody>
+      <tr><td>Normal</td><td>16·4·900ms</td><td rowspan="2">①엔드게임셰딩·⑦near-out락아웃·콜러밟기제한·③티츄게이트 전부 라이브(휴리스틱=전 티어 공유)</td></tr>
+      <tr><td><b>Expert</b></td><td>24·6→eff1·900ms</td></tr>
+    </tbody>
+  </table>
+
+  <h2>1. 이번 배치 핵심 확인 (Expert 우선)</h2>
+
+  <div class="item hot">
+    <h3>1. 콜러가 고카드 안 낭비 <span class="badge new">이번 수정</span></h3>
+    <div class="how">당신 <b>왼쪽/오른쪽 상대 AI</b>가 라지/스몰 티츄를 외친 판을 관찰(또는 여러 판 중 콜러 AI가 나오는 상황).</div>
+    <div class="look"><span class="chk">☐</span> 콜러가 <b>자기 파트너의 A·고카드를 용/봉황으로 밟지 않는가</b>(두고 아웃에 아낌)?</div>
+    <div class="look"><span class="chk">☐</span> 콜러가 <b>낮은 족보(9장 남은 초반 등)에 봉황·용을 낭비하지 않는가</b>? <span class="mut">(← 이건 Issue A, 아직 미수정 — 여전히 낭비하면 메모)</span></div>
+    <div class="look"><span class="chk">☐</span> 상대 콜러가 예전보다 라지티츄를 잘 <b>성공</b>시키는가(자기 티츄를 스스로 망치지 않음)?</div>
+    <div class="rep">콜러가 여전히 고카드 낭비하면 → 그 순간 손패·트릭·AI 수를 메모. (특히 봉황을 콤보에 껴서 낮은 족보 막는 장면.)</div>
+  </div>
+
+  <div class="item hot">
+    <h3>2. Expert 엔드게임 아웃 <span class="badge new">① 이번 수정</span></h3>
+    <div class="how">AI(특히 파트너)가 손패 ≤5장 끝내기 국면에 리드할 때.</div>
+    <div class="look"><span class="chk">☐</span> 고카드(A페어·용) 먼저 덤프하고 <b>저싱글 남겨 못 나가는 일이 없는가</b>(저카드 먼저 흘리고 아웃)?</div>
+    <div class="look"><span class="chk">☐</span> 팀이 제어카드를 갖고 있으면 <b>실제로 나가는가</b>?</div>
+    <div class="rep">벤치상 +34.3/R 유의 개선 — 실제 체감으로 확인되는지가 관건.</div>
+  </div>
+
+  <div class="item">
+    <h3>3. near-out 차단 <span class="badge">⑦</span></h3>
+    <div class="how">상대가 1장 남아 아웃 임박 + 낮은 싱글 트릭 상황.</div>
+    <div class="look"><span class="chk">☐</span> AI가 (파트너-Top이든 상대-Top이든) <b>최고 싱글로 봉쇄</b>해 상대 아웃을 막는가?</div>
+  </div>
+
+  <div class="item">
+    <h3>4. 티츄 남발 억제 <span class="badge">③</span></h3>
+    <div class="how">Normal/Expert AI의 티츄 선언 빈도.</div>
+    <div class="look"><span class="chk">☐</span> 봉황만 들고 <b>못 나갈 약패로 티츄를 남발하지 않는가</b>?</div>
+  </div>
+
+  <div class="item">
+    <h3>5. 연출 <span class="badge">④⑤</span></h3>
+    <div class="look"><span class="chk">☐</span> ④ 스트레이트/콤보에서 <b>봉황이 대체 랭크 위치</b>에 표시되는가(봉 10 J Q K A / 10 봉 J J)?</div>
+    <div class="look"><span class="chk">☐</span> ⑤ 폭탄 카드가 <b>금색 오오라</b>로 빛나는가? 색/크기 적절한가(조정 가능)?</div>
+  </div>
+
+  <h2>2. 아직 안 고친 것 (관측되면 메모만)</h2>
+  <table>
+    <thead><tr><th>항목</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr><td><b>Issue A</b> 콜러가 봉황을 낮은 콤보에 낭비</td><td class="mut">미수정 — Bug4 콤보가드(−6.9/R 파킹) 영역·위험. 좁은 시도 가능</td></tr>
+      <tr><td><b>Issue C</b> 팀이 콜러에 개/저싱글 지원</td><td class="mut">미구현 — 새 팀협조 로직(큼)</td></tr>
+      <tr><td><b>②</b> 라지티츄 응징(내가 아무 패로 5/5)</td><td class="mut">롤아웃 천장 한계 — 연구티어 영역</td></tr>
+    </tbody>
+  </table>
+
+  <div class="verdict">
+    <strong>보고 방식.</strong> 각 항목 <b>좋음 / 이상함(구체 상황) / 확인 못함</b>. 결과 주시면:
+    체감 개선 확인되면 → A/C(콜러 봉황낭비·팀지원) 판단 or Phase 1 60fps 게이트. 여전히 나쁜 수 있으면 → 그 상황을 격리벤치로 픽스.
+  </div>
+
+</div>
+</body>
+</html>

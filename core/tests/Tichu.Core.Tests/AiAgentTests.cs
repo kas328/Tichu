@@ -233,6 +233,21 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void DecideTurn_caller_does_not_waste_dragon_on_partner_high_single()
+        {
+            // seat0 티츄 선언, 파트너(2) Top=A 싱글(고카드). seat0 은 용으로만 밟을 수 있고 나가지도 못함(3장)
+            // → 용을 낭비해 파트너를 밟지 않고 패스한다(고카드는 아웃에 아껴야 함).
+            var s = FollowState(0, Single(14), topOwner: 2, accumulatedPoints: 0,
+                Hand(Card.Dragon, N(2, Suit.Jade), N(3, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(2, Suit.Star)),
+                Hand(N(3, Suit.Pagoda)));
+            s.Seats[0].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "콜러라도 파트너 고카드(A)를 용으로 밟는 낭비는 안 한다");
+        }
+
+        [Test]
         public void DecideTurn_overtakes_partner_low_single_when_partner_is_out()
         {
             // 파트너(seat2)가 마지막 카드(낮은 싱글 2)로 아웃. 패스하면 리드가 상대(NextActive)로 넘어가므로,

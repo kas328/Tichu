@@ -488,7 +488,11 @@ namespace Tichu.GameFlow.Agents
             bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
-            return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+            // 콜러도 파트너의 고카드(A 등)를 용/봉황으로 밟는 낭비는 안 한다 — 아웃하거나(goesOut) 싸게 밟을
+            // 때(partnerLow)만 리드를 가져온다. 파트너가 이미 이기고 있으면(고카드) 두고 고카드를 아껴 아웃에 쓴다.
+            bool callerTakesLead = calledTichu && partnerLow;
+
+            return (callerTakesLead || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
         }
 
         /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).

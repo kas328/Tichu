@@ -19,7 +19,7 @@ namespace Tichu.Presentation.Views
         private static readonly Color CardBg  = new Color(0.96f, 0.97f, 0.98f);
         private static readonly Color CardSel = new Color(1.00f, 0.86f, 0.32f);
         private static readonly Color CardUse = new Color(0.55f, 0.80f, 0.62f); // 교환 배정됨
-        private static readonly Color CardBombBorder = new Color(0.92f, 0.20f, 0.18f); // 폭탄 보유 테두리(빨강 아웃라인)
+        private static readonly Color BombGlowGold = new Color(1.00f, 0.82f, 0.20f); // 폭탄 보유 카드 금색 오오라
         private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
         private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
         private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
@@ -30,7 +30,7 @@ namespace Tichu.Presentation.Views
         private Text _label;
         private LayoutElement _le;
         private Button _button;
-        private Outline _bombOutline;
+        private Image _bombGlow;
         private bool _built;
         private float _baseH;
 
@@ -40,15 +40,15 @@ namespace Tichu.Presentation.Views
         private Highlight _highlight = Highlight.Normal;
         private bool _bombMember;
 
-        /// <summary>이 카드가 내 손패의 폭탄 조합에 속하는지(빨강 글로우).</summary>
+        /// <summary>이 카드가 내 손패의 폭탄 조합에 속하는지(금색 오오라).</summary>
         public bool IsBombMember => _bombMember;
 
-        /// <summary>폭탄 멤버 표시 토글(빨강 테두리 아웃라인. 선택 채움과 공존).</summary>
+        /// <summary>폭탄 멤버 표시 토글(카드 금색 오오라 글로우. 선택 채움과 공존).</summary>
         public void SetBombMember(bool on)
         {
             EnsureBuilt();
             _bombMember = on;
-            _bombOutline.enabled = on;
+            _bombGlow.enabled = on;
         }
 
         /// <summary>현재 활성 onClick 리스너가 걸려 있는지(풀 재사용 안전 단언용).</summary>
@@ -61,7 +61,7 @@ namespace Tichu.Presentation.Views
         {
             EnsureBuilt();
             _card = card; _atlas = atlas; _faceUp = faceUp; _highlight = Highlight.Normal; _bombMember = false;
-            _bombOutline.enabled = false;
+            _bombGlow.enabled = false;
             Refresh();
             ApplyHeight();
             // 풀 재사용 안전: Set+SetSize 만 부르는 소비자(트릭/뒷면)에서도 옛 리스너/상호작용을 비운다.
@@ -147,11 +147,17 @@ namespace Tichu.Presentation.Views
             _rt = (RectTransform)transform;
             _bg = GetComponent<Image>(); if (_bg == null) _bg = gameObject.AddComponent<Image>();
             _bg.color = CardBg;
-            _bombOutline = gameObject.GetComponent<Outline>() ?? gameObject.AddComponent<Outline>();
-            _bombOutline.effectColor = CardBombBorder;
-            _bombOutline.effectDistance = new Vector2(3f, 3f);
-            _bombOutline.enabled = false;
             _le = GetComponent<LayoutElement>(); if (_le == null) _le = gameObject.AddComponent<LayoutElement>();
+
+            // 폭탄 오오라: 카드보다 살짝 큰 금색 halo(면/라벨 뒤·기본 꺼짐). 첫 자식이라 _bg 위·나머지 뒤에 그려진다.
+            _bombGlow = NewChildImage("BombGlow");
+            _bombGlow.sprite = GlowSprite();
+            _bombGlow.color = BombGlowGold;
+            _bombGlow.raycastTarget = false;
+            _bombGlow.enabled = false;
+            var grt = (RectTransform)_bombGlow.transform;
+            grt.offsetMin = new Vector2(-14f, -14f);
+            grt.offsetMax = new Vector2(14f, 14f);
 
             _face = NewChildImage("Face");
             _face.enabled = false;
@@ -196,6 +202,27 @@ namespace Tichu.Presentation.Views
             var f = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (f == null) f = Resources.GetBuiltinResource<Font>("Arial.ttf");
             return f;
+        }
+
+        // 폭탄 오오라용 부드러운 스프라이트(흰색+가장자리 페더 알파). Image.color=금색으로 틴트. 1회 생성·캐시.
+        private static Sprite _glowSprite;
+        private static Sprite GlowSprite()
+        {
+            if (_glowSprite != null) return _glowSprite;
+            const int w = 132, h = 200, feather = 34;
+            var px = new Color[w * h];
+            for (int y = 0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                {
+                    int edge = Mathf.Min(Mathf.Min(x, w - 1 - x), Mathf.Min(y, h - 1 - y));
+                    float a = Mathf.Clamp01(edge / (float)feather); // 가장자리 0 → 안쪽 1(부드러운 번짐)
+                    px[y * w + x] = new Color(1f, 1f, 1f, a * 0.5f);
+                }
+            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear };
+            tex.SetPixels(px);
+            tex.Apply();
+            _glowSprite = Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0.5f), 100f);
+            return _glowSprite;
         }
     }
 }

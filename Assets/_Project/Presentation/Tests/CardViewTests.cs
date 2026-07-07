@@ -1,6 +1,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using Tichu.Core.Cards;
+using Tichu.Core.Combinations;
 using Tichu.Presentation.Views;
 using Tichu.Presentation.Visuals;
 using UnityEngine;
@@ -96,31 +97,31 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
-        public void BombMember_enables_red_outline()
+        public void BombMember_enables_gold_glow()
         {
             var cv = New(out var go);
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
-            var outline = go.GetComponent<Outline>();
-            Assert.IsNotNull(outline, "폭탄 표시는 Outline 컴포넌트");
-            Assert.IsFalse(outline.enabled, "기본은 아웃라인 꺼짐");
+            var glow = go.transform.Find("BombGlow")?.GetComponent<Image>();
+            Assert.IsNotNull(glow, "폭탄 표시는 BombGlow 자식 이미지");
+            Assert.IsFalse(glow.enabled, "기본은 글로우 꺼짐");
             cv.SetBombMember(true);
-            Assert.IsTrue(outline.enabled, "폭탄 멤버 → 빨강 아웃라인 켜짐");
-            Assert.AreEqual(new Color(0.92f, 0.20f, 0.18f), outline.effectColor);
+            Assert.IsTrue(glow.enabled, "폭탄 멤버 → 금색 글로우 켜짐");
+            Assert.AreEqual(new Color(1.00f, 0.82f, 0.20f), glow.color);
             Assert.IsTrue(cv.IsBombMember);
             Object.DestroyImmediate(go);
         }
 
         [Test]
-        public void Selected_fill_and_bomb_outline_coexist()
+        public void Selected_fill_and_bomb_glow_coexist()
         {
             var cv = New(out var go);
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
             cv.SetBombMember(true);
             cv.SetHighlight(CardView.Highlight.Selected);
             var bg = go.GetComponent<Image>();
-            var outline = go.GetComponent<Outline>();
+            var glow = go.transform.Find("BombGlow").GetComponent<Image>();
             Assert.AreEqual(new Color(1.00f, 0.86f, 0.32f), bg.color, "선택은 노랑 채움(CardSel)");
-            Assert.IsTrue(outline.enabled, "폭탄 아웃라인은 선택과 무관하게 유지");
+            Assert.IsTrue(glow.enabled, "폭탄 글로우는 선택과 무관하게 유지");
             Object.DestroyImmediate(go);
         }
 
@@ -131,11 +132,35 @@ namespace Tichu.Presentation.Tests
             cv.Set(Card.Normal(7, Suit.Jade), null, faceUp: true);
             cv.SetBombMember(true);
             Assert.IsTrue(cv.IsBombMember);
-            Assert.IsTrue(go.GetComponent<Outline>().enabled);
+            Assert.IsTrue(go.transform.Find("BombGlow").GetComponent<Image>().enabled);
             cv.Set(Card.Normal(8, Suit.Jade), null, faceUp: true);
             Assert.IsFalse(cv.IsBombMember, "Set 은 풀 재사용 위해 폭탄 멤버를 중립화");
-            Assert.IsFalse(go.GetComponent<Outline>().enabled, "Set 은 아웃라인도 끈다");
+            Assert.IsFalse(go.transform.Find("BombGlow").GetComponent<Image>().enabled, "Set 은 글로우도 끈다");
             Object.DestroyImmediate(go);
+        }
+
+        [Test]
+        public void PhoenixRepRank_places_phoenix_at_substituted_rank()
+        {
+            // 스트레이트 봉+10 J Q K A (봉=9 대체) → 봉황이 맨 앞에 정렬돼야.
+            var straight = new Combination(CombinationType.Straight,
+                new[] { Card.Phoenix, Card.Normal(10, Suit.Jade), Card.Normal(11, Suit.Sword),
+                        Card.Normal(12, Suit.Pagoda), Card.Normal(13, Suit.Star), Card.Normal(14, Suit.Jade) },
+                6, 14 * 2, 0);
+            Assert.AreEqual(9, CardFormat.PhoenixRepRank(straight));
+            Assert.Less(CardFormat.TrickSortKey(straight, Card.Phoenix),
+                        CardFormat.TrickSortKey(straight, Card.Normal(10, Suit.Jade)), "봉황(9)이 10보다 앞");
+
+            // 연속페어 10 봉 J J (봉=10 대체) → 봉황이 10과 J 사이.
+            var tractor = new Combination(CombinationType.ConsecutivePairs,
+                new[] { Card.Normal(10, Suit.Jade), Card.Phoenix, Card.Normal(11, Suit.Sword), Card.Normal(11, Suit.Pagoda) },
+                4, 11 * 2, 0);
+            Assert.AreEqual(10, CardFormat.PhoenixRepRank(tractor));
+            double kTen = CardFormat.TrickSortKey(tractor, Card.Normal(10, Suit.Jade));
+            double kPhx = CardFormat.TrickSortKey(tractor, Card.Phoenix);
+            double kJack = CardFormat.TrickSortKey(tractor, Card.Normal(11, Suit.Sword));
+            Assert.Less(kTen, kPhx, "10 < 봉");
+            Assert.Less(kPhx, kJack, "봉 < J");
         }
 
         private static CardSpriteAtlas GeneratingAtlas()

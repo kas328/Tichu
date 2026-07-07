@@ -445,7 +445,8 @@ namespace Tichu.Presentation.Views
             }
             _trickPool.Begin();
             _trickChips.Clear();
-            foreach (var card in trick.Top.Cards.OrderBy(SortKey))
+            // 봉황은 대체하는 랭크 위치에 표시(예: 봉 10 J Q K A, 10 봉 J J).
+            foreach (var card in trick.Top.Cards.OrderBy(c => CardFormat.TrickSortKey(trick.Top, c)))
             {
                 var cv = _trickPool.Next();
                 cv.Set(card, _atlas, faceUp: true);

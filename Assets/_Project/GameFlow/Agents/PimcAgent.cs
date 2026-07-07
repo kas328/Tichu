@@ -67,6 +67,17 @@ namespace Tichu.GameFlow.Agents
                 if (shed != null) return TurnDecision.Play(shed);
             }
 
+            // ⑦ near-out 싱글 락아웃(라이브 가드): 낮은 싱글 Top + 상대 1장(아웃 임박)이면 Top 소유자 무관
+            // 최고 싱글로 봉쇄한다(D1 은 상대-Top 만 → 파트너-Top 케이스 갭 보완). OFF(기본)면 비트불변.
+            if (_config.UseNearOutLockout && trick != null)
+            {
+                var nbWins = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nbWins.Add(legal[i]);
+                var lockout = AiAgent.NearOutSingleLockout(ctx, trick, nbWins);
+                if (lockout != null) return TurnDecision.Play(lockout);
+            }
+
             if (trick != null && Seating.Partner(_seat) == trick.TopOwnerSeat)
             {
                 var nonBomb = new System.Collections.Generic.List<Combination>(legal.Count);
@@ -279,7 +290,14 @@ namespace Tichu.GameFlow.Agents
         };
 
         public bool CallTichu(in DecisionContext ctx) => _policy.CallTichu(ctx);
-        public Combination? DecideBomb(in DecisionContext ctx) => _policy.DecideBomb(ctx);
+        public Combination? DecideBomb(in DecisionContext ctx)
+        {
+            // ⑧ 폭탄 세이브: 파트너가 자연 오버테이크 가능하면 폭탄 지연(창은 파트너 행동 후 재개). OFF면 비트불변.
+            if (_config.UseBombSave && ctx.State.CurrentTrick != null
+                && AiAgent.ShouldDeferBombForPartner(ctx, _seat, ctx.State.CurrentTrick))
+                return null;
+            return _policy.DecideBomb(ctx);
+        }
         public int ChooseDragonRecipient(in DecisionContext ctx) => _policy.ChooseDragonRecipient(ctx);
     }
 }

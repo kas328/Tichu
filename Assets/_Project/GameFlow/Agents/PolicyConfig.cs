@@ -46,7 +46,13 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 결정화 시 콜한 좌석의 손을 콜 강도 하한까지 재샘플로 제약한다(C3 티츄콜 지지집합 제약). OFF면 비트불변.</summary>
         public readonly bool UseTichuCallConstraint;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false)
+        /// <summary>true면 낮은 싱글 Top + 상대 1장(아웃 임박)일 때 Top 소유자 무관 최고 싱글로 봉쇄한다(⑦). OFF면 비트불변.</summary>
+        public readonly bool UseNearOutLockout;
+
+        /// <summary>true면 상대-Top 폭탄 시 파트너가 자연 오버테이크 가능하면 폭탄을 지연한다(⑧ 폭탄 세이브). OFF면 비트불변.</summary>
+        public readonly bool UseBombSave;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -61,6 +67,8 @@ namespace Tichu.GameFlow.Agents
             UsePhoenixConservation = usePhoenixConservation;
             UseExchangePin = useExchangePin;
             UseTichuCallConstraint = useTichuCallConstraint;
+            UseNearOutLockout = useNearOutLockout;
+            UseBombSave = useBombSave;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

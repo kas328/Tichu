@@ -102,9 +102,10 @@ namespace Tichu.Core.Tests.Bench
 
             candidates.Sort(CompareLow);
 
-            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 카드를 파트너에게 줘 팀을 강화한다
-            // (나는 먼저 나갈 계획이 아니므로). 가장 낮은 둘은 상대(Left/Right)에게.
-            if (!IntendsTichu(hand))
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면, 또는 파트너가 티츄를 콜했으면: 가장 높은 카드를
+            // 파트너에게 줘 팀/콜을 강화한다(#4a 파트너 티츄 지원 — 200점). 가장 낮은 둘은 상대(Left/Right)에게.
+            bool partnerCalledTichu = ctx.State.Seats[ctx.PartnerSeat].Call != TichuCall.None;
+            if (!IntendsTichu(hand) || partnerCalledTichu)
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];
@@ -406,6 +407,32 @@ namespace Tichu.Core.Tests.Bench
             return best;
         }
 
+        /// <summary>#3 끝내기 셰딩 라이브 가드: 가장 많이 터는 리드(콤보 우선, 동수면 강한 수). 없으면 null.
+        /// PimcAgent 가 플래그 ON 일 때 ≤5장 리드에서 EV 대신 호출(휴리스틱 DecideLead 끝내기 라인과 동일 규칙).</summary>
+        public static Combination? EndgameSheddingLead(IReadOnlyList<Combination> nonBombLeads)
+            => MostShedding(nonBombLeads);
+
+        /// <summary>#2 봉황 보존(라이브 후보 필터): 낮은 싱글 팔로우에서 자연(비봉황) 승수 싱글이 있으면
+        /// 봉황 단독 후보를 제거해 자연 우선(귀한 봉황 낭비 방지). 강제/과-패스 안 함 — EV 가 자연·패스 중 선택.
+        /// 봉황이 유일 승수거나 봉황으로 나가면(손패 1장) 유지. 높은 싱글·리치 트릭은 봉황 정당이라 제외.
+        /// PimcAgent 가 플래그 ON 일 때 후보 생성 직후 호출. candidates 를 제자리 수정.</summary>
+        public static void FilterWastefulPhoenixSingle(List<Combination> candidates, Trick trick, int myHandCount)
+        {
+            if (trick?.Top == null || trick.Top.Type != CombinationType.Single) return;
+            if (trick.Top.Rank > LockoutTopScaled) return;             // 낮은 싱글만(높은 싱글은 봉황 정당)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return;    // 리치 트릭은 봉황으로라도 회수
+            int phoenixIdx = -1; bool hasNaturalSingle = false;
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var m = candidates[i];
+                if (m.Type != CombinationType.Single || m.Cards.Count != 1) continue;
+                if (m.Cards[0].Special == SpecialKind.Phoenix) phoenixIdx = i;
+                else hasNaturalSingle = true;
+            }
+            if (phoenixIdx >= 0 && hasNaturalSingle && myHandCount > 1)
+                candidates.RemoveAt(phoenixIdx);
+        }
+
         /// <summary>
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
@@ -422,6 +449,18 @@ namespace Tichu.Core.Tests.Bench
             var cheap = MoveOrder.Lowest(nonBombWins);   // 최소 오버킬(점수카드 허용)
             if (cheap == null) return null;
 
+            // #4b/#4c: 파트너(Top 소유)가 티츄 콜 + 아직 안 나감 → 기본 밟지 않는다(콜한 파트너가 리드를
+            // 유지해 먼저 나가게 양보; 밟으면 리드를 뺏거나 먼저 아웃해 티츄 200점을 파탄낸다).
+            // 단(#4c 정제): 내가 이 수로 나가고(goesOut) 파트너가 곧 못 나갈 것 같으면(약패·막힘) 살리러 나간다.
+            if (ctx.State.Seats[trick.TopOwnerSeat].Call != TichuCall.None
+                && !ctx.State.Seats[trick.TopOwnerSeat].IsOut)
+            {
+                bool wouldGoOut = ctx.MyHand.Count == cheap.Cards.Count;
+                if (wouldGoOut && CallerCannotGoOutSoon(ctx, trick.TopOwnerSeat))
+                    return cheap;     // 살리기: 콜한 파트너가 못 나갈 것 같으니 내가 나가 라운드 확보
+                return null;          // 콜 보호: 밟지 않는다
+            }
+
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
@@ -429,6 +468,34 @@ namespace Tichu.Core.Tests.Bench
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
             return (calledTichu || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+        }
+
+        /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).
+        /// 보수적 — 진짜 티츄를 막으면 −200 대참사라, 명백한 신호만: ① 파트너가 나보다 카드 ≥3장 많음(먼 아웃),
+        /// 또는 ② 파트너가 이 라운드 3회 이상 패스(트릭을 못 이겨 막힘).</summary>
+        private static bool CallerCannotGoOutSoon(in DecisionContext ctx, int callerSeat)
+        {
+            int callerCards = ctx.State.Seats[callerSeat].Hand.Count;
+            if (callerCards >= ctx.MyHand.Count + 3) return true;
+            return CountSeatPasses(ctx.State, callerSeat) >= 3;
+        }
+
+        /// <summary>해당 좌석이 이 라운드(현재 + 완료 트릭)에 패스한 총 횟수(History 의 Combination==null).</summary>
+        private static int CountSeatPasses(GameState state, int seat)
+        {
+            int passes = 0;
+            var cur = state.CurrentTrick;
+            if (cur != null)
+                for (int i = 0; i < cur.History.Count; i++)
+                    if (cur.History[i].Seat == seat && cur.History[i].Combination == null) passes++;
+            var done = state.CompletedTricks;
+            for (int t = 0; t < done.Count; t++)
+            {
+                var h = done[t].History;
+                for (int i = 0; i < h.Count; i++)
+                    if (h[i].Seat == seat && h[i].Combination == null) passes++;
+            }
+            return passes;
         }
 
         /// <summary>

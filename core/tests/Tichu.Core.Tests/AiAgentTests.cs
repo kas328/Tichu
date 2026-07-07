@@ -955,5 +955,21 @@ namespace Tichu.Core.Tests
             var agent = new AiAgent(1UL, 0);
             Assert.That(agent.CallTichu(GameFlowHelpers.Context(s, 0)), Is.False);
         }
+
+        [Test]
+        public void CallTichu_false_for_lone_special_with_junk()
+        {
+            // 봉황 하나뿐 + 나머지 저카드(A/K 없음) → 손 강도 하한 미달 → 선언 안 함(#3 남발 방지).
+            var hand = Hand(
+                Card.Phoenix,
+                N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda), N(5, Suit.Star),
+                N(6, Suit.Jade), N(7, Suit.Sword), N(8, Suit.Pagoda), N(9, Suit.Star),
+                N(2, Suit.Sword), N(3, Suit.Pagoda), N(4, Suit.Jade),
+                N(5, Suit.Sword), N(6, Suit.Pagoda));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Star)), Hand(N(3, Suit.Star)), Hand(N(4, Suit.Sword)));
+            Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False,
+                "봉황만 있고 나머지 저카드 → 강도 하한 미달");
+        }
     }
 }

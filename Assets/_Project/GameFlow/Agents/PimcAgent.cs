@@ -114,6 +114,18 @@ namespace Tichu.GameFlow.Agents
                     return TurnDecision.Pass;
             }
 
+            // Issue A: 손패 크고 near-out 아닌데 낮은 콤보를 고콤보(A풀하우스+봉황 등)로만 이길 수 있으면 낭비 →
+            // 밟지 말고 자원 보존(콜러 포함 — 봉황 조기 소진은 티츄 자해). OFF(기본)면 비트불변.
+            if (_config.UseHighComboWasteGuard && trick != null && ctx.CanPass
+                && Seating.TeamOf(trick.TopOwnerSeat) != Seating.TeamOf(_seat))
+            {
+                var nonBomb = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBomb.Add(legal[i]);
+                if (AiAgent.WastefulHighComboOvertake(ctx, _seat, trick, nonBomb))
+                    return TurnDecision.Pass;
+            }
+
             // 폭탄은 게이트된 DecideBomb(리치트릭 ≥15점)이 담당 → 인-턴 EV 후보에서 제외(싼 트릭 낭비 방지).
             var candidates = TurnCandidates(legal);
 

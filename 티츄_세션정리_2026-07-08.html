@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 세션 정리 (2026-07-06~08)</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --p:#b78bff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:1040px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:29px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:40px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:22px 0 6px;color:var(--accent)}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.next{background:linear-gradient(180deg,#132330,#101a24);border-color:#284a5e}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .mut{color:var(--muted)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-adopt{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-park{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-doc{background:#20242c;color:#9fb0c2;border:1px solid #34404d}
+  .t-have{background:#132a33;color:#79dcff;border:1px solid #244e5e}
+  ul{margin:8px 0}
+  .lead{font-size:15px}
+  .pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:6px;background:#0c0f13;color:#cfe6ff;margin-left:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>티츄 세션 정리</h1>
+  <div class="sub">2026-07-06 ~ 07-08 · Phase 2 AI 강화 + 플레이테스트 픽스 · main <code>b04e09c</code> = origin 완전 동기화</div>
+
+  <div class="verdict">
+    <strong class="lead">한 줄.</strong> 이번 세션은 <b>잔여 AI 레버 소진(C1·D2·C3)</b>과 <b>사용자 3회 플레이테스트 피드백 반영</b>이 핵심이었다.
+    총 <b>10건 채택 · 5건 파킹 · 2건 한계 수용</b>. 모든 강도 변경은 격리벤치로 판정했고, 모든 채택분은 origin에 반영됐다.
+    아직 완벽하진 않지만 관측된 나쁜 수의 대부분이 교정됐다. <b>다음은 실기 플레이테스트부터.</b>
+  </div>
+
+  <!-- ===== 1. 잔여 레버 ===== -->
+  <h2>1. 잔여 AI 레버 판정 (C1 · D2 · C3)</h2>
+  <table>
+    <thead><tr><th>레버</th><th>내용</th><th class="num">벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>C1</b> 교환 카드 핀</td><td>넘긴 카드를 결정화 시 수령 좌석에 고정(믿음 정확도)</td><td class="num">풀링 동률</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>D2</b> ε 정상화</td><td>Expert ε=0 중복 롤아웃 6→1 붕괴</td><td class="num good">중립 · 5.8× 가속</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>C3</b> 티츄콜 강도제약</td><td>콜한 좌석 손패를 강도 하한까지 재샘플(지지집합 제한)</td><td class="num">+2.97/R 무의미</td><td><span class="tag t-park">파킹</span></td></tr>
+    </tbody>
+  </table>
+  <p class="mut">13에이전트 적대검증으로 잔여 6레버를 판정 → <b>값싼 레버는 D2로 소진</b>. C3는 근사(opponent 강도 추측)라 최선케이스서도 ~0 → 파킹. 나머지(C2·D3·A1·A3)는 회귀/wash 예측으로 미착수.</p>
+
+  <!-- ===== 2. 플레이테스트 픽스 배치 1 ===== -->
+  <h2>2. 플레이테스트 1차 — 8관측 (연출 + AI)</h2>
+  <table>
+    <thead><tr><th>관측</th><th class="num">벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>④</b> 스트레이트 봉황 위치 (대체 랭크 자리)</td><td class="num mut">연출</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>⑤</b> 폭탄 카드 금색 오오라 글로우</td><td class="num mut">연출</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>③</b> Normal 티츄 남발 (HandPower≥6 하한)</td><td class="num">+0.5/R 중립</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>⑦</b> near-out 상대 팔로우 봉쇄</td><td class="num good">+8.57/R</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>①</b> 엔드게임 셰딩 (약한-수 타이브레이크) ★</td><td class="num good"><b>+34.3/R</b> · Wilson 0.557</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>⑧</b> 폭탄 세이브</td><td class="num">0.00 미발화</td><td><span class="tag t-park">파킹</span></td></tr>
+      <tr><td><b>⑥</b> 교환 봉황 양도 (약패)</td><td class="num bad">−0.9 + 불변식위반</td><td><span class="tag t-park">폐기</span></td></tr>
+      <tr><td><b>②</b> 라지티츄 응징 안됨 (5/5)</td><td class="num mut">롤아웃 천장</td><td><span class="tag t-doc">한계</span></td></tr>
+    </tbody>
+  </table>
+  <p><b class="good">★ ① 엔드게임 셰딩</b>이 이번 세션 최고 성과 — <b>리드/셰딩 계열 4회 회귀 끝에 최초 성공</b>(+34.3/R 유의개선). "고카드 제어 남기고 저카드 먼저 흘림"이라는 사용자 관측이 진짜 버그였고, 타이브레이크 한 줄 뒤집기가 답이었다.</p>
+
+  <!-- ===== 3. 플레이테스트 픽스 배치 2·3 ===== -->
+  <h2>3. 플레이테스트 2·3차 — 콜러 낭비 · 엔드게임</h2>
+  <table>
+    <thead><tr><th>관측</th><th class="num">벤치</th><th>판정</th></tr></thead>
+    <tbody>
+      <tr><td><b>콜러 밟기</b> 콜러가 파트너 A를 용으로 밟음</td><td class="num">+0.9/R 중립</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>Issue 1</b> 교환서 파트너 티츄콜 시 탑패(용/봉황) 헌납</td><td class="num">0.0/R 중립</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>Issue 2</b> near-out 상대에 낮은 싱글 리드 금지 → 최고 싱글</td><td class="num">+0.1/R 중립</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>Issue A</b> 콜러 고콤보/봉황 낭비 밟기 가드</td><td class="num">풀링 +0.18 · 승 동률</td><td><span class="tag t-adopt">채택</span></td></tr>
+      <tr><td><b>Issue 3</b> 엔드게임 리드 순서 (1,9,A → A 먼저)</td><td class="num bad">셰딩가드 재벤치 −10.18</td><td><span class="tag t-doc">한계</span></td></tr>
+      <tr><td><b>Issue C</b> 팀이 개/저싱글로 콜러 지원</td><td class="num mut">개 Rank 0 = 최저</td><td><span class="tag t-have">이미 구현</span></td></tr>
+    </tbody>
+  </table>
+  <p class="mut"><b>Issue C</b>는 코드로 검증 — 개(Dog) Strength가 최저라 AI가 이미 개/낮은 싱글로 콜러에 선을 넘긴다. 실제 문제는 "팀 미지원"이 아니라 "콜러의 자기 낭비"(콜러밟기·Issue A로 수정).</p>
+
+  <!-- ===== 4. 왜 어떤 건 파킹인가 ===== -->
+  <h2>4. 파킹·한계 — 왜 안 고쳤나 (정직한 부분)</h2>
+  <ul>
+    <li><b>Issue 3 · ② 라지티츄 응징</b> = <b>롤아웃 천장</b>. 다중 트릭 재진입 계획이나 콜러 아웃확률 모델링은 휴리스틱·라이브 EV가 못 한다. 엔드게임 셰딩가드 재벤치도 −10.18/R로 회귀 확인 → <b>리드 오버라이드 5번째 회귀</b>. 진짜 해법은 연구티어(롤아웃 강화 / B1 α-μ).</li>
+    <li><b>⑥ 교환 봉황 양도 · ⑧ 폭탄 세이브 · C3</b> = 벤치가 이득 없음/회귀를 정직히 걸러냄. 코드는 보존(플래그 OFF), 봉황 양도는 불변식 위반이라 폐기.</li>
+    <li class="mut">핵심 교훈 재확인: <b>인간 눈에 "낭비"로 보이는 수 상당수가 실제 EV상 옳다.</b> 그래서 모든 강도 변경은 격리벤치로 판정했고, 중립·재현교정만 채택했다.</li>
+  </ul>
+
+  <!-- ===== 5. 현재 라이브 AI ===== -->
+  <h2>5. 지금 라이브인 AI (전 PIMC 티어)</h2>
+  <p class="mut">Normal 16세계 / Hard 20 / Expert 24(ε=0·D2로 6→1) · 예산 900ms · 켜진 가드:</p>
+  <p><code>caller</code> <code>D1 상대위협블록</code> <code>#2 봉황보존</code> <code>C1 교환핀</code> <code>⑦ near-out락아웃</code> <code>Issue A 고콤보낭비</code> + 휴리스틱 개선(<code>#4 파트너티츄</code> <code>① 엔드게임셰딩</code> <code>콜러밟기제한</code> <code>Issue1 교환헌납</code> <code>Issue2 near-out리드</code> <code>③ 티츄게이트</code>)</p>
+
+  <div class="verdict next">
+    <strong class="lead">다음 (사용자 지정): 플레이테스트부터.</strong>
+    <ul>
+      <li>이번에 채택된 것들 실기 확인 — 특히 <b>콜러가 이제 봉황/용을 안 낭비하는지</b>(콜러밟기·Issue A), <b>Expert 엔드게임(①)이 저싱글 안 남기고 나가는지</b>, <b>교환 지원(Issue 1)</b>, <b>⑤ 폭탄 글로우 시각</b>.</li>
+      <li>체크리스트: <code>티츄_플레이테스트_체크리스트_2차.html</code>.</li>
+      <li>실기기 <b>Phase 1 60fps 게이트</b>도 여전히 열려 있음(Dev Build APK 필요 시 요청).</li>
+      <li>플레이 후 남는 진짜 문제가 EV-옳지만-약한 것들이면 → <b>연구티어 스코핑</b>(Issue 3·②의 근본 해법).</li>
+    </ul>
+  </div>
+
+  <div class="sub" style="margin-top:28px;border-top:1px solid var(--line);padding-top:14px">
+    리포트: <code>티츄_플레이테스트_픽스_배치결과.html</code> · <code>티츄_브리핑_C1D2_다음프론티어.html</code> · <code>티츄_C1_교환핀_벤치결과.html</code>.
+    ⚠️ 벤치 기법: HeuristicStrengthBench=core dotnet·[Explicit] 임시제거 · PIMC 벤치 ThreadAbort는 <code>DisallowAutoRefresh</code>+%TEMP%+증분기록으로 강건화.
+  </div>
+
+</div>
+</body>
+</html>

@@ -52,7 +52,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 상대-Top 폭탄 시 파트너가 자연 오버테이크 가능하면 폭탄을 지연한다(⑧ 폭탄 세이브). OFF면 비트불변.</summary>
         public readonly bool UseBombSave;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false)
+        /// <summary>true면 손패 크고 near-out 아닐 때 낮은 콤보를 고콤보로만 이길 수 있으면 밟지 않고 보존한다(Issue A). OFF면 비트불변.</summary>
+        public readonly bool UseHighComboWasteGuard;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -69,6 +72,7 @@ namespace Tichu.GameFlow.Agents
             UseTichuCallConstraint = useTichuCallConstraint;
             UseNearOutLockout = useNearOutLockout;
             UseBombSave = useBombSave;
+            UseHighComboWasteGuard = useHighComboWasteGuard;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

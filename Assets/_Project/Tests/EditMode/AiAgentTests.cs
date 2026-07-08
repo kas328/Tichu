@@ -914,6 +914,53 @@ namespace Tichu.Core.Tests
             Assert.That(block, Is.Null, "위협 없으면 가드 미개입");
         }
 
+        // ── Issue A: 고콤보 낭비 밟기 가드 ─────────────────────────────────────────────
+
+        // 상대(seat1) 3 풀하우스 Top, 손패 큼(7장), near-out 없음, 콜러여도 A풀하우스로만 이길 수 있음.
+        private static GameState HighComboWasteState()
+        {
+            var s = FollowState(0, FullHouse(3, 4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(14, Suit.Sword), N(14, Suit.Pagoda),
+                     N(2, Suit.Jade), N(2, Suit.Sword), N(13, Suit.Star), N(12, Suit.Star)),
+                Hand(N(6, Suit.Jade), N(7, Suit.Jade), N(8, Suit.Jade)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(6, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));
+            return s;
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_fires_even_for_caller()
+        {
+            var s = HighComboWasteState();
+            s.Seats[0].Call = TichuCall.GrandTichu;   // 콜러여도 9장 남았으면 A풀하우스 낭비 금지
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.True,
+                "콜러라도 손패 크고 near-out 아니면 A풀하우스로 낮은 콤보 밟기는 낭비");
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_does_not_fire_in_endgame()
+        {
+            var s = FollowState(0, FullHouse(3, 4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(14, Suit.Sword), N(14, Suit.Pagoda), N(2, Suit.Jade), N(2, Suit.Sword)),
+                Hand(N(6, Suit.Jade), N(7, Suit.Jade), N(8, Suit.Jade)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(6, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));   // 손패 5장 = 끝내기
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False,
+                "끝내기(≤5장)면 밟아 아웃 추진 → 가드 미발화");
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_does_not_fire_when_opponent_near_out()
+        {
+            var s = HighComboWasteState();
+            s.Seats[1].Hand = new List<Card> { N(2, Suit.Pagoda) };   // seat1(상대) 1장 = near-out 위협
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False,
+                "상대 near-out 위협이면 저지 우선 → 가드 미발화");
+        }
+
         // ── CallTichu ─────────────────────────────────────────────────────────────────
 
         [Test]

@@ -615,6 +615,23 @@ namespace Tichu.GameFlow.Agents
             return wastesPoints || wastesHighCombo;
         }
 
+        /// <summary>Issue A 좁은 가드: 손패가 크고(아웃 무관) near-out 위협도 없는데, 상대의 낮은 콤보를
+        /// 고콤보(랭크≥Q·≥3장, 예: A풀하우스+봉황)로만 이길 수 있으면 자원 낭비다 — 밟지 말고 보존(true=패스).
+        /// Bug4 와 달리 <b>콜러도 포함</b>(9장 남았는데 봉황 낭비는 티츄 자해)하고 wastesPoints 는 안 본다
+        /// (그게 −6.9 회귀 원인). 좁게: 끝내기 아님 + near-out 아님 + 이 수로 아웃 아님일 때만.</summary>
+        public static bool WastefulHighComboOvertake(in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return false;
+            if (trick.Top == null || trick.Top.Cards.Count < 2) return false;   // 콤보 팔로우만(싱글 제외)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return false;       // 리치 트릭 → 회수
+            if (ctx.MyHand.Count <= FinishHandSize) return false;              // 끝내기 → 밟아 아웃 추진
+            if (AnyOpponentNearOut(ctx, GoOutThreatCards)) return false;        // near-out 위협 → 저지 OK
+            var cheapest = MoveOrder.Lowest(nonBombWins);
+            if (cheapest == null) return false;
+            if (ctx.MyHand.Count == cheapest.Cards.Count) return false;         // 밟으면 아웃 → OK
+            return cheapest.Cards.Count >= 3 && cheapest.Rank >= HighComboSaveScaled;
+        }
+
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────
 
         /// <summary>상대(좌/우) 중 아웃 안 했고 손패 ≤ cards 인 자가 있는가(아웃 임박 봉쇄용).</summary>

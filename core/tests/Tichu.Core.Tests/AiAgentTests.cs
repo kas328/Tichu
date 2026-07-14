@@ -1018,5 +1018,20 @@ namespace Tichu.Core.Tests
             Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False,
                 "봉황만 있고 나머지 저카드 → 강도 하한 미달");
         }
+
+        [Test]
+        public void CallTichu_false_for_handpower_six_marginal_hand()
+        {
+            // #4 조임: 용+A 단둘(HandPower 6)은 막히기 쉬운 한계 선언 → 임계 7로 배제.
+            var hand = Hand(
+                Card.Dragon, N(14, Suit.Jade),
+                N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda), N(5, Suit.Star),
+                N(6, Suit.Jade), N(7, Suit.Sword), N(8, Suit.Pagoda), N(9, Suit.Star),
+                N(2, Suit.Sword), N(3, Suit.Pagoda), N(4, Suit.Jade), N(5, Suit.Sword));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Star)), Hand(N(3, Suit.Star)), Hand(N(6, Suit.Pagoda)));
+            Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False,
+                "용+A(HandPower 6) 한계 선언은 임계 7로 배제");
+        }
     }
 }

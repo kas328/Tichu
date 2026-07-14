@@ -16,7 +16,7 @@ namespace Tichu.GameFlow.Agents
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
-        private const int SmallTichuThreshold = 6; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(#3 남발 방지).
+        private const int SmallTichuThreshold = 7; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(③ 남발 방지 + #4 조임 6→7: 막히기 쉬운 HandPower6 선언 배제).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.

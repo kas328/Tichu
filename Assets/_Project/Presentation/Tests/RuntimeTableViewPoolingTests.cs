@@ -119,6 +119,27 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void Dog_play_is_echoed_in_center_trick()
+        {
+            var canvasGo = new GameObject("TestCanvas", typeof(Canvas));
+            try
+            {
+                var vm = new TableViewModel(0);
+                ITableView view = new RuntimeTableView();
+                view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
+
+                var trick = FindByName(canvasGo, "TrickRow");
+                Assert.AreEqual(0, ActiveCards(trick), "초기 트릭은 비어 있다");
+
+                // 개는 트릭을 만들지 않지만(CurrentTrick=null) 중앙에 잠깐 에코돼야 한다(#3).
+                vm.RecordPlay(GameAction.Play(1, new System.Collections.Generic.List<Card> { Card.Dog }));
+
+                Assert.AreEqual(1, ActiveCards(trick), "개 플레이는 중앙에 1장으로 에코된다");
+            }
+            finally { Object.DestroyImmediate(canvasGo); }
+        }
+
+        [Test]
         public void Backs_reuse_pool_on_count_change()
         {
             var canvasGo = new GameObject("TestCanvas", typeof(Canvas));

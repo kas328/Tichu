@@ -285,6 +285,7 @@ namespace Tichu.Presentation.Views
             _vm.CumulativeB.Subscribe(b => { _cumB = b; UpdateScore(); }).AddTo(_subs);
             _vm.Played.Subscribe(AddPlayEntry).AddTo(_subs);
             _vm.Played.Subscribe(a => _audio.PlaySfx(SfxMap.For(a))).AddTo(_subs);   // 애니와 동일 소스(SFX)
+            _vm.Played.Subscribe(ShowDogIfPlayed).AddTo(_subs);   // 개는 트릭을 안 만드므로 중앙에 잠깐 에코(#3)
             _vm.PlaysCleared.Subscribe(_ => { ClearChildren(_playsRoot); _playEntries.Clear(); }).AddTo(_subs);
             _vm.CurrentTrick.Subscribe(RenderTrick).AddTo(_subs);
             _vm.RoundResult.Subscribe(RenderResult).AddTo(_subs);
@@ -456,6 +457,40 @@ namespace Tichu.Presentation.Views
             _trickPool.End();
             _trickOwnerText.text = $"{TypeKo(trick.Top.Type)} · 소유 {SeatNames[trick.TopOwnerSeat]}";
             _anim.PlayedIn(_trickChips, _vm.FastForward);
+        }
+
+        // 개(Dog)는 규칙상 트릭을 만들지 않아(GameEngine.ApplyDog) 중앙 RenderTrick 경로에 안 잡힌다.
+        // 낸 사실이 우상단 로그로만 지나가므로, 개를 잠깐 중앙에 에코한 뒤 파트너가 새로 리드하기 전 비운다(#3).
+        private void ShowDogIfPlayed(GameAction a)
+        {
+            if (a.Kind != GameActionKind.Play || a.Cards == null || a.Cards.Count != 1
+                || a.Cards[0].Special != SpecialKind.Dog) return;
+
+            _trickPool.Begin();
+            _trickChips.Clear();
+            var cv = _trickPool.Next();
+            cv.Set(Card.Dog, _atlas, faceUp: true);
+            cv.SetSize(60, 88);
+            _trickChips.Add(cv);
+            _trickPool.End();
+            _trickOwnerText.text = $"개 · {SeatNames[a.Seat]} → 파트너 리드";
+            _anim.PlayedIn(_trickChips, _vm.FastForward);
+            ClearDogEchoAsync().Forget();
+        }
+
+        private async UniTaskVoid ClearDogEchoAsync()
+        {
+            try
+            {
+                await UniTask.Delay(_vm.FastForward ? 300 : 1200, cancellationToken: _sceneCt);
+                // 그 사이 파트너가 새 트릭을 리드했으면 그대로 둔다(에코가 실제 트릭을 덮지 않도록).
+                if (_vm.CurrentTrick.CurrentValue?.Top == null)
+                {
+                    _trickPool.Begin(); _trickPool.End();
+                    _trickOwnerText.text = "트릭: (없음)";
+                }
+            }
+            catch (System.OperationCanceledException) { /* 씬 종료 */ }
         }
 
         private void RenderResult(RoundResult? r)

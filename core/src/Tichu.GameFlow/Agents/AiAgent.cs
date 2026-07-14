@@ -268,7 +268,8 @@ namespace Tichu.GameFlow.Agents
         }
 
         // 마작을 포함해 리드하고, 내 손에 없는 랭크를 소원으로 걸어 상대를 압박한다.
-        private int? MaybeWish(in DecisionContext ctx, Combination chosen)
+        // public static: PimcAgent 라이브 리드(#2)도 같은 소원 정책을 공유한다(롤아웃과 일치).
+        public static int? MaybeWish(in DecisionContext ctx, Combination chosen)
         {
             bool hasMahjong = false;
             for (int i = 0; i < chosen.Cards.Count; i++)

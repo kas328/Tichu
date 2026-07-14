@@ -277,6 +277,37 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Cards.Count, Is.EqualTo(4), "8899 연페어(4장 셰딩) 리드");
         }
 
+        // ── #2 라이브 마작 소원 ──────────────────────────────────────────────────────
+
+        // 마작 포함 1-2-3-4-5 스트레이트(=최다 셰딩)를 셰딩 가드가 리드로 강제(결정화 전 단락 → 합성 상태 OK).
+        private static GameState MahjongLeadState() =>
+            GameFlowHelpers.PlayState(0,
+                new List<Card> { Card.Mahjong, Card.Normal(2, Suit.Jade), Card.Normal(3, Suit.Jade),
+                                 Card.Normal(4, Suit.Jade), Card.Normal(5, Suit.Jade) },
+                new List<Card> { Card.Normal(10, Suit.Sword) },
+                new List<Card> { Card.Normal(11, Suit.Pagoda) },
+                new List<Card> { Card.Normal(12, Suit.Star) });
+
+        [Test]
+        public void DecideTurn_sets_live_wish_on_mahjong_lead_when_flag_on()
+        {
+            var cfg = new PolicyConfig(4, 2, 0.10, useEndgameSheddingGuard: true, useLiveWish: true);
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(MahjongLeadState(), 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Cards.Count, Is.EqualTo(5), "마작 포함 5스트레이트 리드(최다 셰딩)");
+            Assert.That(d.Wish.HasValue, Is.True, "라이브 소원이 걸려야 한다(#2)");
+            Assert.That(d.Wish!.Value, Is.EqualTo(14), "손에 A(14) 없음 → 최고 랭크 14 소원");
+        }
+
+        [Test]
+        public void DecideTurn_omits_live_wish_when_flag_off()
+        {
+            var cfg = new PolicyConfig(4, 2, 0.10, useEndgameSheddingGuard: true);   // useLiveWish 기본 false
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(MahjongLeadState(), 0));
+            Assert.That(d.Move!.Cards.Count, Is.EqualTo(5));
+            Assert.That(d.Wish.HasValue, Is.False, "OFF면 소원 없음(=P2-B 동작·비트불변)");
+        }
+
         // ── 파트너-Top 가드(휴리스틱 규칙 공유) ───────────────────────────────────────
 
         private static Combination Pair(int rank) =>

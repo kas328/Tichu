@@ -64,7 +64,7 @@ namespace Tichu.GameFlow.Agents
                 for (int i = 0; i < legal.Count; i++)
                     if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
                 var shed = AiAgent.EndgameSheddingLead(nonBombLeads);
-                if (shed != null) return TurnDecision.Play(shed);
+                if (shed != null) return TurnDecision.Play(shed, LiveWish(ctx, shed));
             }
 
             // ⑦ near-out 싱글 락아웃(라이브 가드): 낮은 싱글 Top + 상대 1장(아웃 임박)이면 Top 소유자 무관
@@ -214,8 +214,14 @@ namespace Tichu.GameFlow.Agents
             }
 
             _rng = rng;
-            return best == null ? TurnDecision.Pass : TurnDecision.Play(best);
+            return best == null ? TurnDecision.Pass : TurnDecision.Play(best, LiveWish(ctx, best));
         }
+
+        // #2 라이브 마작 소원: 선택된 리드가 마작을 포함하면 손에 없는 최고 랭크를 소원으로 건다(롤아웃 정책과 동일).
+        // UseLiveWish OFF면 null(=P2-B 동작·비트불변). MaybeWish 는 마작 미포함 시 null 이라 팔로우/비마작 리드엔 무영향.
+        // 주의: EV 루프(위)는 여전히 wish=null 로 후보를 평가하므로 수 선택은 불변 — 출력 채널만 채운다.
+        private int? LiveWish(in DecisionContext ctx, Combination chosen)
+            => _config.UseLiveWish ? AiAgent.MaybeWish(ctx, chosen) : null;
 
         /// <summary>
         /// 인-턴 EV 후보 집합. 폭탄은 게이트된 <see cref="DecideBomb"/>(리치트릭 ≥15점)이 담당하므로

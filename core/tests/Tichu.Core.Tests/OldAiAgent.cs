@@ -3,7 +3,6 @@ using Tichu.Core;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
-
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
 
@@ -19,7 +18,7 @@ namespace Tichu.Core.Tests.Bench
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
-        private const int SmallTichuThreshold = 6; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(#3 남발 방지).
+        private const int SmallTichuThreshold = 7; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(③ 남발 방지 + #4 조임 6→7: 막히기 쉬운 HandPower6 선언 배제).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
@@ -79,6 +78,20 @@ namespace Tichu.Core.Tests.Bench
             return false;
         }
 
+        private static bool HasDragon(IReadOnlyList<Card> hand)
+        {
+            for (int i = 0; i < hand.Count; i++)
+                if (hand[i].Special == SpecialKind.Dragon) return true;
+            return false;
+        }
+
+        private static bool HasPhoenix(IReadOnlyList<Card> hand)
+        {
+            for (int i = 0; i < hand.Count; i++)
+                if (hand[i].Special == SpecialKind.Phoenix) return true;
+            return false;
+        }
+
         // ── 교환 ───────────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -103,10 +116,20 @@ namespace Tichu.Core.Tests.Bench
 
             candidates.Sort(CompareLow);
 
-            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면, 또는 파트너가 티츄를 콜했으면: 가장 높은 카드를
-            // 파트너에게 줘 팀/콜을 강화한다(#4a 파트너 티츄 지원 — 200점). 가장 낮은 둘은 상대(Left/Right)에게.
+            // 파트너가 티츄를 콜했으면: 내 탑패(용/봉황 포함)를 헌납해 파트너의 아웃·카운팅을 돕는다(Issue 1).
+            // 파트너 콜 시엔 내가 스몰티츄를 못 외치므로(중복 금지) 최고 카드를 아낄 이유가 없다. 최저 둘은 상대에게.
             bool partnerCalledTichu = ctx.State.Seats[ctx.PartnerSeat].Call != TichuCall.None;
-            if (!IntendsTichu(hand) || partnerCalledTichu)
+            if (partnerCalledTichu)
+            {
+                Card topGift = HasDragon(hand) ? Card.Dragon
+                             : HasPhoenix(hand) ? Card.Phoenix
+                             : candidates[candidates.Count - 1];
+                return new ExchangeChoice(candidates[0], topGift, candidates[1]); // ToLeft, ToPartner, ToRight
+            }
+
+            // 티츄(그랜드/스몰)를 노릴 만큼 강하지 않으면: 가장 높은 비특수 카드를 파트너에게 줘 팀을 강화한다.
+            // (특수카드는 내 자원이라 이 경우엔 보존 — 불변식.) 가장 낮은 둘은 상대(Left/Right)에게.
+            if (!IntendsTichu(hand))
             {
                 var lo0 = candidates[0];
                 var lo1 = candidates[1];
@@ -247,7 +270,8 @@ namespace Tichu.Core.Tests.Bench
         }
 
         // 마작을 포함해 리드하고, 내 손에 없는 랭크를 소원으로 걸어 상대를 압박한다.
-        private int? MaybeWish(in DecisionContext ctx, Combination chosen)
+        // public static: PimcAgent 라이브 리드(#2)도 같은 소원 정책을 공유한다(롤아웃과 일치).
+        public static int? MaybeWish(in DecisionContext ctx, Combination chosen)
         {
             bool hasMahjong = false;
             for (int i = 0; i < chosen.Cards.Count; i++)
@@ -470,8 +494,10 @@ namespace Tichu.Core.Tests.Bench
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
         /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 ㉠콤보(≥2장)로 패를 줄이거나 ㉡파트너가 아웃이라
-        ///   패스 시 리드가 상대로 넘어가는 경우(싱글로라도 밟아 우리 팀 리드 유지).
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 아웃이라 패스 시 리드가 상대로 넘어가는 경우
+        ///   (싱글로라도 밟아 우리 팀 리드 유지).
+        /// ⚠️이기고 있는 파트너의 콤보를 "패 줄이기"만으로 밟는 것은 낭비(패-줄이기는 내가 리드할 때 하면 됨)
+        ///   → 제외한다(사용자 플레이테스트: 파트너 10-트리플을 J-트리플로 밟는 낭비).
         /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
         /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
@@ -497,14 +523,15 @@ namespace Tichu.Core.Tests.Bench
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
-            bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
             // 콜러도 파트너의 고카드(A 등)를 용/봉황으로 밟는 낭비는 안 한다 — 아웃하거나(goesOut) 싸게 밟을
             // 때(partnerLow)만 리드를 가져온다. 파트너가 이미 이기고 있으면(고카드) 두고 고카드를 아껴 아웃에 쓴다.
             bool callerTakesLead = calledTichu && partnerLow;
 
-            return (callerTakesLead || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+            // 이기고 있는(비아웃) 파트너의 콤보를 단지 패-줄이기로 밟지 않는다. 밟기는 내 아웃(goesOut)·
+            // 티츄 추진(callerTakesLead)·파트너 아웃 후 리드 사수(teammateOut)일 때만.
+            return (callerTakesLead || goesOut || (partnerLow && teammateOut)) ? cheap : null;
         }
 
         /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).
@@ -576,6 +603,25 @@ namespace Tichu.Core.Tests.Bench
             return null;
         }
 
+        /// <summary>#6 near-out 리드 순서(라이브 가드, ⑦ 락아웃의 리드측 쌍둥이): 진짜 1:1 종반
+        /// (내 파트너 아웃 + 상대 한 명만 남고 그 상대 ≤1장)에서 비폭탄 리드가 전부 싱글이면(콤보로 봉쇄 불가)
+        /// 최고 싱글로 리드해 상대의 마지막-카드 아웃을 최대한 저지한다. 낮은 싱글보다 상대가 받아나갈
+        /// 확률이 낮아 약우월(1:1이라 다른 좌석 개입 없음). 콤보가 있으면 null(EV/롤아웃의 콤보-우선에 맡김).</summary>
+        public static Combination? NearOutLeadOrder(in DecisionContext ctx, IReadOnlyList<Combination> nonBombLeads)
+        {
+            if (nonBombLeads.Count == 0) return null;
+            var seats = ctx.State.Seats;
+            if (!seats[ctx.PartnerSeat].IsOut) return null;                         // 1:1 아니면 개입 안 함
+            var l = seats[ctx.LeftSeat]; var r = seats[ctx.RightSeat];
+            int oppsIn = (l.IsOut ? 0 : 1) + (r.IsOut ? 0 : 1);
+            if (oppsIn != 1) return null;
+            var opp = l.IsOut ? r : l;
+            if (opp.Hand.Count > 1) return null;                                    // 상대 아웃 임박(≤1장)만
+            for (int i = 0; i < nonBombLeads.Count; i++)
+                if (nonBombLeads[i].Cards.Count != 1) return null;                  // 콤보 있으면 EV 에 맡김
+            return HighestWinningSingle(nonBombLeads);
+        }
+
         /// <summary>Bug4 라이브 가드: 상대 콤보(≥2장) Top 을 비싼 자원(점수/고랭크 콤보)으로 밟는 낭비인가.
         /// 팀 아웃용 콤보를 헛되이 소진하는 "팀킬" 방지 — 콤보는 안 막혀도 상대가 선을 가져가는 정도라
         /// 티츄콜·나가기·리치트릭이 아니면 밟지 말고 보존(false=밟기 허용, true=패스 권고).
@@ -592,6 +638,23 @@ namespace Tichu.Core.Tests.Bench
             bool wastesPoints = cheapest.PointsInPlay > 0;
             bool wastesHighCombo = cheapest.Cards.Count >= 3 && cheapest.Rank >= HighComboSaveScaled;
             return wastesPoints || wastesHighCombo;
+        }
+
+        /// <summary>Issue A 좁은 가드: 손패가 크고(아웃 무관) near-out 위협도 없는데, 상대의 낮은 콤보를
+        /// 고콤보(랭크≥Q·≥3장, 예: A풀하우스+봉황)로만 이길 수 있으면 자원 낭비다 — 밟지 말고 보존(true=패스).
+        /// Bug4 와 달리 <b>콜러도 포함</b>(9장 남았는데 봉황 낭비는 티츄 자해)하고 wastesPoints 는 안 본다
+        /// (그게 −6.9 회귀 원인). 좁게: 끝내기 아님 + near-out 아님 + 이 수로 아웃 아님일 때만.</summary>
+        public static bool WastefulHighComboOvertake(in DecisionContext ctx, int seat, Trick trick, IReadOnlyList<Combination> nonBombWins)
+        {
+            if (nonBombWins.Count == 0) return false;
+            if (trick.Top == null || trick.Top.Cards.Count < 2) return false;   // 콤보 팔로우만(싱글 제외)
+            if (trick.AccumulatedPoints >= RichTrickPoints) return false;       // 리치 트릭 → 회수
+            if (ctx.MyHand.Count <= FinishHandSize) return false;              // 끝내기 → 밟아 아웃 추진
+            if (AnyOpponentNearOut(ctx, GoOutThreatCards)) return false;        // near-out 위협 → 저지 OK
+            var cheapest = MoveOrder.Lowest(nonBombWins);
+            if (cheapest == null) return false;
+            if (ctx.MyHand.Count == cheapest.Cards.Count) return false;         // 밟으면 아웃 → OK
+            return cheapest.Cards.Count >= 3 && cheapest.Rank >= HighComboSaveScaled;
         }
 
         // ── 블로킹(#3) ─────────────────────────────────────────────────────────────

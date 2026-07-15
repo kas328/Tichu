@@ -308,6 +308,40 @@ namespace Tichu.Core.Tests
             Assert.That(d.Wish.HasValue, Is.False, "OFF면 소원 없음(=P2-B 동작·비트불변)");
         }
 
+        // ── #6 1:1 near-out 리드 순서 ────────────────────────────────────────────────
+
+        // 진짜 1:1 종반: seat0(나)=싱글 {7,8}, 파트너(seat2) 아웃, 좌상대(seat1) 아웃, 우상대(seat3)=1장.
+        private static GameState OneVsOneNearOutState()
+        {
+            var s = GameFlowHelpers.PlayState(0,
+                new List<Card> { Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Sword) },
+                new List<Card>(),                              // seat1 좌상대 — 아웃
+                new List<Card>(),                              // seat2 파트너 — 아웃
+                new List<Card> { Card.Normal(5, Suit.Star) }); // seat3 우상대 — 1장
+            s.Seats[1].IsOut = true;
+            s.Seats[2].IsOut = true;
+            return s;
+        }
+
+        [Test]
+        public void DecideTurn_leads_highest_single_in_1v1_near_out_when_flag_on()
+        {
+            var cfg = new PolicyConfig(4, 2, 0.10, useNearOutLeadOrder: true);
+            var d = new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(OneVsOneNearOutState(), 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Cards.Count, Is.EqualTo(1));
+            Assert.That(d.Move.Cards[0].Rank, Is.EqualTo(8), "1:1 상대 1장 → 낮은 7 대신 최고 싱글 8로 봉쇄(#6)");
+        }
+
+        [Test]
+        public void DecideTurn_1v1_near_out_guard_off_falls_through_to_ev()
+        {
+            // OFF면 가드가 단락하지 않아 EV(결정화)로 진입 → 합성 상태(손합≠56)라 예외 = 게이팅 증거.
+            var cfg = new PolicyConfig(4, 2, 0.10);   // useNearOutLeadOrder 기본 false
+            Assert.Throws<System.InvalidOperationException>(
+                () => new PimcAgent(7UL, 0, cfg).DecideTurn(GameFlowHelpers.Context(OneVsOneNearOutState(), 0)));
+        }
+
         // ── 파트너-Top 가드(휴리스틱 규칙 공유) ───────────────────────────────────────
 
         private static Combination Pair(int rank) =>

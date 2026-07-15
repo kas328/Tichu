@@ -598,6 +598,25 @@ namespace Tichu.GameFlow.Agents
             return null;
         }
 
+        /// <summary>#6 near-out 리드 순서(라이브 가드, ⑦ 락아웃의 리드측 쌍둥이): 진짜 1:1 종반
+        /// (내 파트너 아웃 + 상대 한 명만 남고 그 상대 ≤1장)에서 비폭탄 리드가 전부 싱글이면(콤보로 봉쇄 불가)
+        /// 최고 싱글로 리드해 상대의 마지막-카드 아웃을 최대한 저지한다. 낮은 싱글보다 상대가 받아나갈
+        /// 확률이 낮아 약우월(1:1이라 다른 좌석 개입 없음). 콤보가 있으면 null(EV/롤아웃의 콤보-우선에 맡김).</summary>
+        public static Combination? NearOutLeadOrder(in DecisionContext ctx, IReadOnlyList<Combination> nonBombLeads)
+        {
+            if (nonBombLeads.Count == 0) return null;
+            var seats = ctx.State.Seats;
+            if (!seats[ctx.PartnerSeat].IsOut) return null;                         // 1:1 아니면 개입 안 함
+            var l = seats[ctx.LeftSeat]; var r = seats[ctx.RightSeat];
+            int oppsIn = (l.IsOut ? 0 : 1) + (r.IsOut ? 0 : 1);
+            if (oppsIn != 1) return null;
+            var opp = l.IsOut ? r : l;
+            if (opp.Hand.Count > 1) return null;                                    // 상대 아웃 임박(≤1장)만
+            for (int i = 0; i < nonBombLeads.Count; i++)
+                if (nonBombLeads[i].Cards.Count != 1) return null;                  // 콤보 있으면 EV 에 맡김
+            return HighestWinningSingle(nonBombLeads);
+        }
+
         /// <summary>Bug4 라이브 가드: 상대 콤보(≥2장) Top 을 비싼 자원(점수/고랭크 콤보)으로 밟는 낭비인가.
         /// 팀 아웃용 콤보를 헛되이 소진하는 "팀킬" 방지 — 콤보는 안 막혀도 상대가 선을 가져가는 정도라
         /// 티츄콜·나가기·리치트릭이 아니면 밟지 말고 보존(false=밟기 허용, true=패스 권고).

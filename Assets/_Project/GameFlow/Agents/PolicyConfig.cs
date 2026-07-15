@@ -58,7 +58,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 라이브 리드에서 마작 소원(내 손에 없는 최고 랭크)을 실제로 건다(#2). OFF면 소원 없음(=P2-B 동작). 수 선택엔 비트불변(출력만 채움).</summary>
         public readonly bool UseLiveWish;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false)
+        /// <summary>true면 진짜 1:1 종반(파트너 아웃+상대 1명 ≤1장)에서 전부 싱글 리드면 최고 싱글로 봉쇄한다(#6, ⑦의 리드측 쌍둥이). OFF면 비트불변.</summary>
+        public readonly bool UseNearOutLeadOrder;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -77,6 +80,7 @@ namespace Tichu.GameFlow.Agents
             UseBombSave = useBombSave;
             UseHighComboWasteGuard = useHighComboWasteGuard;
             UseLiveWish = useLiveWish;
+            UseNearOutLeadOrder = useNearOutLeadOrder;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
@@ -88,9 +92,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true);  // P2-F 16세계 + caller + D1 + #2 봉황보존 + C1 교환핀 + 라이브소원
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀 + 라이브소원
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true);  // P2-G 정합성 + #2 봉황보존 + C1 교환핀 + 라이브소원
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true);  // P2-F 16세계 + caller + D1 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

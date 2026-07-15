@@ -279,18 +279,17 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void DecideTurn_overtakes_partner_low_with_cheap_combo_to_reduce_hand()
+        public void DecideTurn_does_not_overtake_winning_partner_low_combo()
         {
-            // 파트너가 낮은 조합(Pair5)을 냄. seat0 는 점수 없는 콤보(Pair8)로 싸게 밟아 패를 줄인다.
+            // 파트너가 낮은 조합(Pair5)으로 이기는 중. seat0 는 Pair8 로 밟을 수 있으나 아웃/티츄/파트너아웃이
+            // 아니므로 밟지 않고 패스한다(승리 중 파트너 콤보를 패-줄이기만으로 밟는 낭비 방지 — 사용자 플레이테스트).
             var s = FollowState(0, Pair(5), topOwner: 2, accumulatedPoints: 0,
                 Hand(N(8, Suit.Jade), N(8, Suit.Sword), N(2, Suit.Pagoda), N(3, Suit.Star)),
                 Hand(N(2, Suit.Jade)),
                 Hand(N(2, Suit.Sword)),
                 Hand(N(2, Suit.Star)));
             var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
-            Assert.That(d.IsPass, Is.False, "파트너가 낮은 카드 → 싼 콤보로 밟아 패 줄이기");
-            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Pair));
-            Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank));
+            Assert.That(d.IsPass, Is.True, "이기고 있는 파트너 콤보는 아웃/티츄/파트너아웃 아니면 밟지 않는다");
         }
 
         [Test]
@@ -1025,6 +1024,22 @@ namespace Tichu.Core.Tests
                 Hand(N(2, Suit.Star)), Hand(N(3, Suit.Star)), Hand(N(4, Suit.Sword)));
             Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False,
                 "봉황만 있고 나머지 저카드 → 강도 하한 미달");
+        }
+
+        [Test]
+        public void CallTichu_false_for_handpower_six_marginal_hand()
+        {
+            // #4 조임: 용+A 단둘(HandPower 6)은 막히기 쉬운 한계 선언 → 임계 7로 배제.
+            // (강패 HandPower 7+ 는 CallTichu_true_for_strong_hand 가 계속 통과함으로 보장.)
+            var hand = Hand(
+                Card.Dragon, N(14, Suit.Jade),
+                N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda), N(5, Suit.Star),
+                N(6, Suit.Jade), N(7, Suit.Sword), N(8, Suit.Pagoda), N(9, Suit.Star),
+                N(2, Suit.Sword), N(3, Suit.Pagoda), N(4, Suit.Jade), N(5, Suit.Sword));
+            var s = GameFlowHelpers.PlayState(0, hand,
+                Hand(N(2, Suit.Star)), Hand(N(3, Suit.Star)), Hand(N(6, Suit.Pagoda)));
+            Assert.That(new AiAgent(1UL, 0).CallTichu(GameFlowHelpers.Context(s, 0)), Is.False,
+                "용+A(HandPower 6) 한계 선언은 임계 7로 배제");
         }
     }
 }

@@ -56,6 +56,17 @@ namespace Tichu.GameFlow.Agents
             // 공유한다. EV 탐색이 파트너를 비싼 카드(A·용)로 무의미하게 밟는 낭비를 막는다.
             var trick = ctx.State.CurrentTrick;
 
+            // #6 near-out 리드 순서(라이브 가드): 진짜 1:1 종반(파트너 아웃+상대 1명 ≤1장)에서 비폭탄 리드가
+            // 전부 싱글이면 최고 싱글로 봉쇄해 상대 아웃을 저지(⑦ 락아웃의 리드측 쌍둥이·약우월). OFF면 비트불변.
+            if (_config.UseNearOutLeadOrder && trick == null)
+            {
+                var nonBombLeads = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
+                var lead = AiAgent.NearOutLeadOrder(ctx, nonBombLeads);
+                if (lead != null) return TurnDecision.Play(lead, LiveWish(ctx, lead));
+            }
+
             // #3 끝내기 셰딩(라이브 가드): 순수 EV 가 ≤5장 리드에서 콤보 셰딩(빠른 아웃)을 안 골라 싱글
             // 남발 → 휴리스틱 MostShedding 을 EV 전에 강제(리드만). OFF(기본)면 비트불변.
             if (_config.UseEndgameSheddingGuard && trick == null && ctx.MyHand.Count <= 5)
@@ -64,7 +75,7 @@ namespace Tichu.GameFlow.Agents
                 for (int i = 0; i < legal.Count; i++)
                     if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
                 var shed = AiAgent.EndgameSheddingLead(nonBombLeads);
-                if (shed != null) return TurnDecision.Play(shed);
+                if (shed != null) return TurnDecision.Play(shed, LiveWish(ctx, shed));
             }
 
             // ⑦ near-out 싱글 락아웃(라이브 가드): 낮은 싱글 Top + 상대 1장(아웃 임박)이면 Top 소유자 무관
@@ -214,8 +225,14 @@ namespace Tichu.GameFlow.Agents
             }
 
             _rng = rng;
-            return best == null ? TurnDecision.Pass : TurnDecision.Play(best);
+            return best == null ? TurnDecision.Pass : TurnDecision.Play(best, LiveWish(ctx, best));
         }
+
+        // #2 라이브 마작 소원: 선택된 리드가 마작을 포함하면 손에 없는 최고 랭크를 소원으로 건다(롤아웃 정책과 동일).
+        // UseLiveWish OFF면 null(=P2-B 동작·비트불변). MaybeWish 는 마작 미포함 시 null 이라 팔로우/비마작 리드엔 무영향.
+        // 주의: EV 루프(위)는 여전히 wish=null 로 후보를 평가하므로 수 선택은 불변 — 출력 채널만 채운다.
+        private int? LiveWish(in DecisionContext ctx, Combination chosen)
+            => _config.UseLiveWish ? AiAgent.MaybeWish(ctx, chosen) : null;
 
         /// <summary>
         /// 인-턴 EV 후보 집합. 폭탄은 게이트된 <see cref="DecideBomb"/>(리치트릭 ≥15점)이 담당하므로

@@ -16,7 +16,7 @@ namespace Tichu.GameFlow.Agents
     {
         // ── 임계값(휴리스틱 게이트) ──────────────────────────────────────────────────
         private const int GrandThreshold = 10;   // 큰 티츄: 보수적(실패 −200).
-        private const int SmallTichuThreshold = 6; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(#3 남발 방지).
+        private const int SmallTichuThreshold = 7; // 작은 티츄: 용/봉황 + 이 손강도 이상이어야 선언(③ 남발 방지 + #4 조임 6→7: 막히기 쉬운 HandPower6 선언 배제).
         private const int FinishHandSize = 5;     // 손패 ≤ 이 값이면 끝내기 모드(강한 수로 리드).
         private const int RichTrickPoints = 15;   // 이 점수 이상이면 "점수 많은 트릭".
         private const int BombMinPoints = 15;     // 폭탄 인터럽트 최소 누적 점수.
@@ -268,7 +268,8 @@ namespace Tichu.GameFlow.Agents
         }
 
         // 마작을 포함해 리드하고, 내 손에 없는 랭크를 소원으로 걸어 상대를 압박한다.
-        private int? MaybeWish(in DecisionContext ctx, Combination chosen)
+        // public static: PimcAgent 라이브 리드(#2)도 같은 소원 정책을 공유한다(롤아웃과 일치).
+        public static int? MaybeWish(in DecisionContext ctx, Combination chosen)
         {
             bool hasMahjong = false;
             for (int i = 0; i < chosen.Cards.Count; i++)
@@ -491,8 +492,10 @@ namespace Tichu.GameFlow.Agents
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
         /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 ㉠콤보(≥2장)로 패를 줄이거나 ㉡파트너가 아웃이라
-        ///   패스 시 리드가 상대로 넘어가는 경우(싱글로라도 밟아 우리 팀 리드 유지).
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 아웃이라 패스 시 리드가 상대로 넘어가는 경우
+        ///   (싱글로라도 밟아 우리 팀 리드 유지).
+        /// ⚠️이기고 있는 파트너의 콤보를 "패 줄이기"만으로 밟는 것은 낭비(패-줄이기는 내가 리드할 때 하면 됨)
+        ///   → 제외한다(사용자 플레이테스트: 파트너 10-트리플을 J-트리플로 밟는 낭비).
         /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
         /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
@@ -518,14 +521,15 @@ namespace Tichu.GameFlow.Agents
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
-            bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
             // 콜러도 파트너의 고카드(A 등)를 용/봉황으로 밟는 낭비는 안 한다 — 아웃하거나(goesOut) 싸게 밟을
             // 때(partnerLow)만 리드를 가져온다. 파트너가 이미 이기고 있으면(고카드) 두고 고카드를 아껴 아웃에 쓴다.
             bool callerTakesLead = calledTichu && partnerLow;
 
-            return (callerTakesLead || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+            // 이기고 있는(비아웃) 파트너의 콤보를 단지 패-줄이기로 밟지 않는다. 밟기는 내 아웃(goesOut)·
+            // 티츄 추진(callerTakesLead)·파트너 아웃 후 리드 사수(teammateOut)일 때만.
+            return (callerTakesLead || goesOut || (partnerLow && teammateOut)) ? cheap : null;
         }
 
         /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).
@@ -595,6 +599,25 @@ namespace Tichu.GameFlow.Agents
                 if (high != null) return high;
             }
             return null;
+        }
+
+        /// <summary>#6 near-out 리드 순서(라이브 가드, ⑦ 락아웃의 리드측 쌍둥이): 진짜 1:1 종반
+        /// (내 파트너 아웃 + 상대 한 명만 남고 그 상대 ≤1장)에서 비폭탄 리드가 전부 싱글이면(콤보로 봉쇄 불가)
+        /// 최고 싱글로 리드해 상대의 마지막-카드 아웃을 최대한 저지한다. 낮은 싱글보다 상대가 받아나갈
+        /// 확률이 낮아 약우월(1:1이라 다른 좌석 개입 없음). 콤보가 있으면 null(EV/롤아웃의 콤보-우선에 맡김).</summary>
+        public static Combination? NearOutLeadOrder(in DecisionContext ctx, IReadOnlyList<Combination> nonBombLeads)
+        {
+            if (nonBombLeads.Count == 0) return null;
+            var seats = ctx.State.Seats;
+            if (!seats[ctx.PartnerSeat].IsOut) return null;                         // 1:1 아니면 개입 안 함
+            var l = seats[ctx.LeftSeat]; var r = seats[ctx.RightSeat];
+            int oppsIn = (l.IsOut ? 0 : 1) + (r.IsOut ? 0 : 1);
+            if (oppsIn != 1) return null;
+            var opp = l.IsOut ? r : l;
+            if (opp.Hand.Count > 1) return null;                                    // 상대 아웃 임박(≤1장)만
+            for (int i = 0; i < nonBombLeads.Count; i++)
+                if (nonBombLeads[i].Cards.Count != 1) return null;                  // 콤보 있으면 EV 에 맡김
+            return HighestWinningSingle(nonBombLeads);
         }
 
         /// <summary>Bug4 라이브 가드: 상대 콤보(≥2장) Top 을 비싼 자원(점수/고랭크 콤보)으로 밟는 낭비인가.

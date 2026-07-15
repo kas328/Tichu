@@ -467,6 +467,74 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Rank, Is.EqualTo(Single(14).Rank), "가장 높은 싱글(A)로 봉쇄");
         }
 
+        // ── D3: 구조 보존형 리드 ──────────────────────────────────────────────────────
+
+        [Test]
+        public void DecideLead_does_not_break_straight_with_low_single()
+        {
+            // seat0 리드(8장): 스트레이트 2-3-4-5-6 + 헐거운 9,J,K. 상대는 모두 3장(near-out 아님).
+            // 현행: 최저 싱글(2)을 흘려 스트레이트를 깬다. → 구조 밖 최저 싱글(9)로 리드해야 한다.
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(4, Suit.Jade), N(5, Suit.Jade), N(6, Suit.Jade),
+                     N(9, Suit.Sword), N(11, Suit.Pagoda), N(13, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(7, Suit.Sword), N(8, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda), N(7, Suit.Pagoda), N(8, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(7, Suit.Star), N(8, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Single));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(9).Rank),
+                "스트레이트(2-6) 구성 싱글이 아닌 구조 밖 최저 싱글(9)로 리드");
+        }
+
+        [Test]
+        public void DecideLead_does_not_fracture_triple_with_low_single()
+        {
+            // seat0 리드(8장): 트리플 4-4-4 + 헐거운 6,8,9,J,Q. 상대 모두 3장.
+            // 현행: 최저 싱글(4)을 흘려 트리플을 쪼갠다. → 4 싱글을 홀로 내지 않는다(구조 밖 싱글 또는 트리플 통째).
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(4, Suit.Jade), N(4, Suit.Sword), N(4, Suit.Pagoda),
+                     N(6, Suit.Star), N(8, Suit.Jade), N(9, Suit.Sword), N(11, Suit.Pagoda), N(12, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(7, Suit.Sword), N(3, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda), N(7, Suit.Pagoda), N(3, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(7, Suit.Star), N(3, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False);
+            bool fracturesTriple = d.Move!.Type == CombinationType.Single && d.Move!.Rank == Single(4).Rank;
+            Assert.That(fracturesTriple, Is.False, "트리플(4)을 싱글로 쪼개 리드하지 않는다");
+        }
+
+        [Test]
+        public void DecideLead_unchanged_when_no_structure()
+        {
+            // 회귀 가드: 스트레이트/트리플/연속페어 없는 흩어진 손 → 현행대로 최저 싱글(2).
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(2, Suit.Jade), N(4, Suit.Sword), N(6, Suit.Pagoda), N(8, Suit.Star),
+                     N(9, Suit.Jade), N(11, Suit.Sword), N(12, Suit.Pagoda), N(14, Suit.Star)),
+                Hand(N(3, Suit.Sword), N(7, Suit.Sword), N(5, Suit.Sword)),
+                Hand(N(3, Suit.Pagoda), N(7, Suit.Pagoda), N(5, Suit.Pagoda)),
+                Hand(N(3, Suit.Star), N(7, Suit.Star), N(5, Suit.Star)));
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.Move!.Type, Is.EqualTo(CombinationType.Single));
+            Assert.That(d.Move!.Rank, Is.EqualTo(Single(2).Rank), "구조 없음 → 최저 싱글(2) 불변");
+        }
+
+        [Test]
+        public void DecideLead_returns_legal_lead_when_all_low_singles_committed()
+        {
+            // 폴백 가드: 저싱글이 전부 구조에 묶임({3,3,3,4,4,4}) → 패스 아님 + 합법 리드.
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(N(3, Suit.Jade), N(3, Suit.Sword), N(3, Suit.Pagoda),
+                     N(4, Suit.Jade), N(4, Suit.Sword), N(4, Suit.Pagoda)),
+                Hand(N(2, Suit.Sword), N(7, Suit.Sword), N(9, Suit.Sword)),
+                Hand(N(2, Suit.Pagoda), N(7, Suit.Pagoda), N(9, Suit.Pagoda)),
+                Hand(N(2, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));
+            var ctx = GameFlowHelpers.Context(s, 0);
+            var d = new AiAgent(1UL, 0).DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(ctx.LegalMoves.Any(m => m.Rank == d.Move!.Rank && m.Type == d.Move!.Type), Is.True);
+        }
+
         // ── DecideTurn: 낮은카드 콤보 아웃 / 높은족보 보존(#2) ────────────────────────
 
         [Test]

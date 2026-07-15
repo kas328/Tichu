@@ -744,7 +744,11 @@ namespace Tichu.Presentation.Views
         {
             string who = a.Seat >= 0 && a.Seat < 4 ? SeatNames[a.Seat] : "?";
             if (a.Kind == GameActionKind.Pass) return $"{who} · 패스";
-            if (a.Kind == GameActionKind.GiveDragon) return $"{who} · 용 양도";
+            if (a.Kind == GameActionKind.GiveDragon)
+            {
+                string to = a.RecipientSeat >= 0 && a.RecipientSeat < 4 ? SeatNames[a.RecipientSeat] : "?";
+                return $"{who} · 용 양도 → {to}";
+            }
             if (a.Kind == GameActionKind.Play && a.Cards != null && a.Cards.Count > 0)
             {
                 var combo = CombinationRecognizer.Recognize(a.Cards.ToArray(), TrickContext.Lead);

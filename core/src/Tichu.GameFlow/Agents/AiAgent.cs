@@ -492,8 +492,10 @@ namespace Tichu.GameFlow.Agents
         /// 파트너가 Top 을 소유한 팔로우 상황에서 "밟을 수"를 돌려준다(밟지 말아야 하면 null).
         /// 기본은 패스(null). 다음 중 하나면 최소 오버킬(beat, 점수카드 허용)로 밟는다:
         /// ①(작은/큰) 티츄 선언 → 나가기 추진, ②밟으면 손패가 비어 아웃(예: K 페어가 마지막),
-        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 ㉠콤보(≥2장)로 패를 줄이거나 ㉡파트너가 아웃이라
-        ///   패스 시 리드가 상대로 넘어가는 경우(싱글로라도 밟아 우리 팀 리드 유지).
+        /// ③파트너가 낮은 카드(랭크 ≤ 10)를 냈고 아웃이라 패스 시 리드가 상대로 넘어가는 경우
+        ///   (싱글로라도 밟아 우리 팀 리드 유지).
+        /// ⚠️이기고 있는 파트너의 콤보를 "패 줄이기"만으로 밟는 것은 낭비(패-줄이기는 내가 리드할 때 하면 됨)
+        ///   → 제외한다(사용자 플레이테스트: 파트너 10-트리플을 J-트리플로 밟는 낭비).
         /// "이유 없이 비싼 카드로 파트너를 밟는" 낭비는 ①~③ 조건이 막는다(이유 없으면 패스).
         /// 카드 선택은 점수 무관 최소 오버킬이라 더 싼 수가 있으면 그쪽을 쓴다.
         /// PimcAgent 도 파트너-Top 가드로 이 규칙을 공유한다.
@@ -519,14 +521,15 @@ namespace Tichu.GameFlow.Agents
             bool calledTichu = ctx.State.Seats[seat].Call != TichuCall.None;
             bool goesOut = ctx.MyHand.Count == cheap.Cards.Count;     // 밟으면 손패 소진
             bool partnerLow = trick.Top!.Rank <= PartnerLowTopScaled;
-            bool reducesHand = cheap.Cards.Count >= 2;                // 콤보 = 패 ≥2장 감소
             bool teammateOut = ctx.State.Seats[trick.TopOwnerSeat].IsOut;  // 아웃 팀메이트 Top → 패스 시 리드가 상대로
 
             // 콜러도 파트너의 고카드(A 등)를 용/봉황으로 밟는 낭비는 안 한다 — 아웃하거나(goesOut) 싸게 밟을
             // 때(partnerLow)만 리드를 가져온다. 파트너가 이미 이기고 있으면(고카드) 두고 고카드를 아껴 아웃에 쓴다.
             bool callerTakesLead = calledTichu && partnerLow;
 
-            return (callerTakesLead || goesOut || (partnerLow && (reducesHand || teammateOut))) ? cheap : null;
+            // 이기고 있는(비아웃) 파트너의 콤보를 단지 패-줄이기로 밟지 않는다. 밟기는 내 아웃(goesOut)·
+            // 티츄 추진(callerTakesLead)·파트너 아웃 후 리드 사수(teammateOut)일 때만.
+            return (callerTakesLead || goesOut || (partnerLow && teammateOut)) ? cheap : null;
         }
 
         /// <summary>#4c 정제: 콜한 파트너가 곧 나갈 수 없어 보이는가(내가 먼저 나가 살려도 되는가).

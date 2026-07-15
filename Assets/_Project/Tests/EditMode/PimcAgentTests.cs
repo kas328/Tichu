@@ -391,6 +391,21 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Rank, Is.EqualTo(Pair(8).Rank), "싸게(8 페어)로 밟아야 한다");
         }
 
+        [Test]
+        public void DecideTurn_does_not_overtake_winning_partner_low_combo_to_shed()
+        {
+            // 티츄 테스트와 동일 셋업이나 콜 없음: 이기고 있는 파트너 Pair(5)를 Pair(8)로 밟을 수 있어도
+            // 아웃/티츄/파트너아웃 아니면 밟지 않고 패스(패-줄이기만으로 파트너 콤보 밟는 낭비 방지).
+            var s = PartnerTopFollow(Pair(5),
+                new List<Card> { Card.Normal(8, Suit.Jade), Card.Normal(8, Suit.Sword),
+                                 Card.Normal(2, Suit.Pagoda), Card.Normal(3, Suit.Star) },
+                new List<Card> { Card.Normal(2, Suit.Jade) },
+                new List<Card> { Card.Normal(2, Suit.Sword) },
+                new List<Card> { Card.Normal(2, Suit.Star) });
+            var d = new PimcAgent(7UL, 0, PolicyConfig.Normal).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.True, "이기고 있는 파트너 콤보는 아웃/티츄 아니면 밟지 않는다");
+        }
+
         // ── 상대-위협 블록 가드(D1) ───────────────────────────────────────────────────
         // 상대가 Top 소유 + 아웃/티츄 위협일 때, 순수 EV 전에 휴리스틱 블록 가드
         // (AiAgent.OpponentThreatBlockMove)를 건다. 플래그 OFF(기본)면 비트불변(가드 미개입).

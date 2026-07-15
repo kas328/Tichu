@@ -1,0 +1,129 @@
+<meta charset="utf-8">
+<title>플레이테스트 가이드 — 4개 변경 실기 확인</title>
+<style>
+  :root{ --bg:#0f1420; --card:#1a2233; --ink:#e8edf6; --dim:#9aa7bd; --line:#2a3550;
+         --easy:#3ecf8e; --rare:#c9a24b; --accent:#5aa9ff; --bad:#ff7a7a; --chip:#22304a; }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f5f7fb; --card:#fff; --ink:#1a2233; --dim:#5a6478; --line:#e0e6f0;
+           --easy:#1a9e64; --rare:#9a7a1e; --accent:#2f7be0; --bad:#d64545; --chip:#eef2f8; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 -apple-system,'Segoe UI',Roboto,'Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:13.5px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--dim);margin:0 0 22px}
+  .legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:middle}
+  .card{background:var(--card);border:1px solid var(--line);border-left-width:4px;border-radius:12px;
+    padding:18px 20px;margin:0 0 16px}
+  .card.easy{border-left-color:var(--easy)} .card.rare{border-left-color:var(--rare)}
+  .card h3{margin:0 0 8px;font-size:17px}
+  .tag{font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;margin-left:8px;vertical-align:middle}
+  .tag.easy{background:color-mix(in srgb,var(--easy) 20%,transparent);color:var(--easy)}
+  .tag.rare{background:color-mix(in srgb,var(--rare) 22%,transparent);color:var(--rare)}
+  .row{margin:7px 0 0} .row .k{color:var(--dim);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;margin-right:6px}
+  code{background:color-mix(in srgb,var(--ink) 8%,transparent);padding:1px 5px;border-radius:5px;font:12.5px 'SF Mono',Consolas,monospace}
+  .figure{margin:14px 0 4px;padding:14px;background:color-mix(in srgb,var(--ink) 4%,transparent);border-radius:10px;overflow-x:auto}
+  .figcap{color:var(--dim);font-size:12px;margin-top:6px;text-align:center}
+  .foot{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:24px;font-size:14px}
+  svg{display:block;margin:0 auto;max-width:100%}
+  .t{fill:var(--ink)} .d{fill:var(--dim)} .g{fill:var(--easy)} .r{fill:var(--bad)} .a{fill:var(--accent)}
+  .cardface{fill:var(--card);stroke:var(--line)} .chip{fill:var(--chip);stroke:var(--line)}
+</style>
+<div class="wrap">
+  <h1>플레이테스트 가이드 — 4개 변경 실기 확인</h1>
+  <p class="sub">브랜치 <code>feat/playtest-batch-2026-07-15</code> · Unity 에디터 = 이 상태(플레이 시 4변경 반영) · 2026-07-15</p>
+
+  <div class="legend">
+    <span><i style="background:var(--easy)"></i>바로 눈에 띔</span>
+    <span><i style="background:var(--rare)"></i>드물게/통계적</span>
+    <span>메뉴 → AI 대전 → <b>Hard/Expert</b> → 플레이</span>
+  </div>
+
+  <!-- #3 -->
+  <div class="card easy">
+    <h3>#3 · 개(Dog) 중앙 표시<span class="tag easy">바로 확인</span></h3>
+    <div class="row"><span class="k">변경</span>개는 규칙상 트릭을 안 만들어 중앙에 안 보이고 우상단 로그만 스쳐 지나갔다 → 이제 중앙에 잠깐 에코.</div>
+    <div class="row"><span class="k">볼 것</span>누구든 개를 내면 <b>중앙에 ~1.2초</b> 개 카드 + "개 · [이름] → 파트너 리드" 뜬 뒤 사라짐.</div>
+    <div class="figure">
+      <svg width="420" height="120" viewBox="0 0 420 120" role="img" aria-label="개 중앙 에코">
+        <rect x="150" y="18" width="120" height="70" rx="10" class="cardface" stroke-width="1.5"/>
+        <text x="210" y="50" text-anchor="middle" font-size="22" class="t">🐕</text>
+        <text x="210" y="74" text-anchor="middle" font-size="12" class="d">개</text>
+        <text x="210" y="108" text-anchor="middle" font-size="12" class="d">개 · 왼쪽 → 파트너 리드   (~1.2초 후 클리어)</text>
+      </svg>
+      <div class="figcap">중앙 트릭 영역에 개가 잠깐 표시된다</div>
+    </div>
+  </div>
+
+  <!-- #2 -->
+  <div class="card easy">
+    <h3>#2 · 마작 소원(콜)<span class="tag easy">바로 확인</span></h3>
+    <div class="row"><span class="k">변경</span>라이브 AI가 마작(1)을 내도 소원을 <b>아예 안 걸었음</b>(공짜 강제수단 낭비) → 이제 건다.</div>
+    <div class="row"><span class="k">볼 것</span>AI가 마작을 리드로 낼 때 "소원(콜): [랭크]" 표시. AI는 <b>자기 손에 없는 최고 랭크</b>를 부른다(상대·상대 폭탄 압박).</div>
+    <div class="figure">
+      <svg width="520" height="150" viewBox="0 0 520 150" role="img" aria-label="마작 소원 로직">
+        <text x="14" y="24" font-size="12" class="d">AI 손패 (마작 리드)</text>
+        <g font-size="15" text-anchor="middle">
+          <rect x="14"  y="34" width="46" height="64" rx="7" class="chip" stroke-width="1.3"/><text x="37"  y="72" class="t">1</text>
+          <rect x="66"  y="34" width="46" height="64" rx="7" class="chip" stroke-width="1.3"/><text x="89"  y="72" class="t">5</text>
+          <rect x="118" y="34" width="46" height="64" rx="7" class="chip" stroke-width="1.3"/><text x="141" y="72" class="t">9</text>
+          <rect x="170" y="34" width="46" height="64" rx="7" class="chip" stroke-width="1.3"/><text x="193" y="72" class="t">J</text>
+        </g>
+        <text x="37" y="116" text-anchor="middle" font-size="10.5" class="a">마작</text>
+        <path d="M232 66 L288 66" stroke="var(--dim)" stroke-width="2" marker-end="url(#ar)"/>
+        <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0 0 L9 4.5 L0 9 z" fill="var(--dim)"/></marker></defs>
+        <rect x="300" y="40" width="205" height="54" rx="9" fill="color-mix(in srgb,var(--accent) 12%,transparent)" stroke="var(--accent)" stroke-width="1.3"/>
+        <text x="402" y="62" text-anchor="middle" font-size="13" class="a" font-weight="700">소원(콜): A</text>
+        <text x="402" y="82" text-anchor="middle" font-size="11" class="d">손에 없는 최고 랭크(A) 강제</text>
+      </svg>
+      <div class="figcap">손에 5·9·J·… 뿐 → A가 없음 → "A 소원"으로 상대에게 A 강제(있으면 내야 함)</div>
+    </div>
+  </div>
+
+  <!-- #6 -->
+  <div class="card rare">
+    <h3>#6 · 1:1 종반 리드 순서 — 탑패부터<span class="tag rare">드묾(1:1 종반)</span></h3>
+    <div class="row"><span class="k">변경</span>진짜 1:1(파트너 아웃 + 상대 한 명만 1장)에서 낮은 싱글을 리드하면 상대가 받아 나간다 → 이제 <b>최고 싱글부터</b>.</div>
+    <div class="row"><span class="k">볼 것</span>AI가 싱글만 남은 1:1에서 <b>낮은 것(7) 대신 높은 것(8)</b>을 먼저 냄. 콤보가 있으면 콤보 우선(불변).</div>
+    <div class="figure">
+      <svg width="600" height="196" viewBox="0 0 600 196" role="img" aria-label="1:1 리드 순서 비교">
+        <!-- 상황 -->
+        <text x="300" y="20" text-anchor="middle" font-size="12.5" class="d">1:1 종반 · 파트너 아웃 · 상대 1장 · 내 손 {7, 8}</text>
+
+        <!-- BAD: lead 7 -->
+        <text x="150" y="48" text-anchor="middle" font-size="12.5" class="r" font-weight="700">✗ 낮은 7 먼저</text>
+        <g font-size="15" text-anchor="middle">
+          <rect x="90"  y="58" width="44" height="60" rx="7" fill="color-mix(in srgb,var(--bad) 14%,transparent)" stroke="var(--bad)" stroke-width="1.4"/><text x="112" y="94" class="t">7</text>
+          <rect x="166" y="58" width="44" height="60" rx="7" class="chip" stroke-width="1.2"/><text x="188" y="94" class="d">8</text>
+        </g>
+        <text x="150" y="140" text-anchor="middle" font-size="11.5" class="d">상대 8 보유 →</text>
+        <text x="150" y="158" text-anchor="middle" font-size="11.5" class="r">상대가 8로 받아 <tspan font-weight="700">먼저 아웃</tspan></text>
+
+        <line x1="300" y1="44" x2="300" y2="170" stroke="var(--line)" stroke-width="1"/>
+
+        <!-- GOOD: lead 8 -->
+        <text x="450" y="48" text-anchor="middle" font-size="12.5" class="g" font-weight="700">✓ 높은 8 먼저</text>
+        <g font-size="15" text-anchor="middle">
+          <rect x="390" y="58" width="44" height="60" rx="7" fill="color-mix(in srgb,var(--easy) 14%,transparent)" stroke="var(--easy)" stroke-width="1.4"/><text x="412" y="94" class="t">8</text>
+          <rect x="466" y="58" width="44" height="60" rx="7" class="chip" stroke-width="1.2"/><text x="488" y="94" class="d">7</text>
+        </g>
+        <text x="450" y="140" text-anchor="middle" font-size="11.5" class="d">상대 8로 못 받음 →</text>
+        <text x="450" y="158" text-anchor="middle" font-size="11.5" class="g">선 유지 → 7 내고 <tspan font-weight="700">내가 아웃</tspan></text>
+      </svg>
+      <div class="figcap">7·8이 결과가 갈리는 유일한 경우(상대가 8 보유) = 8을 먼저 내면 봉쇄 → 약우월(손해 없음)</div>
+    </div>
+  </div>
+
+  <!-- #4 -->
+  <div class="card rare">
+    <h3>#4 · 스몰티츄 보수화<span class="tag rare">통계적(여러 판)</span></h3>
+    <div class="row"><span class="k">변경</span>선언 하한 HandPower <code>6 → 7</code>. 용+A(6)·봉황+A+K(6) 같은 <b>막히기 쉬운 한계 손</b>은 이제 선언 안 함.</div>
+    <div class="row"><span class="k">볼 것</span>한 판에선 티나기 어려움 — <b>측면 AI의 "쉽게 막히는 티츄"가 줄었는지</b> 여러 판 느낌으로. (격리벤치 +1.4/R 비회귀 확인됨)</div>
+  </div>
+
+  <div class="foot">
+    <b>이상 발견 시</b> — 위 4개가 기대와 다르거나 이상한 수를 보시면, 그 상황(<b>누가 · 뭘 냈고 · 그때 손패 · 티츄/아웃 여부</b>)을 알려주세요. 바로 코드로 진단합니다.<br>
+    문제 없으면 <b>머지 / 푸시</b>로 넘어갑니다. 플레이 중 매 턴 콘솔 에러를 감시 중입니다.
+  </div>
+</div>

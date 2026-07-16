@@ -250,7 +250,10 @@ namespace Tichu.GameFlow.Agents
                     var noPoint = new List<Combination>();
                     for (int i = 0; i < pool.Count; i++)
                         if (pool[i].PointsInPlay == 0) noPoint.Add(pool[i]);
-                    chosen = MoveOrder.Lowest(noPoint.Count > 0 ? noPoint : pool)!;
+                    var candidates = noPoint.Count > 0 ? noPoint : pool;
+                    // D3: 가치 구조(스트레이트≥5·트리플·연속페어)를 홀로 깨는 싱글은 후보에서 제외.
+                    var structured = StructurePreservingLeads(ctx.MyHand, candidates);
+                    chosen = MoveOrder.Lowest(structured)!;
                 }
             }
 
@@ -753,6 +756,50 @@ namespace Tichu.GameFlow.Agents
                 if (k < bestK) { bestK = k; best = m; }
             }
             return best;
+        }
+
+        /// <summary>D3: 리드 후보 중 "가치 구조를 홀로 깨는 싱글"을 제외한다. 제외 후 비면 원본 유지(폴백).
+        /// 커밋된 랭크의 싱글 리드만 거른다(콤보 리드·구조 밖 싱글은 유지) — 콤보 통째 셰딩은 허용.</summary>
+        private static List<Combination> StructurePreservingLeads(
+            IReadOnlyList<Card> hand, IReadOnlyList<Combination> candidates)
+        {
+            var committed = CommittedRanks(hand);
+            var kept = new List<Combination>(candidates.Count);
+            for (int i = 0; i < candidates.Count; i++)
+            {
+                var m = candidates[i];
+                if (m.Type == CombinationType.Single && m.Cards.Count == 1)
+                {
+                    var c = m.Cards[0];
+                    if (!c.IsSpecial && c.Rank >= 1 && c.Rank <= 14 && committed[c.Rank])
+                        continue;   // 구조 깨는 싱글 → 제외
+                }
+                kept.Add(m);
+            }
+            return kept.Count > 0 ? kept : new List<Combination>(candidates);
+        }
+
+        /// <summary>D3 커밋 랭크: 길이≥3 가치 콤보(스트레이트≥5·트리플/풀하우스 트리플부·연속페어)에 묶인 랭크.
+        /// 보수적 — 애매하면 커밋 아님(과-제외 시 폴백이 원본 복원). rank 인덱스 bool[15].</summary>
+        private static bool[] CommittedRanks(IReadOnlyList<Card> hand)
+        {
+            var committed = new bool[15];
+            // ① 스트레이트(≥5) — 기존 로직 재사용.
+            var inRun = StraightRanks(hand);
+            for (int r = 1; r <= 14; r++) if (inRun[r]) committed[r] = true;
+            // 랭크별 장수.
+            var count = new int[15];
+            for (int i = 0; i < hand.Count; i++)
+            {
+                var c = hand[i];
+                if (!c.IsSpecial && c.Rank >= 2 && c.Rank <= 14) count[c.Rank]++;
+            }
+            // ② 트리플/포카드(≥3장) → 커밋(풀하우스의 트리플부 포함).
+            for (int r = 2; r <= 14; r++) if (count[r] >= 3) committed[r] = true;
+            // ③ 연속페어(stairs, ≥2쌍) → 커밋.
+            for (int r = 2; r <= 13; r++)
+                if (count[r] >= 2 && count[r + 1] >= 2) { committed[r] = true; committed[r + 1] = true; }
+            return committed;
         }
 
         /// <summary>손패에서 길이 ≥5 연속(스트레이트)에 속하는 랭크 표시(마작=1 포함).</summary>

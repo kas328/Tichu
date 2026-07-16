@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 — D3 구조 보존형 리드 벤치 결과</title>
+<style>
+  :root{ --bg:#0f1420; --card:#1a2233; --ink:#e8edf6; --dim:#9aa7bd; --line:#2a3550;
+         --ok:#3ecf8e; --bad:#ff7a7a; --accent:#5aa9ff; --wash:#c9a24b; --chip:#22304a; }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f5f7fb; --card:#fff; --ink:#1a2233; --dim:#5a6478; --line:#e0e6f0;
+           --ok:#1a9e64; --bad:#d64545; --accent:#2f7be0; --wash:#9a7a1e; --chip:#eef2f8; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 -apple-system,'Segoe UI',Roboto,'Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:13.5px}
+  .verdict{display:inline-block;font-weight:800;font-size:13px;padding:4px 14px;border-radius:20px;
+    background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent)}
+  .bluf{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--wash);
+    border-radius:12px;padding:16px 20px;margin:16px 0 24px;font-size:15px}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:28px 0 12px;font-weight:700}
+  .figure{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:0 0 8px;overflow-x:auto}
+  .figcap{color:var(--dim);font-size:12px;margin:8px 2px 0;text-align:center}
+  svg{display:block;margin:0 auto;max-width:100%}
+  .grid{display:flex;gap:12px;flex-wrap:wrap;margin:0 0 8px}
+  .stat{flex:1 1 120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .stat .n{font-size:23px;font-weight:800;letter-spacing:-.5px}
+  .stat .l{color:var(--dim);font-size:12px;margin-top:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:0 0 14px}
+  .card h3{margin:0 0 8px;font-size:16px}
+  code{background:color-mix(in srgb,var(--ink) 8%,transparent);padding:1px 5px;border-radius:5px;font:12.5px 'SF Mono',Consolas,monospace}
+  ul{margin:6px 0;padding-left:20px} li{margin:5px 0;font-size:14px}
+  .foot{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-top:22px;font-size:14px}
+  b.ok{color:var(--ok)} b.wash{color:var(--wash)} b.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>D3 — 구조 보존형 리드 <span class="verdict">채택 (wash·무손실)</span></h1>
+  <p class="sub">Phase 2 다음 프론티어 = D3 롤아웃/리드 강화 · HeuristicStrengthBench 4000R 미러드 · 브랜치 feat/d3-structure-preserving-lead · 2026-07-16</p>
+
+  <div class="bluf">
+    <code>DecideLead</code>(5장 초과)가 자기 <b>스트레이트/트리플을 저싱글로 깨던</b> 낭비를 차단 — 가치 구조(스트레이트≥5·트리플·연속페어)를 홀로 깨는 싱글을 리드 후보에서 제외. 격리 벤치는 <b class="wash">wash(+0.5/R, 회귀 없음)</b>. 강도 이득은 아니지만, 자기팀 구조를 안 깨는 <b>가시적 교정</b>이라 선례(#2 봉황·C1 교환핀·Issue A)대로 <b class="ok">채택</b>.
+  </div>
+
+  <div class="grid">
+    <div class="stat"><div class="n" style="color:var(--wash)">+0.5<span style="font-size:14px">/R</span></div><div class="l">평균 점수차 (New−Old)</div></div>
+    <div class="stat"><div class="n">49.1%</div><div class="l">New 승률 (1963/4000, 무승부 98)</div></div>
+    <div class="stat"><div class="n">0.475</div><div class="l">Wilson 하한 (0.5와 구분 불가)</div></div>
+    <div class="stat"><div class="n" style="color:var(--ok)">0</div><div class="l">회귀 (분명한 음수 없음)</div></div>
+  </div>
+
+  <h2>레버 스펙트럼 상 위치</h2>
+  <div class="figure">
+    <svg viewBox="0 0 860 170" role="img" aria-label="강도 효과 축에서 D3의 위치">
+      <!-- axis -->
+      <line x1="60" y1="95" x2="800" y2="95" stroke="var(--line)" stroke-width="1.5"/>
+      <!-- zero line -->
+      <line x1="430" y1="55" x2="430" y2="120" stroke="var(--dim)" stroke-width="1" stroke-dasharray="4 3" opacity="0.6"/>
+      <text x="430" y="140" class="d" fill="var(--dim)" font-size="11" text-anchor="middle">0 (wash)</text>
+      <text x="120" y="140" fill="var(--bad)" font-size="11" text-anchor="middle">← 회귀 · 파킹</text>
+      <text x="720" y="140" fill="var(--ok)" font-size="11" text-anchor="middle">강도 승리 →</text>
+
+      <!-- markers: #3 -18 park, Bug4 -6.9 park, C1 wash adopt, D3 +0.5 adopt, Issue A +0.18 adopt, ① +34.3 win -->
+      <!-- #3 -18 -->
+      <circle cx="120" cy="95" r="6" fill="var(--bad)"/>
+      <text x="120" y="78" fill="var(--bad)" font-size="11" text-anchor="middle" font-weight="700">#3 셰딩 −18</text>
+      <text x="120" y="66" class="d" fill="var(--dim)" font-size="10" text-anchor="middle">파킹</text>
+      <!-- Bug4 -6.9 -->
+      <circle cx="330" cy="95" r="6" fill="var(--bad)"/>
+      <text x="330" y="78" fill="var(--bad)" font-size="11" text-anchor="middle" font-weight="700">Bug4 −6.9</text>
+      <text x="330" y="66" class="d" fill="var(--dim)" font-size="10" text-anchor="middle">파킹</text>
+      <!-- wash cluster: C1 / D3 / Issue A near 0 -->
+      <circle cx="445" cy="95" r="8" fill="var(--wash)" stroke="var(--ink)" stroke-width="1"/>
+      <text x="470" y="99" fill="var(--wash)" font-size="12" font-weight="800">D3 +0.5</text>
+      <text x="512" y="99" class="d" fill="var(--dim)" font-size="10">← 채택(선례 버킷)</text>
+      <text x="445" y="120" class="d" fill="var(--dim)" font-size="10" text-anchor="middle">▲</text>
+      <text x="445" y="133" class="d" fill="var(--dim)" font-size="9.5" text-anchor="middle">C1·#2·IssueA도 여기</text>
+      <!-- ① +34.3 win -->
+      <circle cx="720" cy="95" r="7" fill="var(--ok)"/>
+      <text x="720" y="78" fill="var(--ok)" font-size="11" text-anchor="middle" font-weight="700">① 셰딩 +34.3</text>
+      <text x="720" y="66" class="d" fill="var(--dim)" font-size="10" text-anchor="middle">강도 승리</text>
+    </svg>
+    <p class="figcap">과거 레버 대비 D3는 0 근처 wash 구역 — 회귀(#3·Bug4)는 파킹, wash-무손실(C1·#2·Issue A·D3)은 채택, 강도 승리(①)는 별개. 팀의 일관된 판정 규칙과 정합.</p>
+  </div>
+
+  <h2>무엇을 바꿨나</h2>
+  <div class="card">
+    <ul>
+      <li><b>변경</b> — <code>AiAgent.DecideLead</code> 5장 초과·non-lockout 분기: "점수 없는 가장 낮은 수" 선택 앞에 구조 보존 필터.</li>
+      <li><b>커밋 판정</b> — <code>CommittedRanks</code>: 스트레이트(≥5, 기존 <code>StraightRanks</code> 재사용)·트리플/포카드(≥3장)·연속페어(≥2쌍)에 묶인 랭크.</li>
+      <li><b>필터</b> — <code>StructurePreservingLeads</code>: 커밋 랭크의 <b>싱글</b> 리드만 제외(콤보 리드·구조 밖 싱글은 유지). 제외 후 비면 원본 폴백. 콤보 통째 셰딩은 허용.</li>
+      <li><b>미러</b> — Unity + core 두 <code>AiAgent.cs</code> 동일. 공유 <code>AiAgent</code>라 PIMC 롤아웃·라이브 리드·Easy 직접결정에 전파.</li>
+    </ul>
+  </div>
+
+  <h2>검증</h2>
+  <div class="card">
+    <ul>
+      <li>TDD 레드→그린: 스트레이트/트리플 보존 실패 테스트 2 + 회귀가드 2.</li>
+      <li>Unity EditMode <b class="ok">AiAgentTests 64/64</b> · <b class="ok">PimcAgentTests 38/38</b> · core dotnet <b class="ok">AiAgentTests 63/63</b> — 전부 그린, 기존 리드/팔로우 회귀 없음.</li>
+      <li>HeuristicStrengthBench 4000R 미러드(New=변경본 vs Old=D3 직전 동결) → +0.5/R·회귀 0.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <b>결론</b> — D3는 강도를 올리진 못했지만(값싼 강도 레버 소진 재확인), 자기팀 구조를 깨던 가시적 낭비를 무비용으로 교정. <b>채택·main 경로</b>. 다음 강도는 연구티어(D4 학습 가치망) 또는 체감축(D2 텔레그래핑). <br><br>
+    <span style="color:var(--dim)">브랜치 <code>feat/d3-structure-preserving-lead</code> · 커밋 4(베이스라인·테스트·구현·리포트) · 머지/푸시는 사용자 승인 후.</span>
+  </div>
+</div>
+</body>
+</html>

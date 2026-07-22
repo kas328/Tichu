@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 B1 — Grand 콜 헤드 설계</title>
+<style>
+  :root{
+    --bg:#f6f7f4; --panel:#ffffff; --ink:#1a2420; --muted:#5c6b64;
+    --line:#e2e6e0; --teal:#0e8f7e; --teal-d:#0a6c60; --gold:#c9962f; --gold-d:#a97c1e;
+    --red:#c2483d; --blue:#3b6fb0; --chipbg:#eef3f0; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.06);
+    --code:#0d3b34;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0e1512; --panel:#151d19; --ink:#e7ece8; --muted:#9db0a7;
+      --line:#25302b; --teal:#3fd6c0; --teal-d:#2bb9a4; --gold:#e6bd5f; --gold-d:#d0a743;
+      --red:#f0857a; --blue:#7fabe0; --chipbg:#1b2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35);
+      --code:#bfeee5;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;
+    line-height:1.65; font-size:16px; letter-spacing:.1px;
+  }
+  .wrap{max-width:1000px; margin:0 auto; padding:0 20px 90px}
+  header.hero{
+    background:linear-gradient(135deg,var(--teal-d),var(--teal) 55%,#12a892);
+    color:#fff; padding:38px 30px 34px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    max-width:1000px; margin:0 auto 26px;
+  }
+  .hero .tag{display:inline-block; font-size:12.5px; font-weight:700; letter-spacing:.6px;
+    background:rgba(255,255,255,.18); padding:4px 11px; border-radius:20px; margin-bottom:12px}
+  .hero h1{margin:.1em 0 .12em; font-size:29px; line-height:1.2; font-weight:800}
+  .hero p{margin:0; font-size:15.5px; opacity:.95; max-width:70ch}
+  .hero .meta{margin-top:14px; font-size:13px; opacity:.85}
+  h2{font-size:20.5px; margin:38px 0 14px; display:flex; align-items:center; gap:10px}
+  h2 .n{display:inline-grid; place-items:center; width:27px; height:27px; border-radius:8px;
+    background:var(--teal); color:#fff; font-size:14px; font-weight:800; flex:none}
+  h3{font-size:16.5px; margin:22px 0 8px}
+  p{margin:.5em 0}
+  .lead{font-size:16.5px}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow); margin:14px 0}
+  .tldr{border-left:4px solid var(--gold)}
+  .tldr b{color:var(--gold-d)}
+  code,.mono{font-family:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace; font-size:.9em}
+  code{background:var(--chipbg); color:var(--code); padding:1.5px 6px; border-radius:6px}
+  .muted{color:var(--muted)}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:12px}
+  @media(max-width:720px){.grid2,.grid3{grid-template-columns:1fr}}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:15px 16px; box-shadow:var(--shadow)}
+  .card .u{font-size:12px; font-weight:800; color:var(--teal-d); letter-spacing:.4px}
+  .card h4{margin:4px 0 6px; font-size:15.5px}
+  .card p{margin:0; font-size:13.6px; color:var(--muted); line-height:1.55}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin:10px 0}
+  .chip{background:var(--chipbg); border:1px solid var(--line); border-radius:8px; padding:5px 10px; font-size:13px; font-weight:600}
+  .chip small{color:var(--muted); font-weight:500}
+  table{width:100%; border-collapse:collapse; margin:10px 0; font-size:14px}
+  th,td{text-align:left; padding:9px 11px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{font-size:12.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted)}
+  td b{color:var(--ink)}
+  .svgbox{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow); overflow-x:auto; margin:14px 0}
+  .svgbox svg{display:block; margin:0 auto; max-width:100%; height:auto}
+  .cap{font-size:12.5px; color:var(--muted); text-align:center; margin:6px 0 0}
+  .formula{background:var(--chipbg); border-radius:10px; padding:14px 16px; font-family:"SF Mono",ui-monospace,Consolas,monospace; font-size:14px; line-height:1.9; color:var(--code)}
+  .pill{display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:20px; letter-spacing:.3px}
+  .pill.on{background:rgba(14,143,126,.15); color:var(--teal-d)}
+  .pill.off{background:rgba(92,107,100,.16); color:var(--muted)}
+  .pill.gold{background:rgba(201,150,47,.16); color:var(--gold-d)}
+  .pill.red{background:rgba(194,72,61,.14); color:var(--red)}
+  ul.tight{margin:.5em 0; padding-left:1.25em}
+  ul.tight li{margin:.32em 0}
+  .decide{background:linear-gradient(135deg,rgba(201,150,47,.10),rgba(14,143,126,.08)); border:1px solid var(--line)}
+  .decide .q{display:flex; gap:12px; align-items:flex-start; padding:12px 0; border-bottom:1px dashed var(--line)}
+  .decide .q:last-child{border-bottom:0}
+  .decide .qn{flex:none; width:26px; height:26px; border-radius:50%; background:var(--gold); color:#fff; font-weight:800; display:grid; place-items:center; font-size:14px}
+  .decide .qt b{font-size:15px}
+  .rec{color:var(--teal-d); font-weight:700}
+  hr.soft{border:0; border-top:1px solid var(--line); margin:34px 0}
+  .foot{text-align:center; color:var(--muted); font-size:12.5px; margin-top:40px}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">PHASE 2 · AI 강화 · B1</span>
+  <h1>Grand Tichu 콜 헤드 — 설계 보고</h1>
+  <p>crude <code style="background:rgba(255,255,255,.16);color:#fff">HandPower≥10</code> 게이트를, 학습된 <b>“이 8장이 먼저 나갈 확률”</b>로 교체한다. 넷과 무관·직교하고, 전 티어에 함수 한 곳으로 꽂히는 D4의 “가장 확실한 클린 윈”.</p>
+  <div class="meta">순수 C#/dotnet · 파이썬 0 · 패키지 0 · Grand 먼저 · 2026-07-23</div>
+</header>
+
+<div class="wrap">
+
+  <div class="panel tldr">
+    <p class="lead" style="margin-top:0"><b>한 줄:</b> self-play로 라벨 만들고 → C#에서 초소형 모델 학습 → matmul 추론을 <code>CallGrandTichu</code> 한 곳에 플래그로 꽂아 → 격리 벤치(Wilson LB&gt;0.5)로 채택/파킹 판정.</p>
+    <p style="margin-bottom:0"><b>당신 결정 3가지</b>(문서 맨 아래): ① 모델 사다리(로지스틱 먼저 vs 바로 MLP) · ② 피처 세트 가감 · ③ 그 외 수정.</p>
+  </div>
+
+  <!-- ===================== WHY CHEAP ===================== -->
+  <h2><span class="n">1</span> 왜 값싼가 — “함수 한 곳, 전 티어 공통”</h2>
+  <p>코드 확인 결과, Normal/Hard/Expert <b>모든 PIMC 티어가 티츄 콜을 휴리스틱 <code>AiAgent</code>에 위임</b>한다. 즉 콜 헤드를 이 한 지점에 넣으면 전 티어가 자동으로 혜택을 본다. 인-턴 EV 탐색(리드/팔로우)과 <b>직교</b>라, 과거 리드 변경들이 상습적으로 회귀했던 것과 달리 EV 탐색을 건드리지 않는다.</p>
+
+  <div class="svgbox">
+    <svg viewBox="0 0 900 300" role="img" aria-label="전 티어가 CallGrandTichu 한 곳으로 수렴하는 통합 구조">
+      <defs>
+        <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 Z" fill="#8aa79d"/>
+        </marker>
+      </defs>
+      <!-- tiers -->
+      <g font-size="13" font-weight="700" text-anchor="middle">
+        <rect x="30" y="40" width="180" height="42" rx="9" fill="#eef3f0" stroke="#cfe0d9"/>
+        <text x="120" y="66" fill="#0a6c60">PimcAgent · Normal</text>
+        <rect x="30" y="100" width="180" height="42" rx="9" fill="#eef3f0" stroke="#cfe0d9"/>
+        <text x="120" y="126" fill="#0a6c60">PimcAgent · Hard</text>
+        <rect x="30" y="160" width="180" height="42" rx="9" fill="#eef3f0" stroke="#cfe0d9"/>
+        <text x="120" y="186" fill="#0a6c60">PimcAgent · Expert</text>
+        <rect x="30" y="220" width="180" height="42" rx="9" fill="#eef3f0" stroke="#cfe0d9"/>
+        <text x="120" y="246" fill="#0a6c60">AiAgent · Normal(휴리)</text>
+      </g>
+      <!-- arrows to hub -->
+      <g stroke="#8aa79d" stroke-width="1.8" fill="none" marker-end="url(#ah)">
+        <path d="M210,61 C300,61 320,140 388,146"/>
+        <path d="M210,121 C300,121 330,142 388,150"/>
+        <path d="M210,181 C300,181 330,158 388,158"/>
+        <path d="M210,241 C300,241 320,166 388,162"/>
+      </g>
+      <!-- hub -->
+      <rect x="390" y="118" width="180" height="72" rx="12" fill="#0e8f7e"/>
+      <text x="480" y="147" text-anchor="middle" font-size="14" font-weight="800" fill="#fff">AiAgent</text>
+      <text x="480" y="169" text-anchor="middle" font-size="13" font-weight="700" fill="#eafff9">.CallGrandTichu()</text>
+      <!-- gate branch -->
+      <path d="M570,145 C630,145 640,95 700,95" stroke="#8aa79d" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+      <path d="M570,163 C630,163 640,213 700,213" stroke="#8aa79d" stroke-width="1.8" fill="none" marker-end="url(#ah)"/>
+      <rect x="702" y="72" width="176" height="46" rx="9" fill="#fff" stroke="#cbb06a"/>
+      <text x="790" y="92" text-anchor="middle" font-size="12.5" font-weight="700" fill="#a97c1e">플래그 OFF</text>
+      <text x="790" y="109" text-anchor="middle" font-size="12" fill="#5c6b64">현행 HandPower≥10</text>
+      <rect x="702" y="190" width="176" height="46" rx="9" fill="#e9f6f2" stroke="#0e8f7e"/>
+      <text x="790" y="210" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0a6c60">플래그 ON</text>
+      <text x="790" y="227" text-anchor="middle" font-size="12" fill="#0a6c60">CallNet · P&gt;τ</text>
+    </svg>
+    <p class="cap">그림 1 — 네 에이전트 모두 <code>AiAgent.CallGrandTichu</code>로 수렴. 플래그 하나로 게이트를 교체하며, OFF면 오늘과 비트 동일.</p>
+  </div>
+
+  <!-- ===================== PIPELINE ===================== -->
+  <h2><span class="n">2</span> 파이프라인 전경 — 6단계, 전부 dotnet</h2>
+  <p>파이썬·패키지·크로스언어 export 없이 한 언어 안에서 데이터생성→학습→추론→검증이 닫힌다. <code>dotnet test --filter</code>로 100% 재현.</p>
+
+  <div class="svgbox">
+    <svg viewBox="0 0 940 250" role="img" aria-label="6단계 파이프라인: self-play, 데이터, 학습, 가중치, 추론, 벤치">
+      <defs>
+        <marker id="ah2" markerWidth="10" markerHeight="10" refX="7.5" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#0e8f7e"/>
+        </marker>
+        <linearGradient id="stg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#eef3f0"/>
+        </linearGradient>
+      </defs>
+      <g text-anchor="middle">
+        <!-- stage boxes -->
+        <g>
+          <rect x="14" y="70" width="130" height="80" rx="12" fill="url(#stg)" stroke="#cfe0d9"/>
+          <text x="79" y="100" font-size="24">🎴</text>
+          <text x="79" y="126" font-size="12.5" font-weight="700" fill="#1a2420">self-play</text>
+          <text x="79" y="142" font-size="11" fill="#5c6b64">휴리스틱 라운드</text>
+        </g>
+        <g>
+          <rect x="174" y="70" width="130" height="80" rx="12" fill="url(#stg)" stroke="#cfe0d9"/>
+          <text x="239" y="100" font-size="22">🏷️</text>
+          <text x="239" y="124" font-size="12.5" font-weight="700">(피처, 라벨)</text>
+          <text x="239" y="140" font-size="11" fill="#5c6b64">8장→18f · out‑first</text>
+        </g>
+        <g>
+          <rect x="334" y="70" width="130" height="80" rx="12" fill="url(#stg)" stroke="#cfe0d9"/>
+          <text x="399" y="100" font-size="22">📉</text>
+          <text x="399" y="124" font-size="12.5" font-weight="700">SGD 학습</text>
+          <text x="399" y="140" font-size="11" fill="#5c6b64">손짠 ~60줄</text>
+        </g>
+        <g>
+          <rect x="494" y="70" width="130" height="80" rx="12" fill="url(#stg)" stroke="#cfe0d9"/>
+          <text x="559" y="100" font-size="22">📦</text>
+          <text x="559" y="124" font-size="12.5" font-weight="700">weights.g.cs</text>
+          <text x="559" y="140" font-size="11" fill="#5c6b64">static 배열 체크인</text>
+        </g>
+        <g>
+          <rect x="654" y="70" width="130" height="80" rx="12" fill="#e9f6f2" stroke="#0e8f7e"/>
+          <text x="719" y="100" font-size="22">⚙️</text>
+          <text x="719" y="124" font-size="12.5" font-weight="800" fill="#0a6c60">CallNet</text>
+          <text x="719" y="140" font-size="11" fill="#0a6c60">matmul·P&gt;τ</text>
+        </g>
+        <g>
+          <rect x="806" y="70" width="120" height="80" rx="12" fill="url(#stg)" stroke="#cbb06a"/>
+          <text x="866" y="100" font-size="22">⚖️</text>
+          <text x="866" y="124" font-size="12.5" font-weight="800" fill="#a97c1e">벤치 DoD</text>
+          <text x="866" y="140" font-size="11" fill="#5c6b64">WilsonLB&gt;0.5</text>
+        </g>
+      </g>
+      <!-- arrows -->
+      <g stroke="#0e8f7e" stroke-width="2" marker-end="url(#ah2)" fill="none">
+        <path d="M144,110 L172,110"/>
+        <path d="M304,110 L332,110"/>
+        <path d="M464,110 L492,110"/>
+        <path d="M624,110 L652,110"/>
+        <path d="M784,110 L804,110"/>
+      </g>
+      <!-- seed hygiene note -->
+      <text x="79" y="188" text-anchor="middle" font-size="11" fill="#3b6fb0">학습 시드 [1..N]</text>
+      <text x="866" y="188" text-anchor="middle" font-size="11" fill="#c2483d">벤치 시드 [10M..] · 분리</text>
+      <path d="M79,196 C79,220 866,220 866,196" stroke="#c9962f" stroke-width="1.3" stroke-dasharray="4 4" fill="none"/>
+      <text x="472" y="234" text-anchor="middle" font-size="11.5" fill="#a97c1e">누수 0 — 학습·벤치 시드 완전 분리</text>
+    </svg>
+    <p class="cap">그림 2 — 파이프라인. 인코더(피처)는 데이터생성과 추론이 <b>같은 함수</b>를 써서 train/serve 스큐를 원천 차단.</p>
+  </div>
+
+  <!-- ===================== ARCH ===================== -->
+  <h2><span class="n">3</span> 아키텍처 — 5개 격리 유닛</h2>
+  <div class="grid2">
+    <div class="card"><span class="u">UNIT 1 · 인코더</span><h4>GrandTichuFeatures</h4>
+      <p>순수함수 <code>Encode(hand8)→float[18]</code>. 데이터생성·추론이 공유 → 피처 스큐 0. 상태·RNG 없음.</p></div>
+    <div class="card"><span class="u">UNIT 2 · 모델</span><h4>CallNet</h4>
+      <p>베이크된 가중치 + <code>Predict(x)→p</code> (matmul+sigmoid, ~30줄). 로지스틱이면 dot+sigmoid 한 줄로 붕괴.</p></div>
+    <div class="card"><span class="u">UNIT 3 · 오프라인</span><h4>CallNetTrainer <span class="pill off">[Explicit]</span></h4>
+      <p>self-play 데이터생성 + 손짠 SGD → <code>GrandTichuWeights.g.cs</code> 생성. 테스트 프로젝트, dotnet.</p></div>
+    <div class="card"><span class="u">UNIT 4 · 통합</span><h4>CallGrandTichu 게이트</h4>
+      <p><code>PolicyConfig.UseGrandCallNet</code> 플래그 한 곳. OFF=현행 비트동일 · ON=<code>Predict(Encode)&gt;τ</code>. 전 티어 공통.</p></div>
+    <div class="card" style="grid-column:1/-1"><span class="u">UNIT 5 · 검증(DoD)</span><h4>GrandCallHeadBench <span class="pill off">[Explicit]</span></h4>
+      <p>미러드 self-play, A팀 ON vs B팀 OFF, 학습과 분리된 시드, 4000+ 라운드, τ 스윕. <code>HeuristicStrengthBench</code> 패턴 재사용. margin/R + Wilson LB 보고 → 채택/파킹.</p></div>
+  </div>
+
+  <!-- ===================== FEATURES ===================== -->
+  <h2><span class="n">4</span> 피처 세트 — 8장 손패만, ~18개</h2>
+  <p>Grand는 8장(교환 전)에 결정 → 손패만으로 인코딩(hand-only). 전부 ~[0,1] 스케일.</p>
+  <div class="chips">
+    <span class="chip">#A <small>에이스 수</small></span>
+    <span class="chip">#K</span><span class="chip">#Q</span><span class="chip">#J</span><span class="chip">#10</span>
+    <span class="chip">용 <small>0/1</small></span>
+    <span class="chip">봉황 <small>0/1</small></span>
+    <span class="chip">마작 <small>0/1</small></span>
+    <span class="chip">개 <small>0/1</small></span>
+    <span class="chip">#페어</span><span class="chip">#트리플</span>
+    <span class="chip">#포카드 <small>폭탄</small></span>
+    <span class="chip">최장 스트레이트 길이</span>
+    <span class="chip">랭크≥11 장수</span>
+    <span class="chip">랭크합 <small>scaled</small></span>
+    <span class="chip">고특수(용+봉황)수</span>
+  </div>
+  <p class="muted" style="font-size:13.5px">※ 이 목록이 <b>결정 ②</b>의 대상 — 빼거나 더할 것 있으면 알려주세요. (참고: 상대 콜/좌석 순서는 v0에서 제외 — YAGNI, hand-only.)</p>
+
+  <!-- ===================== MODEL LADDER ===================== -->
+  <h2><span class="n">5</span> 모델 사다리 — 로지스틱 먼저, 필요시 MLP</h2>
+  <p>모델 자체를 디리스크한다. <b>v0 로지스틱</b>이 벤치에서 HandPower를 이기면 거기서 멈춘다(극단 YAGNI). 언더핏일 때만 <b>v1 은닉층</b>으로 올린다.</p>
+
+  <div class="svgbox">
+    <svg viewBox="0 0 900 260" role="img" aria-label="모델 사다리: 로지스틱 v0에서 MLP v1">
+      <defs>
+        <marker id="ah3" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#8aa79d"/></marker>
+      </defs>
+      <!-- v0 -->
+      <text x="150" y="30" text-anchor="middle" font-size="13" font-weight="800" fill="#0a6c60">v0 · 로지스틱 (선형+sigmoid)</text>
+      <g>
+        <!-- input dots -->
+        <g fill="#3b6fb0">
+          <circle cx="60" cy="70" r="6"/><circle cx="60" cy="100" r="6"/><circle cx="60" cy="130" r="6"/><circle cx="60" cy="160" r="6"/>
+        </g>
+        <text x="60" y="188" text-anchor="middle" font-size="11" fill="#5c6b64">18 피처</text>
+        <circle cx="230" cy="115" r="20" fill="#0e8f7e"/>
+        <text x="230" y="120" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">P</text>
+        <g stroke="#8aa79d" stroke-width="1.3">
+          <line x1="66" y1="70" x2="212" y2="112"/><line x1="66" y1="100" x2="212" y2="113"/>
+          <line x1="66" y1="130" x2="212" y2="117"/><line x1="66" y1="160" x2="212" y2="120"/>
+        </g>
+        <text x="230" y="165" text-anchor="middle" font-size="11" fill="#5c6b64">= σ(w·x)</text>
+      </g>
+      <text x="150" y="228" text-anchor="middle" font-size="12" fill="#a97c1e">해석가능 · 학습된 w vs HandPower 계수 직접 비교</text>
+
+      <!-- decision -->
+      <path d="M300,115 L360,115" stroke="#8aa79d" stroke-width="1.8" marker-end="url(#ah3)" fill="none"/>
+      <polygon points="430,80 490,115 430,150 370,115" fill="#fff" stroke="#cbb06a"/>
+      <text x="430" y="112" text-anchor="middle" font-size="11.5" font-weight="700" fill="#a97c1e">벤치서</text>
+      <text x="430" y="128" text-anchor="middle" font-size="11.5" font-weight="700" fill="#a97c1e">이겼나?</text>
+      <path d="M490,115 L560,115" stroke="#0e8f7e" stroke-width="1.8" marker-end="url(#ah3)" fill="none"/>
+      <text x="525" y="106" text-anchor="middle" font-size="11" fill="#0a6c60">예 → 채택</text>
+      <path d="M430,150 L430,195 L150,195" stroke="#8aa79d" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#ah3)" fill="none"/>
+      <text x="300" y="188" text-anchor="middle" font-size="10.5" fill="#5c6b64">아니오 → v1로</text>
+
+      <!-- v1 -->
+      <text x="700" y="30" text-anchor="middle" font-size="13" font-weight="800" fill="#0a6c60">v1 · MLP (은닉층 1개)</text>
+      <g>
+        <g fill="#3b6fb0"><circle cx="590" cy="70" r="5"/><circle cx="590" cy="98" r="5"/><circle cx="590" cy="126" r="5"/><circle cx="590" cy="154" r="5"/></g>
+        <g fill="#0e8f7e"><circle cx="710" cy="82" r="6"/><circle cx="710" cy="112" r="6"/><circle cx="710" cy="142" r="6"/></g>
+        <circle cx="830" cy="112" r="18" fill="#c9962f"/>
+        <text x="830" y="117" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">P</text>
+        <g stroke="#c9d8d0" stroke-width="1">
+          <line x1="595" y1="70" x2="705" y2="82"/><line x1="595" y1="70" x2="705" y2="112"/><line x1="595" y1="70" x2="705" y2="142"/>
+          <line x1="595" y1="98" x2="705" y2="82"/><line x1="595" y1="98" x2="705" y2="112"/><line x1="595" y1="98" x2="705" y2="142"/>
+          <line x1="595" y1="126" x2="705" y2="82"/><line x1="595" y1="126" x2="705" y2="112"/><line x1="595" y1="126" x2="705" y2="142"/>
+          <line x1="595" y1="154" x2="705" y2="82"/><line x1="595" y1="154" x2="705" y2="112"/><line x1="595" y1="154" x2="705" y2="142"/>
+        </g>
+        <g stroke="#8aa79d" stroke-width="1.3"><line x1="716" y1="82" x2="814" y2="108"/><line x1="716" y1="112" x2="814" y2="112"/><line x1="716" y1="142" x2="814" y2="116"/></g>
+        <text x="710" y="180" text-anchor="middle" font-size="11" fill="#5c6b64">~16 ReLU</text>
+      </g>
+    </svg>
+    <p class="cap">그림 3 — 벤치가 심판. 로지스틱으로 충분하면 MLP를 얹지 않는다.</p>
+  </div>
+
+  <!-- ===================== TAU ===================== -->
+  <h2><span class="n">6</span> 임계값 τ — EV로 원칙화</h2>
+  <div class="grid2">
+    <div>
+      <div class="formula">
+        Grand EV ≈ 200·P − 200·(1−P)<br>
+        &nbsp;&nbsp;&gt; 0  ⟺  <b style="color:var(--gold-d)">P &gt; 0.5</b>
+      </div>
+      <p class="muted" style="font-size:13.5px">원칙적 기본값 τ=0.5. 벤치가 τ∈{0.45 … 0.65} 스윕해 최적을 고르고 보고. ±200 스테이크라 콜 빈도 변화를 4000+ 미러 라운드로 조여 관측.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">왜 τ 스윕인가</h4>
+      <p>모델의 확률 보정(calibration)이 완벽하지 않을 수 있어, EV 이론값(0.5) 근처를 실측으로 미세조정한다. 데이터 위생상 스윕도 <b>벤치 시드</b>에서만 하고 학습 시드는 건드리지 않는다.</p>
+    </div>
+  </div>
+
+  <!-- ===================== DoD ===================== -->
+  <h2><span class="n">7</span> 검증 · 채택 게이트 (DoD)</h2>
+  <table>
+    <tr><th>항목</th><th>기준</th></tr>
+    <tr><td><b>격리 벤치</b></td><td>미러드 self-play, A팀 플래그 ON vs B팀 OFF, 그 외 전부 동일. 학습과 분리된 시드.</td></tr>
+    <tr><td><b>채택</b></td><td>margin ≥ 0 <b>and</b> 승률 <b>Wilson LB &gt; 0.5</b> <b>and</b> 회귀 없음 → 플래그 ON, 전 티어 채택.</td></tr>
+    <tr><td><b>파킹</b></td><td>wash/음수 → 코드 보존, 플래그 OFF (기존 레버 관례와 동일).</td></tr>
+    <tr><td><b>단위테스트(TDD)</b></td><td>인코더(손패→기대피처·결정성·<b>경로 패리티</b>) · CallNet(matmul 손계산 대조·sigmoid 경계·<b>OFF 비트동일</b>) · 통합(ON/OFF·기본 OFF가 기존 테스트 보존).</td></tr>
+  </table>
+  <p class="muted" style="font-size:13.5px"><b>캐비앗:</b> self-play 라벨분포 ≠ 인간분포(Müller는 BSW 인간로그 사용). 프로젝트 표준인 격리 self-play 벤치로 판정하고 이 한계를 명시한다. 방향 참고치 = Müller +~10/R.</p>
+
+  <!-- ===================== YAGNI / RISK ===================== -->
+  <h2><span class="n">8</span> 범위 밖 (YAGNI) · 리스크</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4 style="margin-top:0">안 하는 것</h4>
+      <ul class="tight" style="font-size:13.6px;color:var(--muted)">
+        <li>Small Tichu 헤드 — Grand 입증 후 <b>같은 인프라로 후속</b></li>
+        <li>상대 콜·좌석 순서 피처 (hand-only v0)</li>
+        <li>Fork A 가치망 / ONNX·Sentis / 어떤 패키지든</li>
+        <li>새 asmdef / 파이썬</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">리스크 · 완화</h4>
+      <ul class="tight" style="font-size:13.6px;color:var(--muted)">
+        <li>라벨분포 스큐 → 벤치로 판정·캐비앗 명시</li>
+        <li>콜 빈도 급변(±200) → 4000+ 미러로 Wilson 조임</li>
+        <li>과거 다수 개선이 회귀 → <b>엄격 게이트·기본 OFF</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="soft">
+
+  <!-- ===================== DECISIONS ===================== -->
+  <h2><span class="n">✓</span> 당신이 정할 것</h2>
+  <div class="panel decide">
+    <div class="q">
+      <div class="qn">1</div>
+      <div class="qt"><b>모델 사다리</b> — <span class="rec">권장: 로지스틱 v0 먼저</span> → 벤치서 언더핏이면 MLP v1.
+        <div class="muted" style="font-size:13.5px">해석가능(학습된 계수 ↔ HandPower 직접 대조)·수초 학습·“matmul 하나”. 아니면 처음부터 MLP로 갈까요?</div></div>
+    </div>
+    <div class="q">
+      <div class="qn">2</div>
+      <div class="qt"><b>피처 세트</b> — §4의 ~18개 초안에서 <span class="rec">가감할 것</span>?
+        <div class="muted" style="font-size:13.5px">예: 짝수/홀수 분포, 스트레이트 잠재력 세분화, 개/마작 가중 등. 그대로 가도 무방.</div></div>
+    </div>
+    <div class="q">
+      <div class="qn">3</div>
+      <div class="qt"><b>그 외</b> — 성공기준(Wilson LB&gt;0.5), 범위(Grand 먼저), 순수 C# 중 바꿀 것?
+        <div class="muted" style="font-size:13.5px">승인 시 스펙 문서로 남기고 구현 플랜으로 넘어갑니다.</div></div>
+    </div>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · B1 Grand 콜 헤드 설계 · 2026-07-23 · 순수 C#/dotnet · 파이썬 0 · 패키지 0</p>
+</div>
+</body>
+</html>

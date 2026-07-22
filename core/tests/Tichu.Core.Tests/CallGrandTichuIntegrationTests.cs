@@ -41,9 +41,17 @@ namespace Tichu.Core.Tests
         public void Flag_on_routes_through_CallNet_threshold()
         {
             var s = StateWithGrandHand();
-            // 플레이스홀더 가중치 → Predict=0.5. 임계값<0.5 면 콜, >0.5 면 패스 → CallNet 경로 증명.
-            Assert.That(new AiAgent(1, 0, useGrandCallNet: true, grandThreshold: 0.49).CallGrandTichu(new DecisionContext(s, 0)), Is.True);
-            Assert.That(new AiAgent(1, 0, useGrandCallNet: true, grandThreshold: 0.51).CallGrandTichu(new DecisionContext(s, 0)), Is.False);
+            // 가중치 독립 라우팅 증명: σ∈(0,1). 임계값 0 이면 항상 콜, 1 이면 항상 패스 → CallNet 경로.
+            Assert.That(new AiAgent(1, 0, useGrandCallNet: true, grandThreshold: 0.0).CallGrandTichu(new DecisionContext(s, 0)), Is.True);
+            Assert.That(new AiAgent(1, 0, useGrandCallNet: true, grandThreshold: 1.0).CallGrandTichu(new DecisionContext(s, 0)), Is.False);
+        }
+
+        [Test]
+        public void Flag_on_calls_grand_on_strong_hand_at_default_threshold()
+        {
+            // 강패(용+봉황+A+K+Q…)는 학습된 헤드에서도 P>0.5 → 기본 임계값(0.5)에서 콜.
+            var s = StateWithGrandHand();
+            Assert.That(new AiAgent(1, 0, useGrandCallNet: true).CallGrandTichu(new DecisionContext(s, 0)), Is.True);
         }
     }
 }

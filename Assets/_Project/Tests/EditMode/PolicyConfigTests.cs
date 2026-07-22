@@ -102,14 +102,15 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void UseGrandCallNet_defaults_false_and_off_until_bench_adopts()
+        public void UseGrandCallNet_on_for_pimc_tiers()
         {
-            // B1 Grand 콜 헤드: 격리 벤치(Wilson LB>0.5) 통과 전까지 전 티어 OFF(기본 false, 비트불변).
+            // B1 Grand 콜 헤드: 격리 벤치 채택(τ=0.55, 마진 +5.34/R·95%CI[2.61,8.07] 유의).
+            // 전 PIMC 티어 ON. Easy(탐색 OFF)는 약체 유지(false). ctor 기본 false(비트불변 경로).
             Assert.That(new PolicyConfig(16, 4, 0.05).UseGrandCallNet, Is.False, "ctor 기본 false");
-            Assert.That(PolicyConfig.For(Difficulty.Easy).UseGrandCallNet, Is.False);
-            Assert.That(PolicyConfig.For(Difficulty.Normal).UseGrandCallNet, Is.False);
-            Assert.That(PolicyConfig.For(Difficulty.Hard).UseGrandCallNet, Is.False);
-            Assert.That(PolicyConfig.For(Difficulty.Expert).UseGrandCallNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseGrandCallNet, Is.False, "Easy 는 약체 유지");
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseGrandCallNet, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseGrandCallNet, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseGrandCallNet, Is.True);
         }
 
         [Test]

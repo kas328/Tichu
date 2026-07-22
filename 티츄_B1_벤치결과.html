@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 B1 — Grand 콜 헤드 벤치 결과</title>
+<style>
+  :root{
+    --bg:#f6f7f4; --panel:#fff; --ink:#1a2420; --muted:#5c6b64; --line:#e2e6e0;
+    --teal:#0e8f7e; --teal-d:#0a6c60; --gold:#c9962f; --gold-d:#a97c1e; --red:#c2483d; --blue:#3b6fb0;
+    --chipbg:#eef3f0; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.06); --code:#0d3b34;
+    --green:#2e9e5b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0e1512; --panel:#151d19; --ink:#e7ece8; --muted:#9db0a7; --line:#25302b;
+      --teal:#3fd6c0; --teal-d:#2bb9a4; --gold:#e6bd5f; --gold-d:#d0a743; --red:#f0857a; --blue:#7fabe0;
+      --chipbg:#1b2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35); --code:#bfeee5; --green:#54c67f; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;font-size:16px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+  header.hero{background:linear-gradient(135deg,var(--teal-d),var(--teal) 60%,#12a892);color:#fff;
+    padding:34px 30px;border-radius:0 0 22px 22px;box-shadow:var(--shadow);max-width:960px;margin:0 auto 24px}
+  .hero .tag{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.6px;
+    background:rgba(255,255,255,.18);padding:4px 11px;border-radius:20px;margin-bottom:10px}
+  .hero h1{margin:.1em 0;font-size:27px;font-weight:800}
+  .hero p{margin:.3em 0 0;font-size:15px;opacity:.95;max-width:72ch}
+  h2{font-size:20px;margin:34px 0 12px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;font-weight:800;flex:none}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin:14px 0}
+  code{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:.9em;background:var(--chipbg);color:var(--code);padding:1.5px 6px;border-radius:6px}
+  .muted{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14px}
+  th,td{text-align:right;padding:9px 11px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  tr.best td{background:rgba(46,158,91,.10);font-weight:600}
+  .pos{color:var(--green);font-weight:700}
+  .neg{color:var(--red);font-weight:700}
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  @media(max-width:640px){.verdict{grid-template-columns:1fr}}
+  .vcard{border-radius:12px;padding:16px;border:1px solid var(--line)}
+  .vcard h3{margin:0 0 6px;font-size:15px}
+  .vcard .big{font-size:26px;font-weight:800;margin:4px 0}
+  .vpass{background:rgba(46,158,91,.08)}
+  .vfail{background:rgba(194,72,61,.06)}
+  .svgbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);overflow-x:auto;margin:14px 0}
+  .cap{font-size:12.5px;color:var(--muted);text-align:center;margin:8px 0 0}
+  ul.tight{margin:.4em 0;padding-left:1.2em} ul.tight li{margin:.3em 0}
+  .rec{background:linear-gradient(135deg,rgba(46,158,91,.10),rgba(14,143,126,.08));border:1px solid var(--line)}
+  .flag{background:linear-gradient(135deg,rgba(201,150,47,.12),rgba(194,72,61,.06));border:1px solid var(--line)}
+  .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:36px}
+  b.k{color:var(--teal-d)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">PHASE 2 · B1 · 격리 벤치 결과</span>
+  <h1>Grand 콜 헤드 — 유의한 +5.3/R, 하지만 승률은 &lt;50%</h1>
+  <p>학습 헤드 vs 현행 <code style="background:rgba(255,255,255,.16);color:#fff">HandPower≥10</code>, 미러드 self-play 16,000라운드/τ. 결과가 <b>마진(총점)과 승률(라운드)</b>에서 갈립니다 — 당신의 판단이 필요합니다.</p>
+</header>
+
+<div class="wrap">
+
+  <!-- verdict tiles -->
+  <div class="verdict">
+    <div class="vcard vpass">
+      <h3>✅ 마진 (매치 승패 결정)</h3>
+      <div class="big pos">+5.34 /R</div>
+      <div class="muted">95% CI [2.61, 8.07] — <b>0 배제 = 통계적 유의</b>. 미러링이 정상-플레이 분산을 상쇄해 이 CI는 보수적(진짜 유의성 ↑).</div>
+    </div>
+    <div class="vcard vfail">
+      <h3>⚠️ 승률 (라운드 단위)</h3>
+      <div class="big neg">49.8 %</div>
+      <div class="muted">Wilson LB 0.490 — <b>사전 등록 기준 0.5 미달</b>. 고분산 ±200 레버라 승률이 저평가하는 지표.</div>
+    </div>
+  </div>
+
+  <!-- table -->
+  <h2><span class="n">1</span> 벤치 (τ 스윕)</h2>
+  <div class="panel" style="padding:6px 14px">
+    <table>
+      <tr><th>τ</th><th>마진 onAvg/R</th><th>95% CI</th><th>승률</th><th>WilsonLB</th><th>헤드 콜빈도</th></tr>
+      <tr><td>0.45</td><td class="pos">+3.97</td><td class="muted">(6k R)</td><td>49.3%</td><td>0.481</td><td class="muted">—</td></tr>
+      <tr><td>0.50</td><td class="pos">+5.03</td><td>[2.12, 7.94]</td><td>49.7%</td><td>0.490</td><td>10.53%</td></tr>
+      <tr class="best"><td>0.55 ★</td><td class="pos">+5.34</td><td>[2.61, 8.07]</td><td>49.8%</td><td>0.490</td><td>6.86%</td></tr>
+      <tr><td>0.60</td><td class="pos">+4.96</td><td class="muted">(6k R)</td><td>49.6%</td><td>0.484</td><td class="muted">~5%</td></tr>
+      <tr><td>0.65</td><td class="pos">+3.11</td><td class="muted">(6k R)</td><td>49.3%</td><td>0.481</td><td class="muted">~3%</td></tr>
+    </table>
+  </div>
+  <p class="muted" style="font-size:13.5px">전 τ에서 마진 양수(가운데서 최고). 대조군 <code>HandPower≥10</code> 콜빈도 = <b>0.47%</b>.</p>
+
+  <!-- mechanism -->
+  <h2><span class="n">2</span> 왜 이런가 — 진단이 완전히 설명한다</h2>
+  <div class="svgbox">
+    <svg viewBox="0 0 820 180" role="img" aria-label="콜 빈도 비교: HandPower 0.47% vs 헤드 6.86%">
+      <text x="20" y="28" font-size="13" font-weight="700" fill="#5c6b64">그랜드 콜 빈도 (손패당)</text>
+      <!-- OFF bar -->
+      <text x="20" y="70" font-size="13" fill="#a97c1e" font-weight="700">HandPower≥10 (현행)</text>
+      <rect x="230" y="56" width="9" height="20" rx="3" fill="#c9962f"/>
+      <text x="250" y="71" font-size="13" font-weight="700" fill="#a97c1e">0.47%</text>
+      <text x="330" y="71" font-size="12" fill="#5c6b64">— 괴물패만. 그랜드 점수를 통째로 방치.</text>
+      <!-- ON bar -->
+      <text x="20" y="120" font-size="13" fill="#0a6c60" font-weight="700">학습 헤드 (τ=0.55)</text>
+      <rect x="230" y="106" width="130" height="20" rx="3" fill="#0e8f7e"/>
+      <text x="372" y="121" font-size="13" font-weight="700" fill="#0a6c60">6.86%</text>
+      <text x="440" y="121" font-size="12" fill="#5c6b64">— 15배. P(먼저 나감)&gt;0.55 인 패에서 콜.</text>
+      <!-- annotation -->
+      <line x1="230" y1="140" x2="360" y2="140" stroke="#2e9e5b" stroke-width="1.5"/>
+      <text x="230" y="162" font-size="12" fill="#2e9e5b">이 추가 콜들이 순 +EV → 총점 +5.34/R, 하지만 ±200 스윙 → 라운드 변동성 ↑</text>
+    </svg>
+    <p class="cap">그림 — 현행 게이트가 지나치게 보수적(0.47%)이라 그랜드 점수를 남겨두고 있었다. 헤드는 그 공백을 +EV로 메운다.</p>
+  </div>
+  <div class="panel">
+    <p style="margin-top:0"><b>승률&lt;50% · 마진&gt;0 의 정체:</b> 헤드는 <b class="k">15배 더</b> 그랜드를 부른다. 각 콜은 ±200 도박 — 맞으면 +200(크게 승), 틀리면 −200(그 라운드 패). 콜들이 순 <b>+EV</b>라 <b>평균 총점은 오르지만</b>, ±200 스윙이 많아져 <b>라운드 승률은 ~49.8%</b>로 떨어진다. 승률은 이런 고분산 레버를 구조적으로 저평가한다. <b>매치 승패를 가르는 건 누적 총점(마진)</b>이다.</p>
+  </div>
+
+  <!-- honesty -->
+  <h2><span class="n">3</span> 정직한 지점 — 사전 등록 기준</h2>
+  <div class="panel flag">
+    <p style="margin-top:0">스펙에 <b>“margin ≥ 0 <u>and</u> Wilson LB &gt; 0.5”</b> 를 채택 기준으로 사전 등록했다. 문자 그대로면 <b>Wilson LB 0.490 &lt; 0.5 → 파킹</b>이다.</p>
+    <p style="margin-bottom:0">그러나 진단이 보여주듯 <b>승률은 이 레버에 잘못된 렌즈</b>다(±200 고분산 → 승률이 +EV를 저평가). 결과를 본 뒤 골대를 임의로 옮기지 않으려고, 두 지표를 그대로 두고 당신께 판단을 맡긴다.</p>
+  </div>
+
+  <!-- recommendation -->
+  <h2><span class="n">4</span> 내 권고</h2>
+  <div class="panel rec">
+    <p style="margin-top:0"><b>채택 (τ=0.55).</b> 근거:</p>
+    <ul class="tight">
+      <li><b>마진이 유의하게 양수</b>(95% CI가 0 배제, 미러링으로 실제론 더 강함) — 노이즈 아님.</li>
+      <li><b>매치 승패 = 누적 총점.</b> +5.34/R은 과거 채택 레버들(대개 wash~중립)보다 큰 실질 이득.</li>
+      <li>승률 미달은 <b>지표 오적용의 산물</b>(진단이 증명) — 실제 회귀가 아님.</li>
+      <li>직교·전 티어 공통·플래그 OFF 기본 — 리스크 낮음.</li>
+    </ul>
+    <p style="margin-bottom:0" class="muted">단, <b>체감(playability)</b> 우려는 정당하다: 헤드는 그랜드를 15배 자주 부른다(약 7% 손패). 인간 상대에겐 “AI가 그랜드를 자주 외친다”로 느껴질 수 있다. 덜 공격적이길 원하면 <b>τ=0.60</b>(+4.96/R·콜빈도↓)이 절충.</p>
+  </div>
+
+  <div class="panel" style="border-left:4px solid var(--teal)">
+    <p style="margin:0"><b>당신이 정할 것:</b> ① τ=0.55 채택(최대 마진) · ② τ=0.60 채택(덜 공격적) · ③ 파킹(사전 기준 엄수, OFF 보존). 선택하면 프리셋에 반영(전 티어)하고 라이브 배선·리포트로 마무리합니다.</p>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · B1 Grand 콜 헤드 벤치 · 2026-07-23 · 16,000 라운드/τ · 순수 C#/dotnet</p>
+</div>
+</body>
+</html>

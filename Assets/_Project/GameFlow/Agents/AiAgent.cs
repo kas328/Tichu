@@ -27,11 +27,15 @@ namespace Tichu.GameFlow.Agents
 
         private Rng _rng;
         private readonly int _seat;
+        private readonly bool _useGrandCallNet;
+        private readonly double _grandThreshold;
 
-        public AiAgent(ulong roundSeed, int seat)
+        public AiAgent(ulong roundSeed, int seat, bool useGrandCallNet = false, double grandThreshold = GrandTichuWeights.Threshold)
         {
             _rng = new Rng(roundSeed ^ 0xA1A1_0000_0000_0001UL ^ (ulong)seat);
             _seat = seat;
+            _useGrandCallNet = useGrandCallNet;
+            _grandThreshold = grandThreshold;
         }
 
         // ── 큰 티츄 ─────────────────────────────────────────────────────────────────
@@ -39,6 +43,8 @@ namespace Tichu.GameFlow.Agents
         /// <summary>8장 초기패 시점에 호출; HandPower 가 보수적 임계값 이상이면 큰 티츄 선언. RNG 미사용(순수 게이트).</summary>
         public bool CallGrandTichu(in DecisionContext ctx)
         {
+            if (_useGrandCallNet)
+                return CallNet.Grand.PredictProb(GrandTichuFeatures.Encode(ctx.MyHand)) > _grandThreshold;
             return HandPower(ctx.MyHand) >= GrandThreshold;
         }
 

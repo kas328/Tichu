@@ -102,6 +102,17 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void UseGrandCallNet_defaults_false_and_off_until_bench_adopts()
+        {
+            // B1 Grand 콜 헤드: 격리 벤치(Wilson LB>0.5) 통과 전까지 전 티어 OFF(기본 false, 비트불변).
+            Assert.That(new PolicyConfig(16, 4, 0.05).UseGrandCallNet, Is.False, "ctor 기본 false");
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseGrandCallNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseGrandCallNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseGrandCallNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseGrandCallNet, Is.False);
+        }
+
+        [Test]
         public void Normal_promoted_to_16_world_strong_preset()
         {
             // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.

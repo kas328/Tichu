@@ -29,7 +29,7 @@ namespace Tichu.GameFlow.Agents
             _roundSeed = roundSeed;
             _seat = seat;
             _config = config;
-            _policy = new HeuristicRolloutPolicy(roundSeed, seat, config.Epsilon);
+            _policy = new HeuristicRolloutPolicy(roundSeed, seat, config.Epsilon, config.UseGrandCallNet);
             _rng = new Rng(roundSeed ^ 0x91C0_0000_0000_0001UL ^ (ulong)seat);
         }
 

@@ -61,7 +61,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 진짜 1:1 종반(파트너 아웃+상대 1명 ≤1장)에서 전부 싱글 리드면 최고 싱글로 봉쇄한다(#6, ⑦의 리드측 쌍둥이). OFF면 비트불변.</summary>
         public readonly bool UseNearOutLeadOrder;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false)
+        /// <summary>true면 큰 티츄 콜을 학습된 헤드(P>τ)로 판정한다(B1). OFF면 현행 HandPower≥10.</summary>
+        public readonly bool UseGrandCallNet;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -81,6 +84,7 @@ namespace Tichu.GameFlow.Agents
             UseHighComboWasteGuard = useHighComboWasteGuard;
             UseLiveWish = useLiveWish;
             UseNearOutLeadOrder = useNearOutLeadOrder;
+            UseGrandCallNet = useGrandCallNet;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

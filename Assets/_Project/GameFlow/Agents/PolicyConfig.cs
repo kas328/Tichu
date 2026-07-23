@@ -64,7 +64,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 큰 티츄 콜을 학습된 헤드(P>τ)로 판정한다(B1). OFF면 현행 HandPower≥10.</summary>
         public readonly bool UseGrandCallNet;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false)
+        /// <summary>true면 작은 티츄 강도게이트를 학습된 헤드(P>τ)로 판정한다. OFF면 현행(용/봉황+HandPower). 컨텍스트·폭탄 단축은 항상 보존.</summary>
+        public readonly bool UseSmallTichuNet;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -85,6 +88,7 @@ namespace Tichu.GameFlow.Agents
             UseLiveWish = useLiveWish;
             UseNearOutLeadOrder = useNearOutLeadOrder;
             UseGrandCallNet = useGrandCallNet;
+            UseSmallTichuNet = useSmallTichuNet;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

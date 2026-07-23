@@ -114,6 +114,16 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void UseSmallTichuNet_defaults_false_until_bench_adopts()
+        {
+            // Small Tichu 콜 헤드: 격리 벤치 통과 전까지 전 티어 OFF(기본 false, 비트불변).
+            Assert.That(new PolicyConfig(16, 4, 0.05).UseSmallTichuNet, Is.False, "ctor 기본 false");
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseSmallTichuNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseSmallTichuNet, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseSmallTichuNet, Is.False);
+        }
+
+        [Test]
         public void Normal_promoted_to_16_world_strong_preset()
         {
             // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.

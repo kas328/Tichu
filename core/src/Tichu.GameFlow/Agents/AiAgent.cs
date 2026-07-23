@@ -29,13 +29,17 @@ namespace Tichu.GameFlow.Agents
         private readonly int _seat;
         private readonly bool _useGrandCallNet;
         private readonly double _grandThreshold;
+        private readonly bool _useSmallTichuNet;
+        private readonly double _smallThreshold;
 
-        public AiAgent(ulong roundSeed, int seat, bool useGrandCallNet = false, double grandThreshold = GrandTichuWeights.Threshold)
+        public AiAgent(ulong roundSeed, int seat, bool useGrandCallNet = false, double grandThreshold = GrandTichuWeights.Threshold, bool useSmallTichuNet = false, double smallThreshold = SmallTichuWeights.Threshold)
         {
             _rng = new Rng(roundSeed ^ 0xA1A1_0000_0000_0001UL ^ (ulong)seat);
             _seat = seat;
             _useGrandCallNet = useGrandCallNet;
             _grandThreshold = grandThreshold;
+            _useSmallTichuNet = useSmallTichuNet;
+            _smallThreshold = smallThreshold;
         }
 
         // ── 큰 티츄 ─────────────────────────────────────────────────────────────────
@@ -196,22 +200,25 @@ namespace Tichu.GameFlow.Agents
             // 파트너가 이미 콜했으면 중복 회피.
             if (seats[ctx.PartnerSeat].Call != TichuCall.None) return false;
 
-            // 강한 손: (용/봉황 보유 + 손 강도 하한) 또는 폭탄 보유. 강도 하한이 없으면 봉황만 든 약패도 남발(#3).
-            bool hasHighSpecial = false;
             var hand = ctx.MyHand;
+            // 폭탄 단축(ON/OFF 공통): 폭탄 보유는 강한 단축. 리드(=CurrentTrick null) 시점 LegalMoves 로 판단.
+            bool hasBomb = false;
+            var moves = ctx.LegalMoves;
+            for (int i = 0; i < moves.Count; i++)
+                if (moves[i].IsBomb) { hasBomb = true; break; }
+
+            // 강도 게이트: ON 이면 학습 헤드(P>τ), OFF 면 현행(용/봉황 + HandPower). 컨텍스트·폭탄은 위에서 보존.
+            if (_useSmallTichuNet)
+                return hasBomb || CallNet.Small.PredictProb(SmallTichuFeatures.Encode(hand)) > _smallThreshold;
+
+            // 강한 손: (용/봉황 보유 + 손 강도 하한). 강도 하한이 없으면 봉황만 든 약패도 남발(#3).
+            bool hasHighSpecial = false;
             for (int i = 0; i < hand.Count; i++)
             {
                 var sp = hand[i].Special;
                 if (sp == SpecialKind.Dragon || sp == SpecialKind.Phoenix) { hasHighSpecial = true; break; }
             }
-            if (hasHighSpecial && HandPower(hand) >= SmallTichuThreshold) return true;
-
-            // 폭탄 보유 여부는 리드(=CurrentTrick null) 시점의 LegalMoves 로 판단.
-            var moves = ctx.LegalMoves;
-            for (int i = 0; i < moves.Count; i++)
-                if (moves[i].IsBomb) return true;
-
-            return false;
+            return (hasHighSpecial && HandPower(hand) >= SmallTichuThreshold) || hasBomb;
         }
 
         // ── 인-턴 결정 ───────────────────────────────────────────────────────────────

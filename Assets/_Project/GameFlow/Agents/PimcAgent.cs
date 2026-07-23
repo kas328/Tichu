@@ -21,6 +21,7 @@ namespace Tichu.GameFlow.Agents
         private readonly int _seat;
         private readonly PolicyConfig _config;
         private readonly HeuristicRolloutPolicy _policy; // 비-턴 결정 위임 + Easy 직접결정(ε-휴리스틱).
+        private readonly IWorldEvaluator _evaluator;      // D4 Fork A: 리프 평가(기본 RolloutEvaluator=비트불변).
         private Rng _rng;                                 // 결정화 세계 샘플링.
         private (Card card, int seat)[] _passed;          // C1: 교환에서 넘긴 (카드,수령좌석). 결정화 핀용.
 
@@ -30,6 +31,7 @@ namespace Tichu.GameFlow.Agents
             _seat = seat;
             _config = config;
             _policy = new HeuristicRolloutPolicy(roundSeed, seat, config.Epsilon, config.UseGrandCallNet, GrandTichuWeights.Threshold, config.UseSmallTichuNet);
+            _evaluator = config.UseValueNetLeaf ? (IWorldEvaluator)new ValueNetEvaluator() : new RolloutEvaluator(config.Epsilon);
             _rng = new Rng(roundSeed ^ 0x91C0_0000_0000_0001UL ^ (ulong)seat);
         }
 
@@ -179,7 +181,7 @@ namespace Tichu.GameFlow.Agents
                     {
                         var sim = world.Clone();
                         if (!GameEngine.Apply(sim, GameAction.Play(_seat, candidates[i].Cards)).Ok) continue; // wish=null(P2-B)
-                        double ev = Pimc.Rollout(sim, _seat, rolloutSeed, _config.Epsilon);
+                        double ev = _evaluator.Evaluate(sim, _seat, rolloutSeed);
                         weightedSum[i] += weight * ev;
                         if (robust) worldSum[i] += ev;
                     }
@@ -219,7 +221,7 @@ namespace Tichu.GameFlow.Agents
                 var passSim = passWorld.Clone();
                 if (GameEngine.Apply(passSim, GameAction.Pass(_seat)).Ok)
                 {
-                    double passEv = (double)Pimc.Rollout(passSim, _seat, policyBase, _config.Epsilon) * totalWeight;
+                    double passEv = _evaluator.Evaluate(passSim, _seat, policyBase) * totalWeight;
                     if (passEv > bestSum) { _rng = rng; return TurnDecision.Pass; }
                 }
             }

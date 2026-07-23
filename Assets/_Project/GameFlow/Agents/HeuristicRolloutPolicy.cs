@@ -15,9 +15,9 @@ namespace Tichu.GameFlow.Agents
         private readonly double _epsilon;
         private Rng _rng;   // 비-readonly: 직접 메서드 호출로 전진(AiAgent/RandomAgent 패턴).
 
-        public HeuristicRolloutPolicy(ulong seed, int seat, double epsilon, bool useGrandCallNet = false, double grandThreshold = GrandTichuWeights.Threshold)
+        public HeuristicRolloutPolicy(ulong seed, int seat, double epsilon, bool useGrandCallNet = false, double grandThreshold = GrandTichuWeights.Threshold, bool useSmallTichuNet = false, double smallThreshold = SmallTichuWeights.Threshold)
         {
-            _heuristic = new AiAgent(seed, seat, useGrandCallNet, grandThreshold);
+            _heuristic = new AiAgent(seed, seat, useGrandCallNet, grandThreshold, useSmallTichuNet, smallThreshold);
             _epsilon = epsilon;
             _rng = new Rng(seed ^ 0xB0E1_0000_0000_0001UL ^ (ulong)seat);
         }

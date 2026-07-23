@@ -114,6 +114,18 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void UseSmallTichuNet_on_for_pimc_tiers()
+        {
+            // Small Tichu 콜 헤드: 격리 홀드아웃 채택(τ=0.55, 페어드 +2.91/R·95%CI[2.16,3.67] 유의).
+            // 현행 게이트 과공격(33%)→헤드 선별(18%). 전 PIMC 티어 ON. Easy 약체 유지. ctor 기본 false.
+            Assert.That(new PolicyConfig(16, 4, 0.05).UseSmallTichuNet, Is.False, "ctor 기본 false");
+            Assert.That(PolicyConfig.For(Difficulty.Easy).UseSmallTichuNet, Is.False, "Easy 는 약체 유지");
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseSmallTichuNet, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseSmallTichuNet, Is.True);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseSmallTichuNet, Is.True);
+        }
+
+        [Test]
         public void Normal_promoted_to_16_world_strong_preset()
         {
             // P2-F: 기본 강화 — 4세계 EV 노이즈 → 16세계. caller(+22/R) 보존.

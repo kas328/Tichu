@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 Small Tichu 콜 헤드 — 벤치 결과</title>
+<style>
+  :root{ --bg:#f6f7f4; --panel:#fff; --ink:#1a2420; --muted:#5c6b64; --line:#e2e6e0;
+    --teal:#0e8f7e; --teal-d:#0a6c60; --gold:#c9962f; --gold-d:#a97c1e; --red:#c2483d; --blue:#3b6fb0;
+    --chipbg:#eef3f0; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.06); --code:#0d3b34; --green:#2e9e5b; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0e1512; --panel:#151d19; --ink:#e7ece8; --muted:#9db0a7; --line:#25302b;
+    --teal:#3fd6c0; --teal-d:#2bb9a4; --gold:#e6bd5f; --gold-d:#d0a743; --red:#f0857a; --blue:#7fabe0;
+    --chipbg:#1b2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35); --code:#bfeee5; --green:#54c67f; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;font-size:16px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px 80px}
+  header.hero{background:linear-gradient(135deg,#7a5cc9,#9a6fd0 60%,#a892e0);color:#fff;
+    padding:34px 30px;border-radius:0 0 22px 22px;box-shadow:var(--shadow);max-width:960px;margin:0 auto 24px}
+  .hero .tag{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.6px;
+    background:rgba(255,255,255,.18);padding:4px 11px;border-radius:20px;margin-bottom:10px}
+  .hero h1{margin:.1em 0;font-size:26px;font-weight:800}
+  .hero p{margin:.3em 0 0;font-size:15px;opacity:.95;max-width:72ch}
+  h2{font-size:20px;margin:34px 0 12px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;font-weight:800;flex:none}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin:14px 0}
+  code{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:.9em;background:var(--chipbg);color:var(--code);padding:1.5px 6px;border-radius:6px}
+  .muted{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14px}
+  th,td{text-align:right;padding:9px 11px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  tr.best td{background:rgba(46,158,91,.10);font-weight:600}
+  .pos{color:var(--green);font-weight:700}
+  .neg{color:var(--red);font-weight:700}
+  .verdict{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  @media(max-width:640px){.verdict{grid-template-columns:1fr}}
+  .vcard{border-radius:12px;padding:16px;border:1px solid var(--line)}
+  .vcard h3{margin:0 0 6px;font-size:15px} .vcard .big{font-size:24px;font-weight:800;margin:4px 0}
+  .vpass{background:rgba(46,158,91,.08)} .vwarn{background:rgba(201,150,47,.08)}
+  .svgbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow);overflow-x:auto;margin:14px 0}
+  .cap{font-size:12.5px;color:var(--muted);text-align:center;margin:8px 0 0}
+  ul.tight{margin:.4em 0;padding-left:1.2em} ul.tight li{margin:.3em 0}
+  .rec{background:linear-gradient(135deg,rgba(46,158,91,.10),rgba(14,143,126,.08));border:1px solid var(--line)}
+  .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:36px}
+  b.k{color:var(--teal-d)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">PHASE 2 · 콜 헤드 확장 · Small Tichu</span>
+  <h1>Small Tichu 콜 헤드 — 채택 (+2.91/R, 유의)</h1>
+  <p>B1 Grand 헤드의 후속(인프라 재사용). 현행 강도게이트 <code style="background:rgba(255,255,255,.16);color:#fff">용/봉황+HandPower≥7</code>를 14장 학습 헤드 <code style="background:rgba(255,255,255,.16);color:#fff">P&gt;τ</code>로 교체. 컨텍스트·폭탄 단축은 보존.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <div class="vcard vpass">
+      <h3>✅ 마진 (홀드아웃·페어드)</h3>
+      <div class="big pos">+2.91 /R</div>
+      <div class="muted">페어드 95% CI [2.16, 3.67] — <b>0 배제 = 유의</b>. 분리 시드(930M) 고정 τ=0.55, 24k 라운드. 미러쌍 평균이 트릭-점수 변동을 상쇄해 티츄 효과만 격리.</div>
+    </div>
+    <div class="vcard vwarn">
+      <h3>진단 — Grand과 <b>반대</b> 방향</h3>
+      <div class="big" style="color:var(--gold-d)">33% → 18%</div>
+      <div class="muted">현행 게이트는 손패 <b>1/3</b>에 발화(과공격). 헤드는 P&gt;0.55인 <b>18%</b>만 골라(더 선별적) 나쁜 콜을 피함.</div>
+    </div>
+  </div>
+
+  <h2><span class="n">1</span> 벤치</h2>
+  <div class="panel" style="padding:6px 14px">
+    <table>
+      <tr><th>단계</th><th>τ</th><th>마진/R</th><th>95% CI</th><th>비고</th></tr>
+      <tr><td>스윕</td><td>0.50</td><td class="pos">+3.24</td><td>[0.92, 5.57]</td><td class="muted">onRate 22%</td></tr>
+      <tr class="best"><td>스윕</td><td>0.55 ★</td><td class="pos">+3.89</td><td>[1.59, 6.19]</td><td class="muted">onRate 18%</td></tr>
+      <tr><td>홀드아웃(per-round)</td><td>0.55</td><td class="pos">+2.91</td><td>[1.03, 4.80]</td><td class="muted">과대추정 통계</td></tr>
+      <tr class="best"><td>홀드아웃(페어드·정확)</td><td>0.55</td><td class="pos">+2.91</td><td>[2.16, 3.67]</td><td class="muted">채택 근거</td></tr>
+    </table>
+  </div>
+
+  <h2><span class="n">2</span> 애매 → 해소 (정직하게)</h2>
+  <div class="panel">
+    <p style="margin-top:0">초기 홀드아웃(16k·per-round)은 <b>+2.15/R, CI [−0.15, 4.44]</b> — <b>0을 아슬아슬하게 포함</b>해 애매했다. B1과 달리 명확하지 않았다.</p>
+    <p style="margin-bottom:0">원인은 <b>통계 오적용</b>: 미러드 설계에서 per-round CI는 트릭-점수 변동을 그대로 안아 과대추정한다. 미러쌍을 평균하면 그 변동이 <b>상쇄되고 티츄 효과만</b> 남는다(<b class="k">페어드 분석</b>). 라운드를 24k로 늘리고 페어드로 재계산 → <b>+2.91/R, CI [2.16, 3.67]</b>로 <b>0을 확실히 배제</b>. τ=0.55는 스윕(시드 30M)과 분리된 홀드아웃 시드(930M)라 <b>승자의 저주 없음</b>.</p>
+  </div>
+
+  <h2><span class="n">3</span> 왜 이득인가 — 학습 헤드가 양방향 보정</h2>
+  <div class="svgbox">
+    <svg viewBox="0 0 820 150" role="img" aria-label="Small: 현행 33% 과공격 vs 헤드 18% 선별">
+      <text x="20" y="26" font-size="13" font-weight="700" fill="#5c6b64">작은 티츄 강도게이트 발화율 (교환 후 14장)</text>
+      <text x="20" y="66" font-size="13" fill="#a97c1e" font-weight="700">현행 (용/봉황+HandPower≥7)</text>
+      <rect x="280" y="52" width="200" height="20" rx="3" fill="#c9962f"/>
+      <text x="492" y="67" font-size="13" font-weight="700" fill="#a97c1e">33.3%</text>
+      <text x="560" y="67" font-size="12" fill="#5c6b64">과공격 — 손패 1/3</text>
+      <text x="20" y="110" font-size="13" fill="#0a6c60" font-weight="700">학습 헤드 (P&gt;0.55)</text>
+      <rect x="280" y="96" width="110" height="20" rx="3" fill="#0e8f7e"/>
+      <text x="402" y="111" font-size="13" font-weight="700" fill="#0a6c60">18.4%</text>
+      <text x="470" y="111" font-size="12" fill="#5c6b64">선별 — 나쁜 콜 회피 → +EV</text>
+    </svg>
+    <p class="cap">Grand은 과보수(0.47%)라 헤드가 <b>더</b> 불렀고, Small은 과공격(33%)이라 헤드가 <b>덜</b> 부른다. 학습 헤드가 방향 무관하게 올바르게 보정.</p>
+  </div>
+
+  <h2><span class="n">4</span> 채택</h2>
+  <div class="panel rec">
+    <p style="margin-top:0"><b>채택 (전 PIMC 티어 ON, τ=0.55).</b> 근거: 홀드아웃 페어드 <b class="k">+2.91/R (CI [2.16,3.67])</b> 유의 · 현행 과공격 게이트 보정(정확도 개선) · B1과 동일 방법론 · 직교·플래그 OFF 기본. Easy는 약체 유지.</p>
+    <p style="margin-bottom:0" class="muted">강도게이트만 교체하고 컨텍스트 게이트(리드·상대아웃·파트너콜)·폭탄 단축은 보존. OFF면 비트불변. core 73 + Unity 118 그린.</p>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · Small Tichu 콜 헤드 · 2026-07-23 · 홀드아웃 페어드 확인 · 순수 C#/dotnet</p>
+</div>
+</body>
+</html>

@@ -27,5 +27,8 @@ namespace Tichu.GameFlow.Agents
 
         /// <summary>Grand Tichu 콜 헤드 싱글턴(베이크된 가중치).</summary>
         public static readonly CallNet Grand = new CallNet(GrandTichuWeights.Weights, GrandTichuWeights.Bias);
+
+        /// <summary>Small Tichu 콜 헤드 싱글턴(베이크된 가중치).</summary>
+        public static readonly CallNet Small = new CallNet(SmallTichuWeights.Weights, SmallTichuWeights.Bias);
     }
 }

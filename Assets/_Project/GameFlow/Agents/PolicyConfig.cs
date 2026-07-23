@@ -64,7 +64,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 큰 티츄 콜을 학습된 헤드(P>τ)로 판정한다(B1). OFF면 현행 HandPower≥10.</summary>
         public readonly bool UseGrandCallNet;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false)
+        /// <summary>true면 작은 티츄 강도게이트를 학습된 헤드(P>τ)로 판정한다. OFF면 현행(용/봉황+HandPower). 컨텍스트·폭탄 단축은 항상 보존.</summary>
+        public readonly bool UseSmallTichuNet;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -85,6 +88,7 @@ namespace Tichu.GameFlow.Agents
             UseLiveWish = useLiveWish;
             UseNearOutLeadOrder = useNearOutLeadOrder;
             UseGrandCallNet = useGrandCallNet;
+            UseSmallTichuNet = useSmallTichuNet;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
@@ -96,9 +100,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-F 16세계 + caller + D1 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드(+5.34/R)
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드(+4.97/R) + Small콜헤드(+2.91/R)
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

@@ -95,6 +95,13 @@ namespace Tichu.GameFlow.Agents
             UseValueNetLeaf = useValueNetLeaf;
         }
 
+        /// <summary>UseValueNetLeaf 만 토글한 복사본(D4 Fork A A/B 벤치용). 나머지 필드 보존.</summary>
+        public PolicyConfig WithValueNetLeaf(bool on) => new PolicyConfig(
+            Worlds, RolloutsPerWorld, Epsilon, UseReachProb, UseCallerAggression, UseOpponentThreatBlock,
+            UseRobustBackup, RobustLambda, UseComboOvertakeGuard, UseEndgameSheddingGuard, UsePhoenixConservation,
+            UseExchangePin, UseTichuCallConstraint, UseNearOutLockout, UseBombSave, UseHighComboWasteGuard,
+            UseLiveWish, UseNearOutLeadOrder, UseGrandCallNet, UseSmallTichuNet, on);
+
         /// <summary>Normal 티어 프리셋(다세계).</summary>
         public static PolicyConfig Normal => For(Difficulty.Normal);
 

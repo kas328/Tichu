@@ -38,5 +38,12 @@ namespace Tichu.Core.Tests
             Assert.That(GrandTichuWeights.Weights.Length, Is.EqualTo(GrandTichuFeatures.FeatureCount));
             Assert.That(CallNet.Grand, Is.Not.Null);
         }
+
+        [Test]
+        public void Small_singleton_matches_weights_length()
+        {
+            Assert.That(SmallTichuWeights.Weights.Length, Is.EqualTo(SmallTichuFeatures.FeatureCount));
+            Assert.That(CallNet.Small, Is.Not.Null);
+        }
     }
 }

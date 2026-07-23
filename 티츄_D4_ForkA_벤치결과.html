@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 D4 Fork A — 리프 가치망 벤치 결과</title>
+<style>
+  :root{ --bg:#f6f7f4; --panel:#fff; --ink:#1a2420; --muted:#5c6b64; --line:#e2e6e0;
+    --teal:#0e8f7e; --teal-d:#0a6c60; --gold:#c9962f; --gold-d:#a97c1e; --red:#c2483d; --blue:#3b6fb0;
+    --chipbg:#eef3f0; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.06); --code:#0d3b34; --green:#2e9e5b; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0e1512; --panel:#151d19; --ink:#e7ece8; --muted:#9db0a7; --line:#25302b;
+    --teal:#3fd6c0; --teal-d:#2bb9a4; --gold:#e6bd5f; --gold-d:#d0a743; --red:#f0857a; --blue:#7fabe0;
+    --chipbg:#1b2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35); --code:#bfeee5; --green:#54c67f; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;font-size:16px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px 80px}
+  header.hero{background:linear-gradient(135deg,#5c6b64,#7a8a80 60%,#8fa096);color:#fff;
+    padding:34px 30px;border-radius:0 0 22px 22px;box-shadow:var(--shadow);max-width:940px;margin:0 auto 24px}
+  .hero .tag{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.6px;
+    background:rgba(255,255,255,.18);padding:4px 11px;border-radius:20px;margin-bottom:10px}
+  .hero h1{margin:.1em 0;font-size:26px;font-weight:800}
+  .hero p{margin:.3em 0 0;font-size:15px;opacity:.95;max-width:72ch}
+  h2{font-size:20px;margin:32px 0 12px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;font-weight:800;flex:none}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow);margin:14px 0}
+  code{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:.9em;background:var(--chipbg);color:var(--code);padding:1.5px 6px;border-radius:6px}
+  .muted{color:var(--muted)}
+  .verdict{border-radius:12px;padding:16px 18px;border:1px solid var(--line);background:rgba(194,72,61,.06);margin:14px 0}
+  .verdict .big{font-size:24px;font-weight:800;color:var(--red)}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14px}
+  th,td{text-align:right;padding:9px 11px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{font-size:12px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .neg{color:var(--red);font-weight:700}
+  ul.tight{margin:.4em 0;padding-left:1.2em} ul.tight li{margin:.34em 0}
+  .keep{background:linear-gradient(135deg,rgba(14,143,126,.08),rgba(59,111,176,.06));border:1px solid var(--line)}
+  .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:34px}
+  b.k{color:var(--teal-d)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">PHASE 2 · D4 FORK A · ① 오프라인 리프 A/B</span>
+  <h1>리프 가치망 — 게이트 불통과 · 파킹 권고</h1>
+  <p>PIMC 롤아웃 리프를 학습 가치망 V로 교체하는 실험. 디리스크 사다리 ①이 <b>싸게 답을 냈다</b> — V-리프는 롤아웃-리프를 이기지 못한다. 시임·인프라는 재사용 자산으로 보존.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="verdict">
+    <div style="font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px">A/B (V-리프 vs 롤아웃-리프, Normal, 미러드 60R)</div>
+    <div class="big">V −31.67 /R</div>
+    <div class="muted">승률 45.0% (27/60) · Wilson LB 0.331 · 95%CI [−79.71, 16.37]. 게이트(V가 롤아웃을 이겨야) <b>불통과</b> — V-리프가 오히려 열세.</div>
+  </div>
+
+  <h2><span class="n">1</span> 왜 안 되나 — 근본 이유 (예측대로)</h2>
+  <div class="panel">
+    <ul class="tight">
+      <li><b>ε=0 정확성</b>: Expert(ε=0)에선 롤아웃이 <b>정확한 값</b>. V는 근사(valRmse 131 vs 기저 153, 분산 ~26%만 설명)라 <b>같은 세계수에선 정확한 롤아웃을 못 이긴다</b>. 근사가 진실을 못 이기는 건 당연.</li>
+      <li><b>Normal(ε=0.05) 실측</b>: 롤아웃이 노이즈라 V가 탈노이즈할 여지가 있었지만, V의 <b>근사오차 + ε0 학습편향</b>이 탈노이즈 이득을 압도 → <b class="k">−31.67/R</b>.</li>
+      <li><b>인코더 압축</b>: 하이브리드 집계(42피처)가 정보를 압축해 V가 세부 전술을 못 담음(분산 26%). 이게 근사오차의 뿌리.</li>
+      <li><b>미검증 레버</b>: V의 유일한 잠재 이득 = <b>속도(세계수↑)</b>. 이건 동일-세계수 벤치가 측정 못 하며, anytime-예산 벤치는 PIMC가 Unity 전용·~22s/R라 실용적으로 못 돌림(툴체인 블로커).</li>
+    </ul>
+  </div>
+
+  <h2><span class="n">2</span> 디리스크 사다리가 제대로 작동했다</h2>
+  <div class="panel">
+    <p style="margin-top:0">D4 스코핑의 원칙: <b>"몇 주 걸기 전에 ①로 싸게 게이트"</b>. ①이 정확히 그 역할을 했다 — <b>~1일 실험</b>으로 "휴리스틱 라벨 + 집계 인코더 가치망은 롤아웃 리프를 못 이긴다"를 확인. 덕분에 <b>②오라클·③증류(수 주)에 투자하지 않는다</b>. 이것이 사다리의 목적: <i>"실패 = 리프가 병목 아님 → 중단"</i>.</p>
+    <p style="margin-bottom:0" class="muted">스코핑이 예고한 <b>"이득 modest·휴리스틱 라벨은 천장=휴리스틱·패리티 리스크"</b>가 실측으로 확인됐다.</p>
+  </div>
+
+  <h2><span class="n">3</span> 보존 자산 (파킹, 버리지 않음)</h2>
+  <div class="panel keep">
+    <p style="margin-top:0">전부 <b>플래그 OFF·비트불변</b>으로 보존(프로젝트 파킹 관례):</p>
+    <ul class="tight">
+      <li><code>IWorldEvaluator</code> 시임 — 리프 평가 추상화(롤아웃/가치망 교체점). 재사용 확실.</li>
+      <li><code>WorldFeatures</code>(42피처)·<code>ValueNet</code>(MLP)·<code>ValueNetTrainer</code>(로그리플레이+회귀) — 전체 파이프라인.</li>
+      <li><code>ValueLeafBench</code> A/B — 재실험 하니스.</li>
+    </ul>
+    <p style="margin-bottom:0">향후 재방문 시 레버: <b>①오라클 라벨</b>(천장↑) · <b>②원시 멀티핫 인코더</b>(분산↑) · <b>③PIMC 코어 미러링</b>(빠른 anytime-예산 벤치로 속도 레버 측정). 지금은 셋 다 큰 투자라 보류.</p>
+  </div>
+
+  <h2><span class="n">4</span> 판정</h2>
+  <div class="panel" style="border-left:4px solid var(--gold)">
+    <p style="margin:0"><b>파킹 (전 티어 OFF, 코드 보존).</b> D4 Fork A ①은 게이트 불통과 — 리프는 현재 병목이 아니며, 통과시키려면 오라클 라벨/더 큰 인코더/코어 미러링 중 큰 투자가 필요. 콜 헤드(Grand+Small, 채택됨)와 달리 이건 <b>정직한 음성 결과</b>. 시임·인프라는 미래 재방문용 자산으로 남긴다.</p>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · D4 Fork A ① 리프 가치망 · 2026-07-23 · 디리스크 게이트 불통과·파킹 · 순수 C#/dotnet</p>
+</div>
+</body>
+</html>

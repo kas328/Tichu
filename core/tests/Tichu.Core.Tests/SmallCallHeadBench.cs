@@ -78,13 +78,15 @@ namespace Tichu.Core.Tests.Bench
         [Test]
         public void CallHead_confirm_fixed_tau_heldout()
         {
-            const int Pairs = 8000;
+            const int Pairs = 12000;             // ×2 미러 = 24000 라운드
             const ulong BaseSeed = 930_000_000;  // 학습·스윕과 완전 분리(홀드아웃)
-            const double Tau = 0.55;             // 스윕 최적으로 교체(실행 시)
+            const double Tau = 0.55;
             double diffSum = 0, diffSq = 0; int onWins = 0, ties = 0, rounds = 0;
+            double pairSum = 0, pairSq = 0; // 페어드: 미러 쌍 평균(트릭-점수 변동 상쇄 → 티츄 효과만)
             for (int s = 1; s <= Pairs; s++)
             {
                 ulong seed = BaseSeed + (ulong)(s * 7919);
+                double pairDiffSum = 0;
                 for (int mirror = 0; mirror < 2; mirror++)
                 {
                     bool onTeamA = (mirror == 0);
@@ -99,16 +101,21 @@ namespace Tichu.Core.Tests.Bench
                     int onScore = onTeamA ? outcome.Result.TeamATotal : outcome.Result.TeamBTotal;
                     int offScore = onTeamA ? outcome.Result.TeamBTotal : outcome.Result.TeamATotal;
                     double diff = onScore - offScore;
-                    diffSum += diff; diffSq += diff * diff;
+                    diffSum += diff; diffSq += diff * diff; pairDiffSum += diff;
                     if (diff > 0) onWins++; else if (diff == 0) ties++;
                     rounds++;
                 }
+                double pm = pairDiffSum / 2.0;
+                pairSum += pm; pairSq += pm * pm;
             }
             double mean = diffSum / rounds;
-            double var = diffSq / rounds - mean * mean;
-            double se = Math.Sqrt(var / rounds);
-            var report = $"SMALL HELDOUT tau={Tau:F2} rounds={rounds} onAvg={mean:F2}/R (95%CI [{mean - 1.96 * se:F2},{mean + 1.96 * se:F2}], se={se:F2}) " +
-                         $"winRate={onWins / (double)rounds:P1} WilsonLB={WilsonLB(onWins, rounds):F3} ties={ties}";
+            double se = Math.Sqrt((diffSq / rounds - mean * mean) / rounds);
+            double pMean = pairSum / Pairs;
+            double pSe = Math.Sqrt((pairSq / Pairs - pMean * pMean) / Pairs);
+            var report =
+                $"SMALL HELDOUT tau={Tau:F2} rounds={rounds}\n" +
+                $"  per-round: onAvg={mean:F2}/R (95%CI [{mean - 1.96 * se:F2},{mean + 1.96 * se:F2}], se={se:F2}) winRate={onWins / (double)rounds:P1} WilsonLB={WilsonLB(onWins, rounds):F3}\n" +
+                $"  paired(정확): onAvg={pMean:F2}/R (95%CI [{pMean - 1.96 * pSe:F2},{pMean + 1.96 * pSe:F2}], se={pSe:F2})";
             File.WriteAllText(Path.Combine(Path.GetTempPath(), "tichu_small_callhead_heldout.txt"), report);
             TestContext.Progress.WriteLine(report);
         }

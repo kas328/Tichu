@@ -48,7 +48,7 @@ namespace Tichu.Core.Tests.Bench
             var (X, y) = CallNetTrainer.GenerateSmallData(Rounds, baseSeed: 1);
             int pos = 0; for (int i = 0; i < y.Length; i++) pos += y[i];
             var (w, b, ll, acc) = CallNetTrainer.TrainLogistic(X, y, epochs: 40, lr: 0.1, l2: 1e-4, seed: 12345);
-            string src = CallNetTrainer.EmitWeightsSource(w, b, 0.5, "SmallTichuWeights");
+            string src = CallNetTrainer.EmitWeightsSource(w, b, 0.55, "SmallTichuWeights"); // 채택 임계값(벤치 최적)
             string outPath = Path.Combine(Path.GetTempPath(), "SmallTichuWeights.g.cs");
             File.WriteAllText(outPath, src);
             var report = $"SMALL rows={X.Length} baseRate={pos / (double)y.Length:F3} valLogloss={ll:F4} valAcc={acc:F3}\nweights -> {outPath}";

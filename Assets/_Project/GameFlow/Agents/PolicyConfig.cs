@@ -100,9 +100,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-F 16세계 + caller + D1 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드(+5.34/R)
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true);  // P2-G 정합성 + 봉황보존 + C1핀 + 라이브소원 + 1:1리드순서 + B1 콜헤드
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드(+4.97/R) + Small콜헤드(+2.91/R)
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

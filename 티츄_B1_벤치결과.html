@@ -67,8 +67,8 @@
   <div class="verdict">
     <div class="vcard vpass">
       <h3>✅ 마진 (매치 승패 결정)</h3>
-      <div class="big pos">+5.34 /R</div>
-      <div class="muted">95% CI [2.61, 8.07] — <b>0 배제 = 통계적 유의</b>. 미러링이 정상-플레이 분산을 상쇄해 이 CI는 보수적(진짜 유의성 ↑).</div>
+      <div class="big pos">+4.97 /R</div>
+      <div class="muted"><b>홀드아웃 확인값</b>(고정 τ=0.55·분리 시드, 95% CI [2.25, 7.69] — <b>0 배제 = 유의</b>). in-sample 스윕 최고값은 +5.34/R이었으나 승자의 저주 ~0.4/R을 걷어낸 편향 없는 추정이 +4.97/R. 미러링으로 CI는 보수적.</div>
     </div>
     <div class="vcard vfail">
       <h3>⚠️ 승률 (라운드 단위)</h3>
@@ -140,7 +140,13 @@
     <p style="margin:0"><b>당신이 정할 것:</b> ① τ=0.55 채택(최대 마진) · ② τ=0.60 채택(덜 공격적) · ③ 파킹(사전 기준 엄수, OFF 보존). 선택하면 프리셋에 반영(전 티어)하고 라이브 배선·리포트로 마무리합니다.</p>
   </div>
 
-  <p class="foot">티츄 Phase 2 · B1 Grand 콜 헤드 벤치 · 2026-07-23 · 16,000 라운드/τ · 순수 C#/dotnet</p>
+  <h2><span class="n">5</span> 적대 검증 (ultracode)</h2>
+  <div class="panel">
+    <p style="margin-top:0">4차원(벤치방법론·인코더/추론·통합/미러·트레이너) 병렬 적대 리뷰 → 발견별 독립 검증. <b>인코더·추론·트레이너·통합/미러 = 클린</b>(미러 4파일 바이트 동일 직접 확인). <b>벤치방법론 1건 CONFIRMED(minor)</b>: τ=0.55가 in-sample argmax라 +5.34/R이 상방편향(승자의 저주).</p>
+    <p style="margin-bottom:0"><b>대응·완결:</b> 분리 시드(900M)·고정 τ=0.55 <b>홀드아웃</b> 16k 라운드 재실행 → <b class="k">+4.97/R (95% CI [2.25, 7.69])</b>. 편향 ~0.4/R 걷혔으나 LB 2.25&gt;0 유지 → <b>편향 없는 추정에서도 유의</b>, 채택 확정. 적대 검증이 결정을 더 견고하게 만들었다.</p>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · B1 Grand 콜 헤드 벤치 · 2026-07-23 · 16,000 라운드/τ · 홀드아웃 확인 · 순수 C#/dotnet</p>
 </div>
 </body>
 </html>

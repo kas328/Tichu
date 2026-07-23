@@ -114,6 +114,16 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void UseValueNetLeaf_defaults_false_until_bench_adopts()
+        {
+            // D4 Fork A 리프 가치망: 벤치 게이트 전까지 전 티어 OFF(기본 false → RolloutEvaluator, 비트불변).
+            Assert.That(new PolicyConfig(16, 4, 0.05).UseValueNetLeaf, Is.False, "ctor 기본 false");
+            Assert.That(PolicyConfig.For(Difficulty.Normal).UseValueNetLeaf, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Hard).UseValueNetLeaf, Is.False);
+            Assert.That(PolicyConfig.For(Difficulty.Expert).UseValueNetLeaf, Is.False);
+        }
+
+        [Test]
         public void UseSmallTichuNet_on_for_pimc_tiers()
         {
             // Small Tichu 콜 헤드: 격리 홀드아웃 채택(τ=0.55, 페어드 +2.91/R·95%CI[2.16,3.67] 유의).

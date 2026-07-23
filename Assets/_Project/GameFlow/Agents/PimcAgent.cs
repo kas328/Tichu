@@ -31,7 +31,7 @@ namespace Tichu.GameFlow.Agents
             _seat = seat;
             _config = config;
             _policy = new HeuristicRolloutPolicy(roundSeed, seat, config.Epsilon, config.UseGrandCallNet, GrandTichuWeights.Threshold, config.UseSmallTichuNet);
-            _evaluator = new RolloutEvaluator(config.Epsilon);
+            _evaluator = config.UseValueNetLeaf ? (IWorldEvaluator)new ValueNetEvaluator() : new RolloutEvaluator(config.Epsilon);
             _rng = new Rng(roundSeed ^ 0x91C0_0000_0000_0001UL ^ (ulong)seat);
         }
 

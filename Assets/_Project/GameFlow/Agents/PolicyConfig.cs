@@ -67,7 +67,10 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 작은 티츄 강도게이트를 학습된 헤드(P>τ)로 판정한다. OFF면 현행(용/봉황+HandPower). 컨텍스트·폭탄 단축은 항상 보존.</summary>
         public readonly bool UseSmallTichuNet;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false)
+        /// <summary>true면 PIMC 리프를 롤아웃 대신 학습 가치망 V로 평가한다(D4 Fork A). OFF면 롤아웃(비트불변).</summary>
+        public readonly bool UseValueNetLeaf;
+
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false, bool useValueNetLeaf = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -89,6 +92,7 @@ namespace Tichu.GameFlow.Agents
             UseNearOutLeadOrder = useNearOutLeadOrder;
             UseGrandCallNet = useGrandCallNet;
             UseSmallTichuNet = useSmallTichuNet;
+            UseValueNetLeaf = useValueNetLeaf;
         }
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>

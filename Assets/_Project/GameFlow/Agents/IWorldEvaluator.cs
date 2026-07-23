@@ -25,4 +25,14 @@ namespace Tichu.GameFlow.Agents
         public double Evaluate(GameState world, int observerSeat, ulong seed)
             => Pimc.Rollout(world, observerSeat, seed, _epsilon);
     }
+
+    /// <summary>
+    /// 학습 리프: 결정화 세계를 가치망 V(WorldFeatures)로 1회 추론해 관측팀 EV 예측. seed 무시(결정적).
+    /// D4 Fork A ①. UseValueNetLeaf 플래그로만 활성(기본 OFF=RolloutEvaluator·비트불변).
+    /// </summary>
+    public sealed class ValueNetEvaluator : IWorldEvaluator
+    {
+        public double Evaluate(GameState world, int observerSeat, ulong seed)
+            => ValueNet.Shared.Evaluate(WorldFeatures.Encode(world, observerSeat));
+    }
 }

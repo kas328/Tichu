@@ -24,11 +24,10 @@ namespace Tichu.Presentation.Shell
         IAudioService _menuAudio;               // 메뉴 버튼 SFX(App-수명). 뱅크 부재 → NoOp.
         AppLifecycleAudio _lifecycle;           // 앱 백그라운드 음소거 훅 호스트.
 
-        public MenuShellPresenter(AppFlowMachine flow, MatchSettings settings, IAudioService menuAudio = null)
+        public MenuShellPresenter(AppFlowMachine flow, MatchSettings settings)
         {
             _flow = flow;
             _settings = settings;
-            _menuAudio = menuAudio;
         }
 
         public void Start()
@@ -43,10 +42,9 @@ namespace Tichu.Presentation.Shell
             _sub = _flow.State.Subscribe(Show);   // 구독 즉시 현재 화면(Intro) 발화 → 첫 패널 표시
         }
 
-        // 메뉴 버튼 SFX 서비스 해결(미주입 시 뱅크 로드, 부재면 NoOp).
+        // 메뉴 버튼 SFX 서비스 해결(뱅크 로드, 부재면 NoOp). BGM 로드와 동일 컨벤션.
         void ResolveAudio()
         {
-            if (_menuAudio != null) return;
             var bank = Resources.Load<AudioBank>("AudioBank");
             _menuAudio = bank != null ? new UnityAudioService(bank, 2) : (IAudioService)new NoOpAudioService();
         }

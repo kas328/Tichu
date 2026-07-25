@@ -5,7 +5,7 @@ using Tichu.Core.Game;
 namespace Tichu.Presentation.Audio
 {
     /// <summary>vm 관측으로 도출 가능한 사운드 이벤트. None=명시적 no-op 분기.</summary>
-    public enum SfxId { None = 0, CardPlay, Pass, Bomb, GiveDragon, TichuCall, GrandTichuCall, RoundEnd }
+    public enum SfxId { None = 0, CardPlay, Pass, Bomb, GiveDragon, TichuCall, GrandTichuCall, RoundEnd, ButtonClick }
 
     /// <summary>
     /// 진실 로그(GameAction)·콜(TichuCall) → SfxId 순수 매핑. UnityEngine 무의존(EditMode 전수 검증).

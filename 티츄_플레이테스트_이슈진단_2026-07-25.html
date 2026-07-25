@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 플레이테스트 이슈 진단·검증·실행계획</title>
+<style>
+  :root{
+    --bg:#f4f6f3; --panel:#fff; --panel2:#eef2ee; --ink:#16211d; --muted:#5a6b63; --faint:#84968d;
+    --line:#e0e6e0; --line2:#d3dbd4;
+    --acc:#10a892; --acc-d:#0b7d6d; --acc-soft:rgba(16,168,146,.10);
+    --good:#2e9e5b; --warn:#b7851f; --bad:#c2483d; --gold:#c9962f; --purple:#8a5cc4;
+    --shadow:0 1px 2px rgba(20,40,30,.05),0 4px 16px rgba(20,40,30,.06);
+    --mono:ui-monospace,"SF Mono",Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0d1411; --panel:#141d18; --panel2:#1a251f; --ink:#e6ece8; --muted:#9db0a7; --faint:#6f847a;
+      --line:#233029; --line2:#2c3a32; --acc:#3fd6c0; --acc-d:#2bb9a4; --acc-soft:rgba(63,214,192,.11);
+      --good:#54c67f; --warn:#e6bd5f; --bad:#f0857a; --gold:#e6bd5f; --purple:#b48ce0;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.34); }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;font-size:15.5px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+  header.hero{background:linear-gradient(135deg,var(--acc-d),var(--acc) 65%,#12b89f);color:#04140f;
+    padding:30px 30px;border-radius:0 0 22px 22px;box-shadow:var(--shadow);max-width:1000px;margin:0 auto 22px}
+  .hero .tag{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.6px;background:rgba(255,255,255,.25);padding:4px 11px;border-radius:20px;margin-bottom:10px}
+  .hero h1{margin:.1em 0;font-size:25px;font-weight:800;letter-spacing:-.3px}
+  .hero p{margin:.4em 0 0;font-size:14.5px;max-width:82ch;opacity:.92}
+  .bluf{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:12px;padding:14px 18px;margin:0 0 22px;box-shadow:var(--shadow)}
+  .bluf b{color:var(--acc-d)} @media(prefers-color-scheme:dark){.bluf b{color:var(--acc)}}
+  h2{font-size:18px;margin:34px 0 12px;display:flex;align-items:center;gap:9px}
+  h2 .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--acc);color:#04140f;font-size:12px;font-weight:800}
+  .tbl-wrap{overflow-x:auto;border-radius:13px;border:1px solid var(--line);box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);background:var(--panel2)}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr{background:var(--panel)}
+  .chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .c-good{background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good)}
+  .c-warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .c-bad{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+  .c-acc{background:var(--acc-soft);color:var(--acc-d)} @media(prefers-color-scheme:dark){.c-acc{color:var(--acc)}}
+  .c-pur{background:color-mix(in srgb,var(--purple) 16%,transparent);color:var(--purple)}
+  .issue{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 18px;margin:12px 0;box-shadow:var(--shadow)}
+  .issue.p1{border-left:4px solid var(--good)} .issue.p2{border-left:4px solid var(--acc)}
+  .issue.p3{border-left:4px solid var(--warn)} .issue.p4{border-left:4px solid var(--purple)} .issue.p5{border-left:4px solid var(--bad)}
+  .issue h3{margin:0 0 3px;font-size:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .issue h3 .pri{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+  .row{margin:6px 0;font-size:13.5px}
+  .row .k{display:inline-block;min-width:74px;color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;vertical-align:top}
+  .row .v{display:inline}
+  code{font-family:var(--mono);font-size:.85em;background:var(--panel2);padding:1.5px 5px;border-radius:5px}
+  .verdict{background:var(--panel2);border-radius:9px;padding:9px 12px;margin-top:9px;font-size:12.5px;color:var(--muted)}
+  .verdict b{color:var(--ink)}
+  .phase{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0;box-shadow:var(--shadow)}
+  .phase h4{margin:0 0 5px;font-size:14.5px;display:flex;align-items:center;gap:8px}
+  .phase h4 .ph{font-family:var(--mono);font-size:11px;background:var(--acc-soft);color:var(--acc-d);padding:2px 8px;border-radius:6px}
+  @media(prefers-color-scheme:dark){.phase h4 .ph{color:var(--acc)}}
+  .phase p{margin:0;font-size:13px;color:var(--muted)}
+  ul.tight{margin:.4em 0;padding-left:1.2em;font-size:13px} ul.tight li{margin:.3em 0}
+  .risk{background:linear-gradient(120deg,color-mix(in srgb,var(--bad) 8%,transparent),transparent 70%);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:12px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:30px}
+  b.k{color:var(--acc-d)} @media(prefers-color-scheme:dark){b.k{color:var(--acc)}}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">ULTRACODE · 11 에이전트 · 진단→적대검증→종합</span>
+  <h1>플레이테스트 이슈 진단·검증·실행계획</h1>
+  <p>Expert(24세계) 플레이테스트에서 나온 5개 이슈를 코드 근본원인까지 파고, 각 진단을 적대적으로 반증한 뒤, 프로젝트 철칙(리드/셰딩 상습회귀·격리벤치 필수)에 맞춰 우선순위 실행계획으로 종합.</p>
+</header>
+
+<div class="wrap">
+
+  <div class="bluf">
+    <b>결론(BLUF).</b> 5개 중 <b class="k">1개는 즉시 구현·벤치 유망(① 봉황콤보)</b>, 1개는 <b class="k">공짜 계측(A4)</b>, 2개는 <b class="k">벤치 게이트 통과 시에만(③·B5)</b>, 1개는 <b class="k">수정 말고 수용(②)</b>. 핵심 = 사용자가 본 "낭비/실수" 상당수가 은닉정보 천장이거나 채택 레버(①의 +34.3)의 정당한 부작용 → <b>격리 벤치가 직관을 판정</b>. 관측이 사는 라이브 EV 경로는 빠른 휴리스틱 벤치로 직접 못 재므로, 채택은 "강도 입증"이 아니라 "회귀 부재 + 관측 교정"으로 라벨.
+  </div>
+
+  <!-- 우선순위 표 -->
+  <h2><span class="n">1</span> 종합 우선순위</h2>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>#</th><th>이슈</th><th>근본원인(file:line)</th><th>분류</th><th>검증</th><th>액션</th><th>회귀</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><b>① 봉황 콤보 낭비</b></td><td><code>AiAgent.cs:492/733</code> 봉황보존이 싱글만 커버</td><td><span class="chip c-bad">genuine-bug</span></td><td><span class="chip c-warn">partially</span></td><td><span class="chip c-good">즉시 구현·벤치</span></td><td>低*</td></tr>
+        <tr><td>2</td><td><b>A4 티츄 성공률</b></td><td><code>PimcAgent.cs:216</code> 집계증상(콜러 first-out)</td><td><span class="chip c-pur">symptom-aggregate</span></td><td><span class="chip c-warn">partially</span></td><td><span class="chip c-good">즉시 계측(0위험)</span></td><td>低</td></tr>
+        <tr><td>3</td><td><b>③ 엔드게임 리드</b></td><td><code>AiAgent.cs:475</code> MostShedding 약한수 타이브레이크</td><td><span class="chip c-acc">strategy-choice</span></td><td><span class="chip c-warn">partially</span></td><td><span class="chip c-warn">벤치 먼저 게이트</span></td><td>高</td></tr>
+        <tr><td>4</td><td><b>B5 마작 소원</b></td><td><code>AiAgent.cs:304</code> highest-missing 정책</td><td><span class="chip c-acc">strategy-choice</span></td><td><span class="chip c-good">confirmed</span></td><td><span class="chip c-warn">벤치 A/B 게이트</span></td><td>中</td></tr>
+        <tr><td>5</td><td><b>② K 봉황 헛블록</b></td><td><code>AiAgent.cs:599</code> D1 가드→CheapestNonStructural</td><td><span class="chip c-warn">ev-ceiling-noise</span></td><td><span class="chip c-good">confirmed</span></td><td><span class="chip c-bad">파킹·수용</span></td><td>中</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="row" style="font-size:12px;color:var(--muted)">* ①의 회귀위험은 낮으나, 휴리스틱 구현이 <code>wastesPoints→Pass</code>(AiAgent.cs:384-387)를 새로 트리거하면 파킹된 Bug4(−6.9/R) 축에 접함 — 구현 시 회피 필수(검증 보정).</p>
+
+  <!-- 이슈별 상세 -->
+  <h2><span class="n">2</span> 이슈별 진단·검증</h2>
+
+  <div class="issue p1">
+    <h3><span class="pri">P1</span> ① 봉황 낮은 콤보 낭비 <span class="chip c-good">즉시 구현·벤치</span></h3>
+    <div class="row"><span class="k">관측</span><span class="v">상대 6페어 위에 AI가 <b>7+봉황 페어</b>로 밟아 봉황 낭비, 선도 못 잡음.</span></div>
+    <div class="row"><span class="k">근본원인</span><span class="v"><code>CheapestNonPhoenixSingle</code>(:733)/<code>FilterWastefulPhoenixSingle</code>(:492)가 봉황 <b>싱글만</b> 제외 → 봉황이 낀 페어/콤보는 안 걸러져 최소오버킬 승수로 선택. 라이브 Expert는 EV argmax 산물, 휴리스틱은 lowestWin 산물(양 경로 재현).</span></div>
+    <div class="row"><span class="k">수정</span><span class="v"><code>CheapestNonPhoenixWin</code>으로 일반화 — <b>동일타입 자연 승수가 있을 때만</b> 봉황-콤보 후보 제거(밟되 자연으로, 트릭 헌납 X). 없으면 폴백=봉황 유지, goesOut이면 유지. <b>파킹된 −6.9 콤보가드와 다른 축</b>(그건 "안 밟고 패스").</span></div>
+    <div class="verdict"><b>검증(partially):</b> 근본원인 성립. ⚠️보정 — 휴리스틱 구현이 자연페어로 스왑 시 <b>점수쌍</b>이면 <code>wastesPoints→Pass</code>로 뒤집혀 Bug4 −6.9 축 재발 가능 → 봉황콤보 제거를 그 하류가드 밖에서 처리하거나 점수쌍 자연대안이면 스왑 보류. HeuristicBench는 라이브 EV축을 직접 못 잼 → 채택=회귀부재+관측교정.</div>
+  </div>
+
+  <div class="issue p2">
+    <h3><span class="pri">P2</span> A4 AI 티츄 성공률 낮음 <span class="chip c-good">즉시 계측</span></h3>
+    <div class="row"><span class="k">관측</span><span class="v">AI 콜 티츄(특히 전원-AI 상대팀)가 <b>먼저 아웃(first-out)</b> 하는 걸 보기 힘듦.</span></div>
+    <div class="row"><span class="k">근본원인</span><span class="v">티츄 성공 = 콜러 <code>FinishOrder==1</code>(단순 아웃 아님). 라이브 EV가 전략융합+롤아웃 천장으로 <b>협조적 first-out 수순을 못 조립</b> = "라지티츄 응징 안 됨"과 <b>같은 뿌리(연구티어)</b>.</span></div>
+    <div class="row"><span class="k">첫 액션</span><span class="v"><b>공짜</b>: 티츄 성공률을 벤치 지표로 계측(0줄 행동변경·회귀불가)해 (i)콜빈도 (ii)콜러 아웃레이스 (iii)파트너 피드로 분해. 강도 상방=연구티어 defer. τ(콜 임계)=강도 vs 체감 트레이드오프 → <b>사용자 결정</b>.</span></div>
+    <div class="verdict"><b>검증(partially):</b> 메커니즘 성립. 보정 — <code>callerSuppressPass</code>가 유일 콜러 레버는 아님(<code>PartnerOvertakeMove</code> callerTakesLead 실재). "성공률 낮음=약함"은 부분 오전제: 채택된 콜헤드는 <b>승률&lt;50% 손도 +EV라 의도적으로 콜</b>(고분산 지표). 계측으로 분해 후 판단.</div>
+  </div>
+
+  <div class="issue p3">
+    <h3><span class="pri">P3</span> ③ 엔드게임 리드 {10,A} <span class="chip c-warn">벤치 먼저 게이트</span></h3>
+    <div class="row"><span class="k">관측</span><span class="v">{10,A}에서 A를 먼저 내야 하나 <b>10을 먼저 리드</b>해 상대 A에 밟혀 못 나감.</span></div>
+    <div class="row"><span class="k">근본원인</span><span class="v"><code>MostShedding</code>(:475) <b>약한수 타이브레이크</b> → 동수 싱글에서 약한 10. Expert도 재현(<code>UseEndgameSheddingGuard</code> OFF + <code>NearOutLeadOrder</code>는 strict 1:1만 → 일반 2장은 순수 EV, 역시 약한수).</span></div>
+    <div class="row"><span class="k">수정·긴장</span><span class="v">"손패≤2 올-싱글일 때만 강한 싱글 우선" 카브아웃. ⚠️이 약한수 타이브레이크가 <b>①(+34.3/R)의 전부</b> → 카브아웃은 그 도메인 역방향 절단. 벤치 ≥0이면 채택(공짜 교정), <b>&lt;0이면 파킹</b>("벤치&gt;직관").</span></div>
+    <div class="verdict"><b>검증(partially):</b> 두 하위케이스 분리 필수 — <b>(a)</b> near-out 상대(≤1장)+파트너 미아웃 = ⑦/#6 채택선례 우호적, approach B로 정조준(저논쟁); <b>(b)</b> 상대 ≥2장 일반 {10,A} = ①과 정면충돌·고회귀·wash. 카브아웃(A)은 위험한 (b)를 주로 건드림. 격리 subset이 wash면 관측 라이브개선 미검증(무해게이트).</div>
+  </div>
+
+  <div class="issue p4">
+    <h3><span class="pri">P4</span> B5 마작 소원 정책 <span class="chip c-warn">벤치 A/B 게이트</span></h3>
+    <div class="row"><span class="k">관측</span><span class="v">(사용자: "구현은 정상") 현행 <b>highest-missing</b>(손에 없는 최고 랭크) 대신 <b>낮은 숫자패</b>가 폭탄 분산·팀 스몰티츄 시너지에 유리할 수 있다는 <b>전략 의견</b>.</span></div>
+    <div class="row"><span class="k">근본원인</span><span class="v"><code>MaybeWish</code>(:304) A→2 하강 첫 결손 반환. 소원 효과=첫-가능 보유자에게서 그 랭크 1장 강제. highest=상대 A/K 강제소진(단 상대가 그 A로 트릭 이겨 선 가져감), low=상대 버릴 저카드 뽑기(순템포). <b>방향이 진짜 양면</b>.</span></div>
+    <div class="row"><span class="k">수정</span><span class="v"><code>PickWishRank(present, mode)</code> 추출 후 arm A/B(highest=현행 baseline, lowest, middle, 선택 파트너콜-조건부). <b>구조적으로 move-override가 아님</b>(EV 수선택 불변, 랭크만 명명) → 리드-override 저주 회피.</span></div>
+    <div class="verdict"><b>검증(confirmed):</b> 근본원인 확증·채택레버 무손상. 신호 작음(순템포·점수델타≈0) → 10000R 페어드, 명확 ≥0만 채택, wash면 오컴으로 highest 유지. 보정 — highest는 <b>파트너에게 강제될 하방리스크</b>(방향 비자명 강화).</div>
+  </div>
+
+  <div class="issue p5">
+    <h3><span class="pri">P5</span> ② K 봉황 헛블록 <span class="chip c-bad">파킹·수용</span></h3>
+    <div class="row"><span class="k">관측</span><span class="v">스몰티츄 막으려 K에 봉황 → 사용자 A에 재밟힘.</span></div>
+    <div class="row"><span class="k">근본원인</span><span class="v">순수 EV 아님 — <b>D1 위협-블록 가드</b>(<code>OpponentThreatBlockMove→CheapestNonStructural</code>:599)가 봉황을 강제. K(랭크26)&gt;LockoutTop이라 락아웃 null → 봉황(스케일27)이 최소 승수로 뽑힘. <b>은닉정보 천장</b>(상대 A 보유 모름) → 근본해결 불가.</span></div>
+    <div class="row"><span class="k">판정</span><span class="v">fix(2)(가드 좁혀 EV폴백)=채택 <b>D1(+16.9/R) 직접 약화</b> + 측정불능 → 파킹. fix(1)(봉황-인지 <code>CheapestNonStructural</code>)만 ①벤치에 <b>편승</b>(순수 정확도수정). 봉황 유일승수면 티츄콜러 K리드를 봉황으로 막는 게 EV상 옳을 수 있음 = "인간 눈 낭비수가 실제 강함" 클래스.</span></div>
+    <div class="verdict"><b>검증(confirmed):</b> 4갈래 반증 전부 실패, 근본원인 확증. 결론 = <b>수정하지 않고 수용(연구티어·세계수↑)이 정답에 가깝다</b>.</div>
+  </div>
+
+  <!-- 실행계획 -->
+  <h2><span class="n">3</span> 실행 계획 (단계·의존성)</h2>
+  <div class="phase">
+    <h4><span class="ph">Phase 0</span> 공유 측정 하니스 <span class="chip c-good">무위험·선행</span></h4>
+    <p><code>OldAiAgent.cs</code>를 현재 HEAD로 sed 재동결 + 티츄 성공률(콜러 FinishOrder==1)·봉황낭비 카운터를 <b>0줄 행동변경</b>으로 계측 → 베이스라인 4000R 정상 산출 확인. <b>한 번의 재동결로 A4 분해 + ①·③·B5 격리벤치를 동시 언블록.</b></p>
+  </div>
+  <div class="phase">
+    <h4><span class="ph">Phase 1</span> 저위험 채택후보 — ① 봉황콤보 (+ ② fix(1) 편승)</h4>
+    <p>봉황콤보보존 후보-스왑 구현(⚠️wastesPoints→Pass 미트리거, core↔Assets 미러 동기) → HeuristicBench 4000R 비회귀 게이트 → 통과 시 관측교정 채택 → <b>Expert 실기 플레이테스트</b> 확인.</p>
+  </div>
+  <div class="phase">
+    <h4><span class="ph">Phase 2</span> 게이트 실험 — ③ 카브아웃 · B5 소원 arm</h4>
+    <p>(2a) ③ approach A 격리 4000R: newAvg≥0 채택 / &lt;0 파킹; near-out (a)갭은 approach B 좁게+플레이테스트. (2b) B5 arm A/B 10000R 페어드: 명확 ≥0만 채택, wash면 highest 유지. 둘 다 채택레버 무손상 확인이 게이트.</p>
+  </div>
+  <div class="phase">
+    <h4><span class="ph">Phase 3</span> 수용·연구 이월 — ② · A4 강도상방</h4>
+    <p>② park-accept(fix(2) 금지). A4 강도레버=연구티어(정책/가치망, 전략융합 탈출) defer; <b>τ 스윕 곡선만 산출</b>해 강도 vs 체감을 사용자 결정에 회부. "라지티츄 응징" 한계와 동일 뿌리로 명시 수용.</p>
+  </div>
+
+  <!-- 리스크 -->
+  <h2><span class="n">4</span> 교차 리스크</h2>
+  <div class="risk">
+    <ul class="tight">
+      <li>미러드 per-round CI 과대추정 → 전부 <b>페어드(쌍평균) CI</b>로 판정.</li>
+      <li>HeuristicBench는 롤아웃/휴리스틱 축만 측정 — 관측이 사는 <b>라이브 PimcAgent EV 필터축은 직접 못 잼</b>(①·②·A4 공통) → 채택=회귀부재+관측교정, 라이브 확인은 PimcBench(~8s/R·ThreadAbort) 또는 Expert 플레이테스트로만.</li>
+      <li>리드/셰딩/블록 move-override는 상습회귀(4시도 3회귀) → ③ 카브아웃(=①역방향)·② fix(2)(D1 약화)가 이 계열 → 좁게+격리게이트 통과 시에만/파킹.</li>
+      <li>① 봉황 수정이 <code>wastesPoints→Pass</code>를 트리거하면 파킹된 Bug4 −6.9 재발 → 구현이 회피 필수.</li>
+      <li>PIMC 벤치 ThreadAbort → DisallowAutoRefresh+%TEMP% 증분+백그라운드 Task.Run. 미러드는 대칭이라 대칭 수정(③ approach B·B5)에 비정보.</li>
+      <li><code>core/src</code>(벤치) ↔ <code>Assets/_Project</code>(라이브) AiAgent.cs 미러 <b>동시수정 필수</b>.</li>
+    </ul>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · 플레이테스트 이슈 진단·검증·실행계획 · 2026-07-25 · ultracode 11에이전트(진단5·검증5·종합1)</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 인터랙티브 플레이테스트 체크리스트</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a; --gold:#e6bd5f;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f5f7fb; --panel:#fff; --panel2:#eef2f8; --ink:#1a2233; --muted:#5a6478;
+           --line:#e0e6f0; --accent:#2f7be0; --good:#1a9e64; --warn:#9a7a1e; --bad:#d64545; --gold:#a97c1e; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.6;font-size:16px}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 120px}
+  h1{font-size:24px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+  /* sticky status bar */
+  .bar{position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--bg) 88%,transparent);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 18px;
+    display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  .counts{display:flex;gap:10px;font-size:13px;font-weight:700;flex-wrap:wrap}
+  .counts span{padding:3px 10px;border-radius:999px;background:var(--panel2)}
+  .c-good{color:var(--good)} .c-bad{color:var(--bad)} .c-none{color:var(--muted)}
+  .prog{flex:1 1 160px;height:8px;border-radius:99px;background:var(--panel2);overflow:hidden;min-width:120px}
+  .prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--good),var(--accent));transition:width .25s}
+  .diff{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+  .diff select{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px}
+  .btns{display:flex;gap:8px;margin-left:auto}
+  button.act{background:var(--accent);color:#04121c;border:0;border-radius:9px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line);border-radius:9px;padding:7px 12px;font-size:12.5px;cursor:pointer}
+  h2{font-size:16px;margin:26px 0 8px;padding-top:14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  h2 .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--accent);color:#04121c;font-size:12px;font-weight:800}
+  h2.hl .n{background:var(--gold);color:#2a1e00}
+  h2 .badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:color-mix(in srgb,var(--gold) 20%,transparent);color:var(--gold)}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 14px;margin:9px 0;transition:border-color .2s}
+  .item[data-state="good"]{border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+  .item[data-state="bad"]{border-color:color-mix(in srgb,var(--bad) 60%,var(--line))}
+  .item .t{font-size:14.5px;font-weight:600}
+  .item .d{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .seg{display:inline-flex;gap:4px;margin-top:9px}
+  .seg button{border:1px solid var(--line);background:var(--panel2);color:var(--muted);
+    border-radius:8px;padding:5px 11px;font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s}
+  .seg button.on[data-v="good"]{background:var(--good);color:#04140b;border-color:var(--good)}
+  .seg button.on[data-v="bad"]{background:var(--bad);color:#2a0808;border-color:var(--bad)}
+  .seg button.on[data-v="none"]{background:var(--muted);color:var(--bg);border-color:var(--muted)}
+  .note{margin-top:9px;display:none}
+  .item[data-state="bad"] .note{display:block}
+  .note textarea{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;font:13px/1.5 inherit;resize:vertical;min-height:52px}
+  .note .hint{font-size:11.5px;color:var(--warn);margin-bottom:4px}
+  .parked{background:var(--panel);border:1px dashed var(--line);border-radius:11px;padding:10px 14px;margin:9px 0;font-size:12.5px;color:var(--muted)}
+  dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);max-width:600px;width:92%;padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.55)}
+  .dlg-h{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700}
+  .dlg-b{padding:14px 18px}
+  .dlg-b textarea{width:100%;min-height:230px;background:var(--bg);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:10px;font:12.5px/1.5 ui-monospace,Consolas,monospace;resize:vertical}
+  .dlg-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--good);color:#04140b;padding:9px 16px;border-radius:10px;font-weight:700;font-size:13px;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>인터랙티브 플레이테스트 체크리스트</h1>
+  <div class="sub">버튼으로 판정 · 자동 저장(브라우저) · <b>결과 복사</b>로 이상 항목만 뽑아 붙여넣기 · 2026-07-24</div>
+
+  <div class="bar">
+    <div class="prog"><i id="progbar"></i></div>
+    <div class="counts">
+      <span class="c-good">👍 <b id="cGood">0</b></span>
+      <span class="c-bad">⚠️ <b id="cBad">0</b></span>
+      <span class="c-none">➖ <b id="cNone">0</b></span>
+    </div>
+    <label class="diff">난이도
+      <select id="diff">
+        <option value="">선택</option>
+        <option>Normal</option><option>Hard</option><option>Expert</option>
+      </select>
+    </label>
+    <div class="btns">
+      <button class="act" id="exportBtn">결과 복사</button>
+      <button class="ghost" id="resetBtn">초기화</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+
+  <dialog id="dlg">
+    <div class="dlg-h">플레이테스트 결과 — 복사해서 붙여넣어 주세요</div>
+    <div class="dlg-b"><textarea id="dlgText" readonly></textarea></div>
+    <div class="dlg-f">
+      <button class="ghost" id="dlgClose">닫기</button>
+      <button class="act" id="dlgCopy">클립보드 복사</button>
+    </div>
+  </dialog>
+  <div class="toast" id="toast">복사됨</div>
+</div>
+
+<script>
+const DATA = [
+  {sec:"A", title:"콜 선언 빈도 — 콜 헤드", badge:"최우선·검증중", hl:true, items:[
+    {id:"A1", t:"그랜드 티츄를 강한 손에 실제로 선언", d:"예전엔 거의 안 불렀음 (0.47%→6.86%) · 사용자: '더 부름' 관측"},
+    {id:"A2", t:"그랜드를 평범/약한 손에 남발하지 않음", d:"~7%면 적정, 매 판 부르면 과함"},
+    {id:"A3", t:"작은 티츄 남발 감소 (덜·선별적)", d:"33%→18% · 사용자: '이상한 스몰티츄 줄음' 관측"},
+    {id:"A4", t:"부른 티츄를 대체로 성공(먼저 아웃)", d:""},
+  ]},
+  {sec:"B", title:"AI 아웃 · 낭비 품질", badge:"", hl:false, items:[
+    {id:"B1", t:"엔드게임에서 저싱글 안 남기고 아웃", d:"고카드 먼저 덤프 후 저싱글 남겨 못 나가는 일 없어야 함 · ⚠️사용자: 10·A에서 10 먼저 내 밟힘 관측"},
+    {id:"B2", t:"콜러가 고카드·봉황·용을 안 낭비", d:"파트너 A/고카드 밟지 않음 · ⚠️사용자: 봉황을 7페어·K블록에 낭비 관측"},
+    {id:"B3", t:"이미 이기는 파트너를 굳이 밟지 않음", d:"상대팀 AI끼리도 적용"},
+    {id:"B4", t:"near-out 봉쇄 · 1:1 종반 탑패부터 리드", d:"상대 1장 임박 시 최고 싱글로 봉쇄 / 싱글 국면 높은 것 먼저"},
+    {id:"B5", t:"마작 소원(콜) · 스몰티츄 하한", d:"마작 리드 시 '손에 없는 최고 랭크' 소원 / 한계 티츄 감소"},
+  ]},
+  {sec:"C", title:"라지티츄 팀 지원 (#4 계열)", badge:"벤치 격리 불가·실기만", hl:false, items:[
+    {id:"C1", t:"파트너 라지티츄를 팀이 지원", d:"교환 최고카드 주기 / 밟거나 먼저 안 나감 / 못 나갈 위기면 살려줌(#4c)"},
+  ]},
+  {sec:"D", title:"연출 — 눈으로 바로 확인", badge:"", hl:false, items:[
+    {id:"D1", t:"봉황 대체 랭크 위치 표시 (봉 10 J Q K A)", d:""},
+    {id:"D2", t:"폭탄 카드 금색 오오라", d:"색·크기 적절한지"},
+    {id:"D3", t:"개(Dog) 중앙 ~1.2초 에코", d:"'개 · [이름] → 파트너 리드'"},
+    {id:"D4", t:"용 양도 시 대상까지 표시", d:"'[누구] · 용 양도 → [대상]'"},
+  ]},
+];
+const PARKED = [
+  "Issue A — 콜러가 봉황을 낮은 콤보에 낭비 (파킹, 콤보가드 −6.9/R)",
+  "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
+  "② 라지티츄 응징 (롤아웃 천장 한계 · 연구티어)",
+  "Issue3 — 특정 리드 순서 최적화 (엔드게임셰딩 가드와 상충)",
+];
+const KEY = "tichu_playtest_v1";
+let state = JSON.parse(localStorage.getItem(KEY) || "{}");
+
+const list = document.getElementById("list");
+DATA.forEach(sec=>{
+  const h = document.createElement("h2");
+  h.className = sec.hl ? "hl" : "";
+  h.innerHTML = `<span class="n">${sec.sec}</span> ${sec.title}` + (sec.badge?` <span class="badge">${sec.badge}</span>`:"");
+  list.appendChild(h);
+  sec.items.forEach(it=>{
+    const cur = state[it.id] || {v:"", note:""};
+    const el = document.createElement("div");
+    el.className = "item"; el.dataset.state = cur.v; el.dataset.id = it.id;
+    el.innerHTML = `
+      <div class="t">${it.t}</div>${it.d?`<div class="d">${it.d}</div>`:""}
+      <div class="seg">
+        <button data-v="good" class="${cur.v==='good'?'on':''}">👍 좋음</button>
+        <button data-v="bad" class="${cur.v==='bad'?'on':''}">⚠️ 이상함</button>
+        <button data-v="none" class="${cur.v==='none'?'on':''}">➖ 미확인</button>
+      </div>
+      <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
+        <textarea placeholder="구체 상황을 적어주세요">${cur.note||""}</textarea></div>`;
+    el.querySelectorAll(".seg button").forEach(b=>{
+      b.onclick = ()=>{
+        const v = b.dataset.v;
+        state[it.id] = state[it.id] || {v:"",note:""};
+        state[it.id].v = (state[it.id].v===v ? "" : v);
+        el.dataset.state = state[it.id].v;
+        el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on", x.dataset.v===state[it.id].v));
+        save();
+      };
+    });
+    el.querySelector("textarea").oninput = e=>{
+      state[it.id] = state[it.id] || {v:"",note:""}; state[it.id].note = e.target.value; save();
+    };
+    list.appendChild(el);
+  });
+});
+// parked
+const ph = document.createElement("h2"); ph.innerHTML = `<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
+list.appendChild(ph);
+PARKED.forEach(p=>{ const d=document.createElement("div"); d.className="parked"; d.textContent="• "+p; list.appendChild(d); });
+
+const diffSel = document.getElementById("diff");
+diffSel.value = state.__diff || "";
+diffSel.onchange = ()=>{ state.__diff = diffSel.value; save(); };
+
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); render(); }
+function render(){
+  let g=0,b=0,n=0,total=0;
+  DATA.forEach(s=>s.items.forEach(it=>{ total++; const v=(state[it.id]||{}).v;
+    if(v==="good")g++; else if(v==="bad")b++; else if(v==="none")n++; }));
+  document.getElementById("cGood").textContent=g;
+  document.getElementById("cBad").textContent=b;
+  document.getElementById("cNone").textContent=n;
+  document.getElementById("progbar").style.width = (100*(g+b+n)/total)+"%";
+}
+render();
+
+document.getElementById("resetBtn").onclick = ()=>{
+  if(confirm("모든 판정·메모를 지울까요?")){ state={}; localStorage.removeItem(KEY);
+    location.reload(); }
+};
+
+function buildReport(){
+  let g=0,b=0,n=0; const bad=[], good=[];
+  DATA.forEach(s=>s.items.forEach(it=>{ const st=state[it.id]||{};
+    if(st.v==="good"){g++; good.push(it.id);}
+    else if(st.v==="bad"){b++; bad.push({id:it.id,t:it.t,note:(st.note||"").trim()});}
+    else if(st.v==="none")n++; }));
+  let out = `티츄 플레이테스트 결과 (2026-07-24)\n`;
+  out += `난이도: ${state.__diff||"(미선택)"}\n`;
+  out += `좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
+  if(good.length) out += `\n👍 좋음: ${good.join(", ")}\n`;
+  if(bad.length){ out += `\n⚠️ 이상함:\n`; bad.forEach(x=> out += `- [${x.id}] ${x.t}${x.note?` — ${x.note}`:" — (메모 없음)"}\n`); }
+  else out += `\n⚠️ 이상함: 없음\n`;
+  return out;
+}
+const dlg=document.getElementById("dlg"), dlgText=document.getElementById("dlgText"), toast=document.getElementById("toast");
+document.getElementById("exportBtn").onclick = ()=>{ dlgText.value = buildReport(); dlg.showModal(); };
+document.getElementById("dlgClose").onclick = ()=> dlg.close();
+document.getElementById("dlgCopy").onclick = async ()=>{
+  try{ await navigator.clipboard.writeText(dlgText.value); showToast("복사됨"); }
+  catch(e){ dlgText.select(); document.execCommand&&document.execCommand("copy"); showToast("복사 시도됨 — 안 되면 직접 선택"); }
+};
+function showToast(m){ toast.textContent=m; toast.classList.add("show"); setTimeout(()=>toast.classList.remove("show"),1600); }
+</script>
+</body>
+</html>

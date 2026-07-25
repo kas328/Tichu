@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 — 다음 계획 로드맵</title>
+<style>
+  :root{ --bg:#f6f7f4; --panel:#fff; --ink:#1a2420; --muted:#5c6b64; --line:#e2e6e0;
+    --teal:#0e8f7e; --teal-d:#0a6c60; --gold:#c9962f; --gold-d:#a97c1e; --red:#c2483d; --blue:#3b6fb0;
+    --chipbg:#eef3f0; --shadow:0 1px 2px rgba(20,40,30,.06),0 6px 20px rgba(20,40,30,.06); --code:#0d3b34; --green:#2e9e5b; }
+  @media (prefers-color-scheme: dark){ :root{ --bg:#0e1512; --panel:#151d19; --ink:#e7ece8; --muted:#9db0a7; --line:#25302b;
+    --teal:#3fd6c0; --teal-d:#2bb9a4; --gold:#e6bd5f; --gold-d:#d0a743; --red:#f0857a; --blue:#7fabe0;
+    --chipbg:#1b2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 26px rgba(0,0,0,.35); --code:#bfeee5; --green:#54c67f; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.62;font-size:16px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px 80px}
+  header.hero{background:linear-gradient(135deg,var(--teal-d),var(--teal) 60%,#12a892);color:#fff;
+    padding:34px 30px;border-radius:0 0 22px 22px;box-shadow:var(--shadow);max-width:980px;margin:0 auto 24px}
+  .hero .tag{display:inline-block;font-size:12.5px;font-weight:700;letter-spacing:.6px;
+    background:rgba(255,255,255,.18);padding:4px 11px;border-radius:20px;margin-bottom:10px}
+  .hero h1{margin:.1em 0;font-size:27px;font-weight:800}
+  .hero p{margin:.3em 0 0;font-size:15px;opacity:.95;max-width:74ch}
+  h2{font-size:20px;margin:32px 0 12px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--teal);color:#fff;font-size:13px;font-weight:800;flex:none}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);margin:12px 0}
+  code{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:.88em;background:var(--chipbg);color:var(--code);padding:1.5px 6px;border-radius:6px}
+  .muted{color:var(--muted)}
+  table{width:100%;border-collapse:collapse;margin:6px 0;font-size:13.6px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)}
+  .ok{color:var(--green);font-weight:700}.park{color:var(--gold-d);font-weight:700}
+  .rec{background:linear-gradient(135deg,rgba(46,158,91,.10),rgba(14,143,126,.08));border:1px solid var(--line)}
+  .now{border-left:4px solid var(--teal)}
+  ul.tight{margin:.4em 0;padding-left:1.2em} ul.tight li{margin:.32em 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;box-shadow:var(--shadow)}
+  .card h4{margin:0 0 5px;font-size:14.5px}
+  .card p{margin:0;font-size:13.2px;color:var(--muted)}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+  .p-big{background:rgba(194,72,61,.12);color:var(--red)} .p-mid{background:rgba(201,150,47,.14);color:var(--gold-d)} .p-small{background:rgba(46,158,91,.13);color:var(--green)}
+  .foot{text-align:center;color:var(--muted);font-size:12.5px;margin-top:34px}
+  b.k{color:var(--teal-d)}
+</style>
+</head>
+<body>
+<header class="hero">
+  <span class="tag">PHASE 2 · 다음 계획 로드맵</span>
+  <h1>어디까지 왔나 · 다음은 무엇인가</h1>
+  <p>값싼 확실한 강화(콜 헤드)는 소진됐고, 봇은 이미 공개 티츄 SOTA 이상. 남은 강도 레버는 전부 큰 투자·불확실. 지금 가장 높은 값어치 = <b>쌓인 채택분의 실기 검증</b>.</p>
+</header>
+
+<div class="wrap">
+
+  <!-- 현재 -->
+  <h2><span class="n">1</span> 현재 위치</h2>
+  <div class="panel" style="padding:6px 14px">
+    <table>
+      <tr><th>레버</th><th>결과</th><th>상태</th></tr>
+      <tr><td><b>B1 Grand 콜 헤드</b></td><td>홀드아웃 +4.97/R 유의</td><td class="ok">채택·푸시</td></tr>
+      <tr><td><b>Small Tichu 콜 헤드</b></td><td>홀드아웃 페어드 +2.91/R 유의</td><td class="ok">채택·푸시</td></tr>
+      <tr><td><b>D4 Fork A 리프 가치망</b></td><td>A/B −31.67/R, 게이트 불통과</td><td class="park">파킹·머지(인프라 보존)</td></tr>
+      <tr><td colspan="3" class="muted" style="font-size:12.5px">이전: PIMC 티어 정합성·난이도 선택기·플레이테스트 배치들·리드 구조보존(D3) 등 다수 채택 완료</td></tr>
+    </table>
+  </div>
+  <p class="muted" style="font-size:13.5px"><b>요지:</b> AI는 강함(콜 헤드로 티츄 콜 정확도까지 보정). 값싼 확실한 승리는 끝. 남은 강도 레버는 큰 투자거나 체감/폴리시.</p>
+
+  <!-- 즉시 -->
+  <h2><span class="n">2</span> 즉시 권장 — 실기 플레이테스트 배치</h2>
+  <div class="panel rec now">
+    <p style="margin-top:0"><b>지금 가장 높은 값어치.</b> 당신의 계획대로(연구 배치 → 한 번에 실기) 이제 검증할 게 충분히 쌓였다:</p>
+    <ul class="tight">
+      <li><b>B1 Grand 콜 헤드</b> — AI가 그랜드를 15배 자주 부름(0.47%→6.86%). 체감 확인 필요.</li>
+      <li><b>Small 콜 헤드</b> — AI가 작은티츄를 덜 선별적으로 부름(33%→18%). 체감 확인.</li>
+      <li><b>2026-07-15 배치</b> — 엔드게임 셰딩·near-out 락아웃·티츄 게이트 등 다수 미확인.</li>
+      <li>그 이전 채택분(리드·파트너 지원 등) 중 미확인분.</li>
+    </ul>
+    <p style="margin-bottom:0" class="muted">벤치는 전부 +EV지만 <b>체감(인간 상대 느낌)</b>은 미검증. 실기서 나온 이슈만 골라 <b>격리 벤치로</b> 픽스(사람눈 변경은 상습 회귀 — 벤치 필수).</p>
+  </div>
+
+  <!-- 이후 -->
+  <h2><span class="n">3</span> 그 이후 — 강도 연구 (모두 큰 투자·불확실)</h2>
+  <div class="grid">
+    <div class="card"><span class="pill p-big">XL</span><h4>D4 Fork A 재방문</h4>
+      <p>파킹된 리프 가치망을 더 큰 베팅으로 재개: <b>오라클 라벨</b>(천장↑·정확한 솔버 필요) / <b>원시 멀티핫 인코더</b>(분산↑) / <b>PIMC 코어미러링</b>(빠른 속도-레버 벤치). 시임·인프라 이미 보존.</p></div>
+    <div class="card"><span class="pill p-big">XL</span><h4>D4 Fork B 학습 정책</h4>
+      <p>DouZero/PerfectDou식 정책넷으로 PIMC 대체(전략융합 구조 제거). ⚠️풀룰+폭탄 미개척·패리티 리스크·수 주~월. 오라클 게이트 뒤로 DEFER.</p></div>
+    <div class="card"><span class="pill p-mid">M</span><h4>D2 텔레그래핑</h4>
+      <p>강도 리스크 0의 <b>체감 개선</b> — AI 의도 표시(봉황 보존=막판 확보 등). 연구보다 UX·연출. 실기 후 자연스럽게 이어질 수도.</p></div>
+    <div class="card"><span class="pill p-small">S~M</span><h4>콜 헤드 확장</h4>
+      <p>Grand/Small 로지스틱을 MLP로 or 리치 피처 추가. 값싸지만 이득 불확실(로지스틱이 이미 강함). 마지널.</p></div>
+  </div>
+
+  <!-- 또는 -->
+  <h2><span class="n">4</span> 또는 — 국면 전환 고려</h2>
+  <div class="panel">
+    <p style="margin-top:0">AI 강도가 충분히 높으므로(SOTA+·콜 헤드까지 채택), 강도 레버를 더 파는 대신 <b>다른 축</b>으로 전환하는 것도 합리적:</p>
+    <ul class="tight">
+      <li><b>Phase 1 잔여 D6 게이트</b> — Android Dev Build 실기 60fps 실측 + "한 판 더" 플레이테스트(메모리상 미완).</li>
+      <li><b>출시/폴리시</b> — 사운드(D5.1 잔여: 버튼SFX·볼륨패널·Pause·BGM), 튜토리얼, 앱 마감.</li>
+    </ul>
+    <p style="margin-bottom:0" class="muted">강도는 "충분히 강함"에 도달 — 이제 <b>완성도·출시</b>가 사용자 가치가 더 클 수 있음.</p>
+  </div>
+
+  <!-- 권고 -->
+  <h2><span class="n">✓</span> 권고 순서</h2>
+  <div class="panel rec">
+    <p style="margin:0"><b>① 실기 플레이테스트 배치</b>(쌓인 채택분 체감 검증·이슈만 격리벤치 픽스) → <b>② 결과에 따라 분기</b>: 심각한 강도 이슈면 D4 재방문/Fork B 중 택1(큰 투자, 사전 스코핑), 체감/완성도면 D2·D6·출시 폴리시. <b>강도의 값싼 프론티어는 소진</b>됐으니, 다음 큰 투자는 실기 신호를 보고 결정하는 게 정공법.</p>
+  </div>
+
+  <p class="foot">티츄 Phase 2 · 다음 계획 로드맵 · 2026-07-23 · 콜헤드 채택·D4 파킹 이후</p>
+</div>
+</body>
+</html>

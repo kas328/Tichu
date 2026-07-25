@@ -61,6 +61,9 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 진짜 1:1 종반(파트너 아웃+상대 1명 ≤1장)에서 전부 싱글 리드면 최고 싱글로 봉쇄한다(#6, ⑦의 리드측 쌍둥이). OFF면 비트불변.</summary>
         public readonly bool UseNearOutLeadOrder;
 
+        /// <summary>true면 끝내기(≤5장) 리드에서 '확실한 승자 싱글(공개정보상 아무도 못 이김) + 남은패 한 족보'면 그 싱글을 먼저 리드한다(③′). OFF면 비트불변.</summary>
+        public readonly bool UseGuaranteedWinnerLead;
+
         /// <summary>true면 큰 티츄 콜을 학습된 헤드(P>τ)로 판정한다(B1). OFF면 현행 HandPower≥10.</summary>
         public readonly bool UseGrandCallNet;
 
@@ -70,7 +73,7 @@ namespace Tichu.GameFlow.Agents
         /// <summary>true면 PIMC 리프를 롤아웃 대신 학습 가치망 V로 평가한다(D4 Fork A). OFF면 롤아웃(비트불변).</summary>
         public readonly bool UseValueNetLeaf;
 
-        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false, bool useValueNetLeaf = false)
+        public PolicyConfig(int worlds, int rolloutsPerWorld, double epsilon, bool useReachProb = false, bool useCallerAggression = false, bool useOpponentThreatBlock = false, bool useRobustBackup = false, double robustLambda = 0.0, bool useComboOvertakeGuard = false, bool useEndgameSheddingGuard = false, bool usePhoenixConservation = false, bool useExchangePin = false, bool useTichuCallConstraint = false, bool useNearOutLockout = false, bool useBombSave = false, bool useHighComboWasteGuard = false, bool useLiveWish = false, bool useNearOutLeadOrder = false, bool useGrandCallNet = false, bool useSmallTichuNet = false, bool useGuaranteedWinnerLead = false, bool useValueNetLeaf = false)
         {
             Worlds = worlds;
             RolloutsPerWorld = rolloutsPerWorld;
@@ -92,6 +95,7 @@ namespace Tichu.GameFlow.Agents
             UseNearOutLeadOrder = useNearOutLeadOrder;
             UseGrandCallNet = useGrandCallNet;
             UseSmallTichuNet = useSmallTichuNet;
+            UseGuaranteedWinnerLead = useGuaranteedWinnerLead;
             UseValueNetLeaf = useValueNetLeaf;
         }
 
@@ -100,7 +104,7 @@ namespace Tichu.GameFlow.Agents
             Worlds, RolloutsPerWorld, Epsilon, UseReachProb, UseCallerAggression, UseOpponentThreatBlock,
             UseRobustBackup, RobustLambda, UseComboOvertakeGuard, UseEndgameSheddingGuard, UsePhoenixConservation,
             UseExchangePin, UseTichuCallConstraint, UseNearOutLockout, UseBombSave, UseHighComboWasteGuard,
-            UseLiveWish, UseNearOutLeadOrder, UseGrandCallNet, UseSmallTichuNet, on);
+            UseLiveWish, UseNearOutLeadOrder, UseGrandCallNet, UseSmallTichuNet, UseGuaranteedWinnerLead, on);
 
         /// <summary>Normal 티어 프리셋(다세계).</summary>
         public static PolicyConfig Normal => For(Difficulty.Normal);
@@ -111,9 +115,9 @@ namespace Tichu.GameFlow.Agents
             switch (d)
             {
                 case Difficulty.Easy:   return new PolicyConfig(0, 0, 0.25);   // 탐색 OFF + 블런더
-                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드(+4.97/R) + Small콜헤드(+2.91/R)
-                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
-                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true);  // … + B1 Grand콜헤드 + Small콜헤드
+                case Difficulty.Normal: return new PolicyConfig(16, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true, useGuaranteedWinnerLead: true);  // … + B1 Grand콜헤드(+4.97/R) + Small콜헤드(+2.91/R)
+                case Difficulty.Hard:   return new PolicyConfig(20, 4, 0.05, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true, useGuaranteedWinnerLead: true);  // … + B1 Grand콜헤드 + Small콜헤드
+                case Difficulty.Expert: return new PolicyConfig(24, 6, 0.00, useCallerAggression: true, useOpponentThreatBlock: true, usePhoenixConservation: true, useExchangePin: true, useNearOutLockout: true, useHighComboWasteGuard: true, useLiveWish: true, useNearOutLeadOrder: true, useGrandCallNet: true, useSmallTichuNet: true, useGuaranteedWinnerLead: true);  // … + B1 Grand콜헤드 + Small콜헤드
                 default:                return new PolicyConfig(4, 2, 0.10);
             }
         }

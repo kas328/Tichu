@@ -80,6 +80,18 @@ namespace Tichu.GameFlow.Agents
                 if (shed != null) return TurnDecision.Play(shed, LiveWish(ctx, shed));
             }
 
+            // ③′ 확실승자 리드(라이브 가드): 끝내기(≤5장)에서 공개정보상 '확실한 승자 싱글'을 내면 남은 패가
+            // 정확히 한 족보(=다음 리드로 아웃)인 경우 그 싱글을 먼저 리드해 선을 유지·마무리({10,A}→A).
+            // 약우월(확실승자는 선을 안 잃음) → EV 앞에 직접 건다(휴리스틱 격리벤치 +1.1/R). OFF면 비트불변.
+            if (_config.UseGuaranteedWinnerLead && trick == null && ctx.MyHand.Count <= 5)
+            {
+                var nonBombLeads = new List<Combination>(legal.Count);
+                for (int i = 0; i < legal.Count; i++)
+                    if (!legal[i].IsBomb) nonBombLeads.Add(legal[i]);
+                var lead = AiAgent.GuaranteedWinnerThenOutLead(ctx, nonBombLeads);
+                if (lead != null) return TurnDecision.Play(lead, LiveWish(ctx, lead));
+            }
+
             // ⑦ near-out 싱글 락아웃(라이브 가드): 낮은 싱글 Top + 상대 1장(아웃 임박)이면 Top 소유자 무관
             // 최고 싱글로 봉쇄한다(D1 은 상대-Top 만 → 파트너-Top 케이스 갭 보완). OFF(기본)면 비트불변.
             if (_config.UseNearOutLockout && trick != null)

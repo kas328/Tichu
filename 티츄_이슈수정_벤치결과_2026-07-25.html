@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — 이슈 수정 벤치 결과</title>
+<style>
+  :root{
+    --bg:#f4f6f3; --panel:#fff; --panel2:#eef2ee; --ink:#16211d; --muted:#5a6b63; --faint:#84968d;
+    --line:#e0e6e0; --acc:#10a892; --acc-d:#0b7d6d; --acc-soft:rgba(16,168,146,.10);
+    --good:#2e9e5b; --warn:#b7851f; --bad:#c2483d; --shadow:0 1px 2px rgba(20,40,30,.05),0 4px 16px rgba(20,40,30,.06);
+    --mono:ui-monospace,"SF Mono",Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0d1411; --panel:#141d18; --panel2:#1a251f; --ink:#e6ece8; --muted:#9db0a7; --faint:#6f847a;
+      --line:#233029; --acc:#3fd6c0; --acc-d:#2bb9a4; --acc-soft:rgba(63,214,192,.11);
+      --good:#54c67f; --warn:#e6bd5f; --bad:#f0857a; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.34); }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.6;font-size:15.5px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:34px 22px 80px}
+  h1{font-size:23px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px}
+  .bluf{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:12px;padding:14px 18px;margin:0 0 22px;box-shadow:var(--shadow)}
+  .bluf b{color:var(--acc-d)} @media(prefers-color-scheme:dark){.bluf b{color:var(--acc)}}
+  .tbl-wrap{overflow-x:auto;border-radius:13px;border:1px solid var(--line);box-shadow:var(--shadow);margin:0 0 22px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);background:var(--panel2)}
+  tbody tr{background:var(--panel)} tbody tr:last-child td{border-bottom:0}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .c-keep{background:var(--acc-soft);color:var(--acc-d)} @media(prefers-color-scheme:dark){.c-keep{color:var(--acc)}}
+  .c-park{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .c-regress{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+  .c-accept{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+  h2{font-size:16px;margin:26px 0 10px}
+  .insight{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;box-shadow:var(--shadow)}
+  ul.tight{margin:.3em 0;padding-left:1.2em;font-size:13.5px} ul.tight li{margin:.34em 0}
+  code{font-family:var(--mono);font-size:.85em;background:var(--panel2);padding:1.5px 5px;border-radius:5px}
+  .decide{background:linear-gradient(120deg,var(--acc-soft),transparent 70%);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:18px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>이슈 수정 — 벤치 결과</h1>
+  <p class="sub">Phase 0 하니스(OldAiAgent HEAD 재동결) 위 격리 벤치 · HeuristicStrengthBench 4000R 페어드 · 2026-07-25</p>
+
+  <div class="bluf">
+    <b>한 줄 결론.</b> 사용자 관측 강도 레버 <b>전부 wash 또는 회귀</b> — 진단이 정확히 예측한 대로다. AI의 "낭비/실수처럼 보이는" 수는 벤치상 <b>near-optimal</b>이고, 인간 직관은 특정 케이스엔 옳지만 <b>일반 규칙으론 강도 이득이 없다</b>(프로젝트 반복 교훈 재확인). 유일하게 채택 여지가 있는 건 <b>① 봉황콤보(−0.5/R wash)</b> — 강도 중립인 체감 픽스라 <b>당신 결정</b>.
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>이슈</th><th>수정 시도</th><th class="num">벤치 (New vs 동결)</th><th>판정</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>① 봉황 콤보 낭비</b></td>
+          <td><code>PreferNaturalOverPhoenixCombo</code> — 점수·프리미엄 아닌 자연 승수로 밟아 봉황 보존(패스 안 함)</td>
+          <td class="num">−0.5/R · 48.6%<br><span style="color:var(--muted)">WilsonLB 0.471</span></td>
+          <td><span class="chip c-keep">잠정 유지</span><br><span style="font-size:11.5px;color:var(--muted)">wash·체감픽스</span></td>
+        </tr>
+        <tr>
+          <td><b>③ 엔드게임 리드 {10,A}</b></td>
+          <td>손패≤2 올-싱글서 최고 싱글 먼저 리드(카브아웃)</td>
+          <td class="num">−3.0/R · 47.8%<br><span style="color:var(--muted)">WilsonLB 0.463</span></td>
+          <td><span class="chip c-regress">회귀·파킹</span><br><span style="font-size:11.5px;color:var(--muted)">되돌림</span></td>
+        </tr>
+        <tr>
+          <td><b>B5 마작 소원</b></td>
+          <td>lowest-missing(사용자 제안) vs 현행 highest</td>
+          <td class="num">−1.0/R · 47.3%<br><span style="color:var(--muted)">WilsonLB 0.458</span></td>
+          <td><span class="chip c-park">파킹</span><br><span style="font-size:11.5px;color:var(--muted)">highest 유지</span></td>
+        </tr>
+        <tr>
+          <td><b>② K 봉황 헛블록</b></td>
+          <td>(미착수) 은닉정보 천장 — D1 가드(+16.9)가 봉황 강제</td>
+          <td class="num">측정 불능</td>
+          <td><span class="chip c-accept">수용</span><br><span style="font-size:11.5px;color:var(--muted)">연구티어</span></td>
+        </tr>
+        <tr>
+          <td><b>A4 티츄 성공률</b></td>
+          <td>(계측 이월) 콜러 first-out 강도 = 롤아웃 천장</td>
+          <td class="num">연구티어</td>
+          <td><span class="chip c-accept">defer</span><br><span style="font-size:11.5px;color:var(--muted)">τ는 사용자</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>무엇이 검증됐나</h2>
+  <div class="insight">
+    <ul class="tight">
+      <li><b>③ 회귀(−3.0/R)가 가장 유의미한 발견.</b> {10,A}에서 A 먼저가 옳아 보이지만, 일반 2장 올-싱글({J,Q}류)에선 <b>약한 수 먼저 리드가 고카드 제어를 남겨 평균적으로 강함</b>(=①의 +34.3 원리). 카브아웃이 이 다수 케이스를 건드려 손해. 리드계열 상습회귀(이제 4→5회) 재확인.</li>
+      <li><b>B5(−1.0/R):</b> 소원을 낮게 걸면 상대가 버릴 저카드만 뽑아내 통제 박탈이 약함 → 현행 highest(고카드 강제소진)가 우월. Tichu 정론이 벤치로 확인.</li>
+      <li><b>① (−0.5/R wash):</b> 봉황을 아껴도 강도는 안 변함 — "봉황 낭비"가 실제 손해가 아니란 뜻(밟아 이기면 봉황이 헛되지 않음). 다만 <b>강도 중립</b>이라 체감이 신경 쓰이면 유지할 수 있음(#2·C1 관측교정 선례).</li>
+      <li><b>② 은닉정보 천장:</b> 상대 A 보유를 모르는 한 봉황 블록의 성패는 확률적. 봉황이 유일 승수면 티츄콜러 K리드를 봉황으로 막는 게 EV상 옳을 수 있음.</li>
+    </ul>
+  </div>
+
+  <div class="decide">
+    <b>당신이 정할 것 — ① 봉황콤보 보존.</b> 강도 −0.5/R(측정 노이즈 내 wash)의 체감 픽스. <b>유지</b>(봉황 낭비가 눈에 거슬리면·#2/C1 선례) vs <b>되돌림</b>(강도 우선·③/B5와 일관되게 ≤0은 파킹). 현재 코드엔 적용된 상태(AiAgentTests 63/63 그린).
+  </div>
+
+  <p class="foot">티츄 Phase 2 · 이슈 수정 벤치 결과 · 2026-07-25 · Phase 0 하니스 + ①③B5 격리벤치</p>
+</div>
+</body>
+</html>

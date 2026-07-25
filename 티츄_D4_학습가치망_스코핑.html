@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 — D4 학습 가치망 스코핑</title>
+<style>
+  :root{ --bg:#0f1420; --card:#1a2233; --ink:#e8edf6; --dim:#9aa7bd; --line:#2a3550;
+         --ok:#3ecf8e; --bad:#ff7a7a; --accent:#5aa9ff; --warn:#c9a24b; --chip:#22304a; --a:#5aa9ff; --b:#c77dff; }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f5f7fb; --card:#fff; --ink:#1a2233; --dim:#5a6478; --line:#e0e6f0;
+           --ok:#1a9e64; --bad:#d64545; --accent:#2f7be0; --warn:#9a7a1e; --chip:#eef2f8; --a:#2f7be0; --b:#8a3ffc; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.65 -apple-system,'Segoe UI',Roboto,'Malgun Gothic',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:34px 22px 90px}
+  h1{font-size:25px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--dim);margin:0 0 20px;font-size:13.5px}
+  .bluf{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:12px;padding:16px 20px;margin:0 0 24px;font-size:15px}
+  .bluf b{color:var(--accent)}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:30px 0 12px;font-weight:700}
+  .figure{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin:0 0 8px;overflow-x:auto}
+  .figcap{color:var(--dim);font-size:12px;margin:8px 2px 0;text-align:center}
+  svg{display:block;margin:0 auto;max-width:100%}
+  .two{display:flex;gap:14px;flex-wrap:wrap}
+  .fork{flex:1 1 380px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .fork.a{border-top:3px solid var(--a)} .fork.b{border-top:3px solid var(--b)}
+  .fork h3{margin:0 0 8px;font-size:16px}
+  .fork .tag{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;margin-left:6px}
+  .fork.a .tag{background:color-mix(in srgb,var(--a) 20%,transparent);color:var(--a)}
+  .fork.b .tag{background:color-mix(in srgb,var(--b) 22%,transparent);color:var(--b)}
+  .fork ul{margin:8px 0 0;padding-left:18px} .fork li{margin:5px 0;font-size:13.5px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:0 0 14px}
+  code{background:color-mix(in srgb,var(--ink) 8%,transparent);padding:1px 5px;border-radius:5px;font:12px 'SF Mono',Consolas,monospace}
+  ul.tight{margin:6px 0;padding-left:20px} ul.tight li{margin:6px 0;font-size:14px}
+  .win{background:color-mix(in srgb,var(--ok) 12%,transparent);border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);
+    border-radius:12px;padding:14px 18px;margin:0 0 14px}
+  .win b{color:var(--ok)}
+  .foot{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 22px;margin-top:24px}
+  .foot h3{margin:0 0 8px;font-size:16px}
+  .q{margin:9px 0 0;padding-left:20px;position:relative;font-size:14px}
+  .q::before{content:"?";position:absolute;left:0;color:var(--accent);font-weight:800}
+  b.warn{color:var(--warn)} b.bad{color:var(--bad)} b.ok{color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>D4 — 학습 가치망 스코핑 리포트</h1>
+  <p class="sub">PIMC 리프 평가기를 학습망으로 · 코드 근거 3중 조사(통합·알고리즘·파이프라인) 종합 · 2026-07-16</p>
+
+  <div class="bluf">
+    D4는 진짜 천장을 구조적으로 올릴 <b>유일한</b> 레버지만, 천장은 <b>휴리스틱보다 나은 라벨</b>이 있을 때만 오르고, 풀룰+폭탄 학습 정책은 미개척·<b class="warn">패리티 확률 높음</b>. 좋은 소식: 우리 아키텍처가 <b>Fork A(리프 교체)를 거의 공짜로 시도</b>하게 해줌 — 리프 값은 <b>함수 1개·호출 2곳</b>에서만 나오고, 시뮬·오라클·벤치가 이미 헤드리스로 학습데이터를 만든다. <b>결론: 몇 주를 걸지 말고, ~1주짜리 오프라인 실험으로 먼저 디리스크.</b>
+  </div>
+
+  <h2>두 갈래 — 같은 베팅이 아니다</h2>
+  <div class="two">
+    <div class="fork a">
+      <h3>Fork A — 리프 평가기 교체 <span class="tag">안전·첫 단계</span></h3>
+      <div style="font-size:13.5px;color:var(--dim)">휴리스틱 롤아웃 대신 <code>V(world,seat)→EV</code> 한 번 추론. PIMC/α-μ/결정화기 <b>전부 재사용</b>.</div>
+      <ul>
+        <li><b class="ok">이득</b>: 롤아웃 노이즈 제거 + 리프당 비용 ~1000× 절감 → 같은 예산에 <b>세계수 10배</b> + α-μ 파레토 비교 탈노이즈(팀의 "α-μ 노이즈 한계" 직격)</li>
+        <li><b class="warn">한계</b>: 전략융합은 <b>못 고침</b>(세계별 완전정보값+평균이 곧 융합). 휴리스틱 라벨로 학습하면 휴리스틱을 <b>복제</b>만 → 천장=휴리스틱</li>
+        <li>천장이 오르려면 <b>더 강한 라벨</b>(오라클 값 / PIMC 자기대국 반복)</li>
+      </ul>
+    </div>
+    <div class="fork b">
+      <h3>Fork B — 학습 정책이 PIMC 대체 <span class="tag">XL·후순위</span></h3>
+      <div style="font-size:13.5px;color:var(--dim)">DouZero DMC / PerfectDou PTIE. 탐색 없이 한 번 추론.</div>
+      <ul>
+        <li><b class="ok">이득</b>: 전략융합을 <b>구조적으로 제거</b>(DouDizhu서 인간급 입증)</li>
+        <li><b class="bad">비용</b>: PIMC 투자 폐기 + 풀 티츄 RL 환경(파트너십·폭탄·봉황/개/소원·교환·용양도·티츄콜) 필요</li>
+        <li><b class="bad">현실</b>: 티츄 논문들은 <b>폭탄 삭제 단순룰서 아마추어</b> 정체(Müller +21.2 "명백한 실수"·Wyss 아마추어). <b>풀룰+폭탄은 미개척 = 지도 밖</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>우리 코드에 어떻게 붙나 — 시임이 이상적이다</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>리프 값 = 함수 1개, 호출 2곳</b> — <code>Pimc.Rollout</code>(Pimc.cs:14–23)가 결정화 세계를 끝까지 플레이해 관측팀 점수차 반환. 호출부는 <code>PimcAgent.cs:182</code>(후보별)·<code>:222</code>(패스).</li>
+      <li><b>after-state를 평가</b>하므로 <code>V(GameState world, int observerSeat)→double</code>가 <b>정책/Q 헤드 없이</b> 그대로 꽂힘(이상적 PTIE 리프 형태).</li>
+      <li><b>수술 최소</b>: 인터페이스 1개(<code>IWorldEvaluator</code>) + 플래그 1개(off면 비트불변, 기존 <code>Use*</code> 토글과 동일) + 호출 2곳 교체. <code>Pimc.Rollout</code>은 폴백 <b>겸 학습라벨 생성기</b>로 보존.</li>
+      <li><b>이미 가진 것</b>: 순수 C# 시뮬(<code>GameEngine</code>·<code>GameDriver</code>, UnityEngine 의존 0)·결정화기·합법수·<b>미러드 벤치</b>(<code>PimcBench.RunMirrored</code>) → dotnet으로 헤드리스 학습데이터 생성.</li>
+      <li><b>지연</b>: 넷 리프 ~10–100µs(롤아웃 대비) → 24세계×20후보 ≈ 24ms, 900ms 예산에 <b>세계수 10배 여유</b>.</li>
+      <li><b>런타임</b>: <b>손코딩 C# matmul(~30줄, 패키지 0)</b> 권장 — Sentis/ONNX 불필요(이 입력 크기엔 과잉). 인코더 ~300–600 float(56카드 멀티핫+스칼라).</li>
+    </ul>
+  </div>
+
+  <h2>디리스크 사다리 — 몇 주 걸기 전에 게이트</h2>
+  <div class="figure">
+    <svg viewBox="0 0 900 300" role="img" aria-label="D4 디리스크 게이트 흐름">
+      <!-- orthogonal cheap win (top) -->
+      <rect x="30" y="20" width="300" height="52" rx="9" fill="color-mix(in srgb,var(--ok) 12%,transparent)" stroke="var(--ok)" stroke-width="1.5"/>
+      <text x="45" y="42" fill="var(--ok)" font-size="13" font-weight="700">✔ 콜 예측 헤드 (직교·확실)</text>
+      <text x="45" y="60" class="d" fill="var(--dim)" font-size="11">~17입력 MLP · 노트북 시간 · +10점/R(Müller)</text>
+      <text x="345" y="50" class="d" fill="var(--dim)" font-size="11">← 넷과 무관하게 지금 가능</text>
+
+      <!-- main ladder -->
+      <!-- stage 1 -->
+      <rect x="30" y="120" width="180" height="64" rx="9" fill="var(--chip)" stroke="var(--a)" stroke-width="1.5"/>
+      <text x="120" y="146" text-anchor="middle" fill="var(--a)" font-size="13" font-weight="700">① 오프라인 리프 A/B</text>
+      <text x="120" y="164" text-anchor="middle" class="d" fill="var(--dim)" font-size="11">~1주 · 자기대국X · 온디바이스X</text>
+      <text x="120" y="178" text-anchor="middle" class="d" fill="var(--dim)" font-size="10.5">시임+인코더+학습+matmul</text>
+
+      <!-- gate 1 -->
+      <polygon points="270,152 305,128 340,152 305,176" fill="var(--card)" stroke="var(--warn)" stroke-width="1.5"/>
+      <text x="305" y="150" text-anchor="middle" fill="var(--warn)" font-size="10" font-weight="700">Wilson</text>
+      <text x="305" y="162" text-anchor="middle" fill="var(--warn)" font-size="10" font-weight="700">LB&gt;0.5?</text>
+      <line x1="210" y1="152" x2="268" y2="152" stroke="var(--line)" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <!-- stage 2 -->
+      <rect x="370" y="120" width="185" height="64" rx="9" fill="var(--chip)" stroke="var(--a)" stroke-width="1.5"/>
+      <text x="462" y="146" text-anchor="middle" fill="var(--a)" font-size="13" font-weight="700">② 오라클 천장 탐침</text>
+      <text x="462" y="164" text-anchor="middle" class="d" fill="var(--dim)" font-size="11">치팅 넷(4손 다 봄) 상한</text>
+      <text x="462" y="178" text-anchor="middle" class="d" fill="var(--dim)" font-size="10.5">vs PIMC A/B</text>
+      <line x1="340" y1="152" x2="368" y2="152" stroke="var(--line)" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <!-- gate 2 -->
+      <polygon points="585,152 625,126 665,152 625,178" fill="var(--card)" stroke="var(--warn)" stroke-width="1.5"/>
+      <text x="625" y="150" text-anchor="middle" fill="var(--warn)" font-size="10" font-weight="700">크게</text>
+      <text x="625" y="162" text-anchor="middle" fill="var(--warn)" font-size="10" font-weight="700">이김?</text>
+      <line x1="555" y1="152" x2="583" y2="152" stroke="var(--line)" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <!-- stage 3 -->
+      <rect x="695" y="120" width="175" height="64" rx="9" fill="var(--chip)" stroke="var(--b)" stroke-width="1.5"/>
+      <text x="782" y="146" text-anchor="middle" fill="var(--b)" font-size="13" font-weight="700">③ 학생 넷 증류</text>
+      <text x="782" y="164" text-anchor="middle" class="d" fill="var(--dim)" font-size="11">수주 · 스케일다운 PTIE</text>
+      <text x="782" y="178" text-anchor="middle" class="d" fill="var(--dim)" font-size="10.5">여기서만 큰 투자</text>
+      <line x1="665" y1="152" x2="693" y2="152" stroke="var(--line)" stroke-width="1.5" marker-end="url(#ar)"/>
+
+      <!-- fail exits -->
+      <text x="305" y="212" text-anchor="middle" fill="var(--bad)" font-size="11">아니면 ↓</text>
+      <text x="305" y="230" text-anchor="middle" fill="var(--bad)" font-size="11.5" font-weight="700">중단 — 리프가 병목 아님</text>
+      <line x1="305" y1="176" x2="305" y2="200" stroke="var(--bad)" stroke-width="1.2" stroke-dasharray="3 3"/>
+      <text x="625" y="212" text-anchor="middle" fill="var(--bad)" font-size="11">아니면 ↓</text>
+      <text x="625" y="230" text-anchor="middle" fill="var(--bad)" font-size="11.5" font-weight="700">정책넷 폐기(치팅도 못 이김)</text>
+      <line x1="625" y1="178" x2="625" y2="200" stroke="var(--bad)" stroke-width="1.2" stroke-dasharray="3 3"/>
+
+      <text x="450" y="270" text-anchor="middle" class="d" fill="var(--dim)" font-size="12">두 게이트를 통과할 때만 몇 주짜리 ③에 투자. ①②는 합쳐 ~1주·거의 공짜.</text>
+      <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="var(--line)"/></marker></defs>
+    </svg>
+    <p class="figcap">디리스크 우선: 오프라인 리프 A/B(①) → 오라클 상한 탐침(②) → 통과 시에만 학생 넷 증류(③). 콜 예측 헤드는 직교·확실한 별개 승리.</p>
+  </div>
+
+  <div class="win">
+    <b>★ 넷과 무관한 확실한 승리 — 콜 예측 헤드</b>: 라운드끝 보상 RL은 "티츄 절대 안 부름"으로 붕괴(문헌 확인). 별도 <b>"이 손이 먼저 나갈까?" 보정 헤드</b>(~17입력 MLP, BSW 로그 or 자기대국서 노트북 시간)면 Müller가 <b>+10점/R</b> 보고. 문서화된 롤아웃 콜 천장을 직격하는, D4에서 가장 확실한 클린 윈. ⚠️BSW 로그는 라이선스 회색지대(자기대국 라벨로 대체 가능).
+  </div>
+
+  <h2>비용 · 현실적 이득 (정직하게)</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>비용</b> — 카드게임 RL은 <b>GPU 아닌 CPU-시뮬 바운드</b>. Fork A 데이터생성=기존 C# 시뮬 공짜(휴리스틱 라운드 sub-ms). MLP 학습=아무 GPU/CPU서 몇 시간. <b>Fork A 첫 A/B ~1주</b>, 라벨반복+튜닝+티어 몇 주. Fork B=수주~수개월(참조 티츄 논문 16~32코어 5~8일).</li>
+      <li><b class="warn">현실적 이득</b> — Fork A(휴리스틱 라벨)=탈노이즈+세계수↑로 <b>원리상 우월하나 이득은 modest</b>, 벤치 통과 필수(팀 역사=사람눈 개선이 벤치서 회귀 상습). <b>전략융합 못 고침.</b> 풀룰 학습 정책 = <b class="bad">미개척, 몇 주 써서 기존 PIMC와 패리티~이하가 가장 유력한 결과.</b></li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    <h3>권고 — 몇 주 걸지 말고 먼저 디리스크</h3>
+    <p style="border-left:3px solid var(--ok);padding-left:14px;margin:2px 0 12px;font-size:15px">
+      아키텍처가 Fork A를 거의 공짜로 만든다(리프=함수1·호출2, 데이터생성 기존, matmul 무패키지). <b class="ok">GO: ~1주 오프라인 리프 A/B(①) + 오라클 천장 탐침(②) + 콜 예측 헤드</b>(직교·확실). <b>DEFER: 학습 정책 넷(③)은 오라클 게이트 통과 시에만.</b> 근거: 휴리스틱 라벨 넷은 오늘 천장을 복제만·리프는 융합 못 고침·풀룰 정책은 패리티 리스크. 오라클 탐침이 <b>크게</b> 이길 때만 몇 주 투자할 가치.
+    </p>
+    <h3>당신이 정할 것</h3>
+    <p class="q"><b>경로</b>: Fork A(리프 디리스크) 먼저 확정, Fork B(정책넷)는 오라클 게이트 뒤로 — 지금 B 시작 안 함.</p>
+    <p class="q"><b>라벨</b>: 휴리스틱 자기대국(값쌈·복제만) vs 오라클/PIMC 반복(천장↑·비용·연구리스크).</p>
+    <p class="q"><b>콜 헤드 지금?</b> 노트북 시간·+10/R·가장 확실 — BSW 회색지대 감수 or 자기대국 라벨.</p>
+    <p class="q"><b>런타임</b>: 손코딩 matmul(권장·무의존) vs Sentis.</p>
+  </div>
+</div>
+</body>
+</html>

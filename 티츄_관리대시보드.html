@@ -1,0 +1,464 @@
+<title>티츄 개발 관리</title>
+<style>
+  :root{
+    --bg:#f4f6f3; --panel:#ffffff; --panel2:#eef2ee; --ink:#16211d; --muted:#5a6b63; --faint:#84968d;
+    --line:#e0e6e0; --line2:#d3dbd4;
+    --acc:#10a892; --acc-d:#0b7d6d; --acc-soft:rgba(16,168,146,.10);
+    --good:#2e9e5b; --warn:#b7851f; --bad:#c2483d; --gold:#c9962f;
+    --shadow:0 1px 2px rgba(20,40,30,.05),0 4px 16px rgba(20,40,30,.06);
+    --mono:ui-monospace,"SF Mono",Consolas,"Liberation Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",Roboto,"Noto Sans KR",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d1411; --panel:#141d18; --panel2:#1a251f; --ink:#e6ece8; --muted:#9db0a7; --faint:#6f847a;
+      --line:#233029; --line2:#2c3a32;
+      --acc:#3fd6c0; --acc-d:#2bb9a4; --acc-soft:rgba(63,214,192,.11);
+      --good:#54c67f; --warn:#e6bd5f; --bad:#f0857a; --gold:#e6bd5f;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.34);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#f4f6f3; --panel:#ffffff; --panel2:#eef2ee; --ink:#16211d; --muted:#5a6b63; --faint:#84968d;
+    --line:#e0e6e0; --line2:#d3dbd4; --acc:#10a892; --acc-d:#0b7d6d; --acc-soft:rgba(16,168,146,.10);
+    --good:#2e9e5b; --warn:#b7851f; --bad:#c2483d; --gold:#c9962f;
+    --shadow:0 1px 2px rgba(20,40,30,.05),0 4px 16px rgba(20,40,30,.06);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1411; --panel:#141d18; --panel2:#1a251f; --ink:#e6ece8; --muted:#9db0a7; --faint:#6f847a;
+    --line:#233029; --line2:#2c3a32; --acc:#3fd6c0; --acc-d:#2bb9a4; --acc-soft:rgba(63,214,192,.11);
+    --good:#54c67f; --warn:#e6bd5f; --bad:#f0857a; --gold:#e6bd5f;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 22px rgba(0,0,0,.34);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15.5px;line-height:1.58;
+    -webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+  a{color:var(--acc-d)}
+  /* ---- top bar ---- */
+  .topbar{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:saturate(1.4) blur(10px);border-bottom:1px solid var(--line)}
+  .topbar .row{max-width:1080px;margin:0 auto;padding:12px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand .mk{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:19px;
+    background:linear-gradient(140deg,var(--acc),var(--acc-d));color:#04140f;box-shadow:var(--shadow)}
+  .brand h1{margin:0;font-size:16px;font-weight:800;letter-spacing:-.2px}
+  .brand .s{margin:0;font-size:11.5px;color:var(--muted)}
+  nav.tabs{display:flex;gap:4px;margin-left:6px}
+  nav.tabs button{font-family:inherit;border:1px solid transparent;background:transparent;color:var(--muted);
+    font-size:13.5px;font-weight:700;padding:7px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+  nav.tabs button:hover{color:var(--ink);background:var(--panel2)}
+  nav.tabs button.on{color:var(--acc-d);background:var(--acc-soft);border-color:color-mix(in srgb,var(--acc) 30%,transparent)}
+  :root[data-theme="dark"] nav.tabs button.on{color:var(--acc)}
+  @media (prefers-color-scheme:dark){nav.tabs button.on{color:var(--acc)}}
+  .spacer{flex:1}
+  .icobtn{font-family:inherit;border:1px solid var(--line2);background:var(--panel);color:var(--muted);
+    width:36px;height:36px;border-radius:9px;cursor:pointer;font-size:15px;display:grid;place-items:center}
+  .icobtn:hover{color:var(--ink)}
+  /* ---- layout ---- */
+  main{max-width:1080px;margin:0 auto;padding:26px 22px 90px}
+  .view{display:none;animation:fade .25s ease}
+  .view.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.view{animation:none}}
+  h2.sec{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);
+    font-weight:700;margin:30px 0 12px;display:flex;align-items:center;gap:9px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+  /* ---- dashboard stat tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media(max-width:760px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{padding:14px 15px}
+  .tile .k{font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.2px}
+  .tile .v{font-size:23px;font-weight:800;margin:3px 0 2px;letter-spacing:-.4px}
+  .tile .sub{font-size:11.5px;color:var(--faint)}
+  .tile .v.good{color:var(--good)} .tile .v.warn{color:var(--warn)} .tile .v.bad{color:var(--bad)}
+  /* ---- table ---- */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  .tbl-wrap{overflow-x:auto;border-radius:13px}
+  th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  thead th{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);background:var(--panel2)}
+  tbody tr:last-child td{border-bottom:0}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap}
+  .chip.good{background:color-mix(in srgb,var(--good) 15%,transparent);color:var(--good)}
+  .chip.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}
+  .chip.bad{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+  .chip.acc{background:var(--acc-soft);color:var(--acc-d)}
+  :root[data-theme="dark"] .chip.acc{color:var(--acc)} @media(prefers-color-scheme:dark){.chip.acc{color:var(--acc)}}
+  /* ---- callout ---- */
+  .callout{padding:15px 18px;border-radius:13px;border:1px solid var(--line);border-left:4px solid var(--acc);
+    background:linear-gradient(120deg,var(--acc-soft),transparent 70%)}
+  .callout h3{margin:0 0 5px;font-size:15px}
+  .callout p{margin:0;font-size:13.5px;color:var(--muted)}
+  /* ---- issue cards ---- */
+  .issues{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media(max-width:800px){.issues{grid-template-columns:1fr}}
+  .issue{padding:14px 15px;border-left:3px solid var(--warn)}
+  .issue.bug{border-left-color:var(--bad)}
+  .issue .n{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .issue h4{margin:3px 0 5px;font-size:14px}
+  .issue p{margin:0;font-size:12.5px;color:var(--muted)}
+  .issue .tag{display:inline-block;margin-top:8px;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .issue .tag.park{background:color-mix(in srgb,var(--warn) 15%,transparent);color:var(--warn)}
+  .issue .tag.fix{background:color-mix(in srgb,var(--bad) 15%,transparent);color:var(--bad)}
+  /* ---- checklist ---- */
+  .clbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:13px 15px;margin-bottom:16px}
+  .prog{flex:1 1 150px;height:8px;border-radius:99px;background:var(--panel2);overflow:hidden;min-width:110px}
+  .prog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--good),var(--acc));transition:width .3s}
+  .counts{display:flex;gap:8px;font-size:12.5px;font-weight:700;flex-wrap:wrap}
+  .counts span{padding:3px 10px;border-radius:999px;background:var(--panel2)}
+  .cg{color:var(--good)} .cb{color:var(--bad)} .cn{color:var(--muted)}
+  .diff{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+  select,.txt{font-family:inherit;background:var(--panel);color:var(--ink);border:1px solid var(--line2);border-radius:8px}
+  select{padding:5px 8px;font-size:12.5px}
+  .clbtns{display:flex;gap:8px;margin-left:auto}
+  button.act{font-family:inherit;background:var(--acc);color:#04140f;border:0;border-radius:9px;padding:8px 14px;
+    font-weight:700;font-size:13px;cursor:pointer}
+  button.ghost{font-family:inherit;background:transparent;color:var(--muted);border:1px solid var(--line2);
+    border-radius:9px;padding:8px 13px;font-size:12.5px;cursor:pointer}
+  .clhead{font-size:13px;font-weight:800;margin:20px 0 8px;display:flex;align-items:center;gap:8px}
+  .clhead .n{display:inline-grid;place-items:center;width:21px;height:21px;border-radius:6px;
+    background:var(--acc);color:#04140f;font-size:11.5px;font-weight:800}
+  .clhead.hl .n{background:var(--gold);color:#241900}
+  .clhead .bd{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;
+    background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--warn)}
+  .item{padding:12px 14px;margin:8px 0;border-radius:11px;border:1px solid var(--line);background:var(--panel);transition:border-color .2s}
+  .item[data-state="good"]{border-color:color-mix(in srgb,var(--good) 50%,var(--line))}
+  .item[data-state="bad"]{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
+  .item .t{font-size:14px;font-weight:600}
+  .item .d{color:var(--muted);font-size:12px;margin-top:2px}
+  .seg{display:inline-flex;gap:5px;margin-top:9px}
+  .seg button{font-family:inherit;border:1px solid var(--line2);background:var(--panel2);color:var(--muted);
+    border-radius:8px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;transition:.12s}
+  .seg button.on[data-v="good"]{background:var(--good);color:#04140b;border-color:var(--good)}
+  .seg button.on[data-v="bad"]{background:var(--bad);color:#2a0808;border-color:var(--bad)}
+  .seg button.on[data-v="none"]{background:var(--muted);color:var(--bg);border-color:var(--muted)}
+  .note{margin-top:9px;display:none}
+  .item[data-state="bad"] .note{display:block}
+  .note textarea{width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line2);border-radius:8px;
+    padding:8px 10px;font:13px/1.5 var(--sans);resize:vertical;min-height:50px}
+  .note .hint{font-size:11px;color:var(--warn);margin-bottom:4px}
+  .parked{border:1px dashed var(--line2);border-radius:10px;padding:9px 13px;margin:7px 0;font-size:12px;color:var(--muted)}
+  /* ---- reports ---- */
+  .rtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .search{flex:1 1 240px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line2);
+    border-radius:10px;background:var(--panel)}
+  .search input{flex:1;border:0;background:transparent;color:var(--ink);font:14px var(--sans);padding:10px 0;outline:none}
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .filters button{font-family:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:999px;cursor:pointer;
+    border:1px solid var(--line2);background:var(--panel);color:var(--muted)}
+  .filters button.on{background:var(--acc-soft);color:var(--acc-d);border-color:color-mix(in srgb,var(--acc) 35%,transparent)}
+  :root[data-theme="dark"] .filters button.on{color:var(--acc)} @media(prefers-color-scheme:dark){.filters button.on{color:var(--acc)}}
+  .rlist{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:720px){.rlist{grid-template-columns:1fr}}
+  .rcard{padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:var(--panel);cursor:pointer;
+    transition:.15s;display:flex;flex-direction:column;gap:3px}
+  .rcard:hover{border-color:var(--acc);transform:translateY(-1px);box-shadow:var(--shadow)}
+  .rcard .rt{font-size:13.5px;font-weight:700;line-height:1.35}
+  .rcard .rm{font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .rcard .rs{font-size:12px;color:var(--muted)}
+  .rcard .rf{font-size:10.5px;color:var(--acc-d);opacity:0;transition:.15s;margin-top:2px}
+  :root[data-theme="dark"] .rcard .rf{color:var(--acc)} @media(prefers-color-scheme:dark){.rcard .rf{color:var(--acc)}}
+  .rcard:hover .rf{opacity:1}
+  .rtag{align-self:flex-start;font-size:10px;font-weight:700;padding:2px 7px;border-radius:999px;background:var(--panel2);color:var(--muted)}
+  .empty{color:var(--muted);font-size:13px;padding:20px;text-align:center}
+  .note-box{font-size:12px;color:var(--muted);background:var(--panel2);border-radius:10px;padding:10px 14px;margin-top:14px}
+  /* ---- dialog / toast ---- */
+  dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);max-width:600px;width:92%;padding:0}
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+  .dlg-h{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;font-size:14px}
+  .dlg-b{padding:14px 18px}
+  .dlg-b textarea{width:100%;min-height:220px;background:var(--bg);color:var(--ink);border:1px solid var(--line2);
+    border-radius:8px;padding:10px;font:12.5px/1.5 var(--mono);resize:vertical}
+  .dlg-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(18px);opacity:0;z-index:60;
+    background:var(--good);color:#04140b;padding:9px 16px;border-radius:10px;font-weight:700;font-size:13px;
+    transition:.25s;pointer-events:none;box-shadow:var(--shadow)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+</style>
+
+<div class="topbar">
+  <div class="row">
+    <div class="brand">
+      <div class="mk">🃏</div>
+      <div>
+        <h1>티츄 개발 관리</h1>
+        <p class="s">Phase 2 · PIMC AI · 실기 검증 진입</p>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-t="dash" class="on">현황</button>
+      <button data-t="play">플레이테스트</button>
+      <button data-t="rep">리포트</button>
+    </nav>
+    <span class="spacer"></span>
+    <button class="icobtn" id="themeBtn" title="테마 전환" aria-label="테마 전환">◐</button>
+  </div>
+</div>
+
+<main>
+  <!-- ============ DASHBOARD ============ -->
+  <section class="view on" id="v-dash">
+    <h2 class="sec">스냅샷 · 2026-07-24</h2>
+    <div class="tiles">
+      <div class="tile panel"><div class="k">Grand 콜 헤드</div><div class="v good tnum">+4.97<span style="font-size:13px">/R</span></div><div class="sub">홀드아웃 유의 · 채택</div></div>
+      <div class="tile panel"><div class="k">Small 콜 헤드</div><div class="v good tnum">+2.91<span style="font-size:13px">/R</span></div><div class="sub">페어드 유의 · 채택</div></div>
+      <div class="tile panel"><div class="k">D4 Fork A 리프</div><div class="v bad tnum">−31.67<span style="font-size:13px">/R</span></div><div class="sub">게이트 불통과 · 파킹</div></div>
+      <div class="tile panel"><div class="k">저장소</div><div class="v" style="color:var(--acc-d)">동기화</div><div class="sub">main = origin (0/0)</div></div>
+    </div>
+
+    <h2 class="sec">채택 레버</h2>
+    <div class="panel tbl-wrap">
+      <table>
+        <thead><tr><th>레버</th><th>결과</th><th>상태</th></tr></thead>
+        <tbody>
+          <tr><td><b>B1 Grand 콜 헤드</b></td><td class="tnum">홀드아웃 +4.97/R 유의 · 그랜드 0.47%→6.86%</td><td><span class="chip good">채택·푸시</span></td></tr>
+          <tr><td><b>Small Tichu 콜 헤드</b></td><td class="tnum">페어드 +2.91/R 유의 · 작은티츄 33%→18%</td><td><span class="chip good">채택·푸시</span></td></tr>
+          <tr><td><b>D4 Fork A 리프 가치망 ①</b></td><td class="tnum">A/B −31.67/R · ε0 롤아웃이 이미 정확</td><td><span class="chip warn">파킹(인프라 보존)</span></td></tr>
+          <tr><td class="muted" colspan="3" style="font-size:12.5px">이전: 티어 정합성 · 난이도 선택기 · 플레이테스트 배치들 · D3 구조보존 리드 등 다수 채택</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="sec">다음 스텝</h2>
+    <div class="callout">
+      <h3>① 실기 플레이테스트 배치 <span class="chip acc">진행중</span></h3>
+      <p>값싼·확실한 강도 승리는 소진. 쌓인 채택분의 <b>체감</b>을 실기로 검증 → 이상한 수만 격리 벤치로 픽스(사람 눈 변경은 상습 회귀). 이후 분기: 완성도·출시(D2·D6·사운드) vs 강도 연구(D4 재방문·Fork B, XL).</p>
+    </div>
+
+    <h2 class="sec">라이브 이슈 · Expert 관측 (2026-07-24)</h2>
+    <div class="issues">
+      <div class="issue panel">
+        <div class="n">issue ①</div>
+        <h4>6페어 위에 7페어+봉황 낭비</h4>
+        <p>봉황을 낮은 콤보에 소모. 선도 못 잡고 털림.</p>
+        <span class="tag park">Issue A · 파킹 계열</span>
+      </div>
+      <div class="issue panel">
+        <div class="n">issue ②</div>
+        <h4>K에 봉황 → 내 A에 막힘</h4>
+        <p>스몰티츄 헛블록에 봉황 낭비. 봉황 보존 갭.</p>
+        <span class="tag park">라이브 EV 계열</span>
+      </div>
+      <div class="issue panel bug">
+        <div class="n">issue ③</div>
+        <h4>{10, A}인데 10 먼저 → 밟혀 못 나감</h4>
+        <p>엔드게임 리드 순서(탑패부터 실패). Expert서 재현 = 진짜 갭.</p>
+        <span class="tag fix">격리벤치 픽스 후보</span>
+      </div>
+    </div>
+    <div class="note-box">뿌리 = 라이브 리드/팔로우는 PIMC EV 탐색이 결정, 휴리스틱은 롤아웃에만 간접. 리드/셰딩 오버라이드는 상습 회귀 → ③만 좁게 격리벤치로 검증 후 판단.</div>
+  </section>
+
+  <!-- ============ PLAYTEST ============ -->
+  <section class="view" id="v-play">
+    <h2 class="sec">인터랙티브 플레이테스트 체크리스트</h2>
+    <div class="clbar panel">
+      <div class="prog"><i id="progbar"></i></div>
+      <div class="counts">
+        <span class="cg">👍 <b id="cGood">0</b></span>
+        <span class="cb">⚠️ <b id="cBad">0</b></span>
+        <span class="cn">➖ <b id="cNone">0</b></span>
+      </div>
+      <label class="diff">난이도
+        <select id="diff"><option value="">선택</option><option>Normal</option><option>Hard</option><option>Expert</option></select>
+      </label>
+      <div class="clbtns">
+        <button class="act" id="exportBtn">결과 복사</button>
+        <button class="ghost" id="resetBtn">초기화</button>
+      </div>
+    </div>
+    <div id="cllist"></div>
+  </section>
+
+  <!-- ============ REPORTS ============ -->
+  <section class="view" id="v-rep">
+    <h2 class="sec">리포트 카탈로그 <span style="text-transform:none;letter-spacing:0;font-weight:600;color:var(--faint)" id="repCount"></span></h2>
+    <div class="rtools">
+      <div class="search">🔍<input id="repSearch" type="search" placeholder="제목·요약 검색…" aria-label="리포트 검색"></div>
+      <div class="filters" id="repFilters"></div>
+    </div>
+    <div class="rlist" id="rlist"></div>
+    <div class="note-box">카드 클릭 = <b>파일명 복사</b>. 리포트는 로컬 프로젝트 폴더(<span class="tnum">C:\Users\user\Desktop\Project\Tichu\</span>)에 있어 이 호스팅 페이지에서 직접 못 엽니다 — 복사한 파일명으로 폴더에서 여세요. (클릭-투-오픈이 필요하면 로컬 허브 버전도 만들 수 있음.)</div>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <div class="dlg-h">플레이테스트 결과 — 복사해서 붙여넣어 주세요</div>
+  <div class="dlg-b"><textarea id="dlgText" readonly></textarea></div>
+  <div class="dlg-f"><button class="ghost" id="dlgClose">닫기</button><button class="act" id="dlgCopy">클립보드 복사</button></div>
+</dialog>
+<div class="toast" id="toast">복사됨</div>
+
+<script>
+// ---------- theme ----------
+const root=document.documentElement, TKEY="tichu_dash_theme";
+const saved=localStorage.getItem(TKEY); if(saved) root.setAttribute("data-theme",saved);
+document.getElementById("themeBtn").onclick=()=>{
+  const cur=root.getAttribute("data-theme")
+    || (matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light");
+  const next=cur==="dark"?"light":"dark";
+  root.setAttribute("data-theme",next); localStorage.setItem(TKEY,next);
+};
+// ---------- tabs ----------
+const tabs=document.getElementById("tabs");
+tabs.addEventListener("click",e=>{ const b=e.target.closest("button"); if(!b)return;
+  tabs.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("on"));
+  document.getElementById("v-"+b.dataset.t).classList.add("on");
+  window.scrollTo({top:0,behavior:"instant"});
+});
+// ---------- toast ----------
+const toast=document.getElementById("toast");
+function showToast(m){toast.textContent=m;toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1600);}
+async function copy(text,msg){ try{await navigator.clipboard.writeText(text);showToast(msg||"복사됨");}
+  catch(e){ const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();
+    try{document.execCommand("copy");showToast(msg||"복사됨");}catch(_){showToast("복사 실패 — 직접 선택");}t.remove(); } }
+
+// ---------- checklist ----------
+const CL=[
+ {sec:"A",title:"콜 선언 빈도 — 콜 헤드",badge:"최우선·검증중",hl:true,items:[
+   {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86% · 사용자 '더 부름' 관측"},
+   {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
+   {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18% · 사용자 '이상한 스몰티츄 줄음' 관측"},
+   {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
+ {sec:"B",title:"AI 아웃 · 낭비 품질",badge:"",hl:false,items:[
+   {id:"B1",t:"엔드게임에서 저싱글 안 남기고 아웃",d:"⚠️ 10·A에서 10 먼저 내 밟힘 관측(③)"},
+   {id:"B2",t:"콜러가 고카드·봉황·용을 안 낭비",d:"⚠️ 봉황 7페어·K블록 낭비 관측(①②)"},
+   {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
+   {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
+   {id:"B5",t:"마작 소원(콜) · 스몰티츄 하한",d:"손에 없는 최고 랭크 소원 / 한계 티츄 감소"}]},
+ {sec:"C",title:"라지티츄 팀 지원 (#4 계열)",badge:"실기만 검증가능",hl:false,items:[
+   {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
+ {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
+   {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
+   {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
+   {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
+   {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+];
+const PARKED=["Issue A — 봉황을 낮은 콤보에 낭비 (파킹·콤보가드 −6.9/R)",
+ "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
+ "② 라지티츄 응징 (롤아웃 천장 한계·연구티어)",
+ "Issue3 — 특정 리드 순서 (엔드게임셰딩 가드와 상충)"];
+const CKEY="tichu_playtest_v2";
+let cs=JSON.parse(localStorage.getItem(CKEY)||"{}");
+const cllist=document.getElementById("cllist");
+CL.forEach(sec=>{
+  const h=document.createElement("div");h.className="clhead"+(sec.hl?" hl":"");
+  h.innerHTML=`<span class="n">${sec.sec}</span> ${sec.title}`+(sec.badge?` <span class="bd">${sec.badge}</span>`:"");
+  cllist.appendChild(h);
+  sec.items.forEach(it=>{
+    const cur=cs[it.id]||{v:"",note:""};
+    const el=document.createElement("div");el.className="item";el.dataset.state=cur.v;
+    el.innerHTML=`<div class="t">${it.t}</div>`+(it.d?`<div class="d">${it.d}</div>`:"")+
+      `<div class="seg">
+        <button data-v="good" class="${cur.v==='good'?'on':''}">👍 좋음</button>
+        <button data-v="bad" class="${cur.v==='bad'?'on':''}">⚠️ 이상함</button>
+        <button data-v="none" class="${cur.v==='none'?'on':''}">➖ 미확인</button></div>
+       <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
+        <textarea placeholder="구체 상황을 적어주세요">${cur.note||""}</textarea></div>`;
+    el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.v; cs[it.id]=cs[it.id]||{v:"",note:""};
+      cs[it.id].v=(cs[it.id].v===v?"":v); el.dataset.state=cs[it.id].v;
+      el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===cs[it.id].v)); csave();
+    });
+    el.querySelector("textarea").oninput=e=>{cs[it.id]=cs[it.id]||{v:"",note:""};cs[it.id].note=e.target.value;csave();};
+    cllist.appendChild(el);
+  });
+});
+const ph=document.createElement("div");ph.className="clhead";
+ph.innerHTML=`<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
+cllist.appendChild(ph);
+PARKED.forEach(p=>{const d=document.createElement("div");d.className="parked";d.textContent="• "+p;cllist.appendChild(d);});
+const diffSel=document.getElementById("diff");diffSel.value=cs.__diff||"";
+diffSel.onchange=()=>{cs.__diff=diffSel.value;csave();};
+function csave(){localStorage.setItem(CKEY,JSON.stringify(cs));crender();}
+function crender(){let g=0,b=0,n=0,total=0;
+  CL.forEach(s=>s.items.forEach(it=>{total++;const v=(cs[it.id]||{}).v;
+    if(v==="good")g++;else if(v==="bad")b++;else if(v==="none")n++;}));
+  cGood.textContent=g;cBad.textContent=b;cNone.textContent=n;
+  progbar.style.width=(100*(g+b+n)/total)+"%";}
+const cGood=document.getElementById("cGood"),cBad=document.getElementById("cBad"),cNone=document.getElementById("cNone"),progbar=document.getElementById("progbar");
+crender();
+document.getElementById("resetBtn").onclick=()=>{if(confirm("모든 판정·메모를 지울까요?")){cs={};localStorage.removeItem(CKEY);location.reload();}};
+function buildReport(){let g=0,b=0,n=0;const bad=[],good=[];
+  CL.forEach(s=>s.items.forEach(it=>{const st=cs[it.id]||{};
+    if(st.v==="good"){g++;good.push(it.id);}else if(st.v==="bad"){b++;bad.push({id:it.id,t:it.t,note:(st.note||"").trim()});}else if(st.v==="none")n++;}));
+  let o=`티츄 플레이테스트 결과 (2026-07-24)\n난이도: ${cs.__diff||"(미선택)"}\n좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
+  if(good.length)o+=`\n👍 좋음: ${good.join(", ")}\n`;
+  if(bad.length){o+=`\n⚠️ 이상함:\n`;bad.forEach(x=>o+=`- [${x.id}] ${x.t}${x.note?` — ${x.note}`:" — (메모 없음)"}\n`);}else o+=`\n⚠️ 이상함: 없음\n`;
+  return o;}
+const dlg=document.getElementById("dlg"),dlgText=document.getElementById("dlgText");
+document.getElementById("exportBtn").onclick=()=>{dlgText.value=buildReport();dlg.showModal();};
+document.getElementById("dlgClose").onclick=()=>dlg.close();
+document.getElementById("dlgCopy").onclick=()=>copy(dlgText.value,"결과 복사됨");
+
+// ---------- reports catalog ----------
+const REPORTS=[
+ {f:"티츄_현황브리핑_2026-07-24.html",t:"개발 현황 브리핑",p:"진단",d:"07-24",s:"현재 위치 + 다음 스텝(실기 검증 진입)"},
+ {f:"티츄_다음계획_로드맵.html",t:"다음 계획 로드맵",p:"프론티어",d:"07-23",s:"강도 소진 → 실기 검증 우선, 이후 분기"},
+ {f:"티츄_D4_ForkA_벤치결과.html",t:"D4 Fork A 리프 가치망 벤치",p:"프론티어",d:"07-16",s:"A/B −31.67/R 게이트 불통과·파킹"},
+ {f:"티츄_D4_학습가치망_스코핑.html",t:"D4 학습 가치망 스코핑",p:"프론티어",d:"07-16",s:"Fork A/B 디리스크 사다리·오라클 게이트"},
+ {f:"티츄_다음프론티어_지도.html",t:"다음 프론티어 지도",p:"프론티어",d:"07-16",s:"5방향(D1출시/D2/D3/D4학습/D5고전)"},
+ {f:"티츄_D3_구조보존리드_벤치결과.html",t:"D3 구조보존 리드 벤치",p:"프론티어",d:"07-16",s:"콤보 깨는 싱글 제외·+0.5 wash·채택"},
+ {f:"티츄_Small_콜헤드_벤치결과.html",t:"Small 콜 헤드 벤치",p:"콜헤드",d:"07-16",s:"페어드 +2.91/R 유의·33%→18% 채택"},
+ {f:"티츄_B1_벤치결과.html",t:"B1 Grand 콜 헤드 벤치",p:"콜헤드",d:"07-16",s:"홀드아웃 +4.97/R 유의·채택"},
+ {f:"티츄_B1_Grand콜헤드_설계.html",t:"B1 Grand 콜 헤드 설계",p:"콜헤드",d:"07-16",s:"HandPower 게이트 뒤 학습 로지스틱 헤드"},
+ {f:"티츄_플레이테스트_피드백2_보고.html",t:"플레이테스트 피드백2 보고",p:"플레이테스트",d:"07-15",s:"용 양도 표시 + 파트너 밟기 낭비 픽스"},
+ {f:"티츄_플레이테스트_가이드_4변경.html",t:"플레이테스트 가이드 4변경",p:"플레이테스트",d:"07-15",s:"마작 소원·개 표시·스몰티츄·1:1 리드"},
+ {f:"티츄_플레이테스트_8관측_진단.html",t:"플레이테스트 8관측 진단",p:"플레이테스트",d:"07-08",s:"연출2 + AI 픽스5(엔드게임셰딩 등)"},
+ {f:"티츄_세션정리_2026-07-08.html",t:"세션 정리 07-08",p:"플레이테스트",d:"07-08",s:"8관측 배치 채택/파킹 정리"},
+ {f:"티츄_플레이테스트_체크리스트_2차.html",t:"플레이테스트 체크리스트 2차",p:"플레이테스트",d:"07-08",s:"6채택분 실기 확인 항목"},
+ {f:"티츄_플레이테스트_체크리스트.html",t:"플레이테스트 체크리스트 1차",p:"플레이테스트",d:"07-07",s:"초기 체감 확인 항목"},
+ {f:"티츄_플레이테스트_픽스_배치결과.html",t:"플레이테스트 픽스 배치결과",p:"플레이테스트",d:"07-08",s:"8/8 배치 처리 결과"},
+ {f:"티츄_플레이테스트_통합체크리스트.html",t:"통합 플레이테스트 체크리스트",p:"플레이테스트",d:"07-24",s:"쌓인 채택분 전체 통합(정적)"},
+ {f:"티츄_플레이테스트_체크리스트_인터랙티브.html",t:"인터랙티브 체크리스트",p:"플레이테스트",d:"07-24",s:"버튼 판정·저장·내보내기(로컬)"},
+ {f:"티츄_브리핑_C1D2_다음프론티어.html",t:"C1·D2 다음 프론티어 브리핑",p:"Phase2 AI",d:"07-07",s:"값싼 레버 소진·연구티어 스코핑"},
+ {f:"티츄_세션요약_C1_D2_레버소진.html",t:"세션 요약 C1·D2 레버소진",p:"Phase2 AI",d:"07-07",s:"C1 교환핀·D2 ε정상화 정리"},
+ {f:"티츄_C1_교환핀_벤치결과.html",t:"C1 교환핀 벤치",p:"Phase2 AI",d:"07-06",s:"결정화 수령좌석 고정·정확도 수정·채택"},
+ {f:"티츄_자율작업_요약.html",t:"자율작업 요약",p:"Phase2 AI",d:"07-05",s:"#4c 살리기·#2 봉황보존·#3 파킹"},
+ {f:"티츄_Expert진단_2차.html",t:"Expert 진단 2차",p:"진단",d:"07-05",s:"#4 라지티츄 팀 사보타주=치명 뿌리"},
+ {f:"티츄_Expert플레이_진단.html",t:"Expert 플레이 진단",p:"진단",d:"07-04",s:"봉황·리드·near-out 3관측"},
+ {f:"티츄_난이도선택UI_설계.html",t:"난이도 선택 UI 설계",p:"Phase2 AI",d:"07-04",s:"쉬움/보통/어려움/전문가 선택 화면"},
+ {f:"티츄_티어정합성_설계.html",t:"티어 정합성 설계",p:"Phase2 AI",d:"07-04",s:"예산·caller·세계수 사다리 단조화"},
+ {f:"티츄_진행현황_2026-07-04.html",t:"진행 현황 07-04",p:"진단",d:"07-04",s:"세계수 수확체감·강화 로드맵"},
+ {f:"티츄_AI강화_검증_로드맵.html",t:"AI 강화 검증 로드맵",p:"Phase2 AI",d:"07-03",s:"18레버 적대검증·세계수 죽은 레버"},
+ {f:"티츄_P2G_B1_벤치결과.html",t:"P2-G B1 α-μ 벤치",p:"Phase2 AI",d:"07-03",s:"강건 백업·부호 불안정·보류 OFF"},
+ {f:"티츄_P2G_B1_설계브리프.html",t:"P2-G B1 α-μ 설계",p:"Phase2 AI",d:"07-03",s:"전략융합 탈출 백업 규칙"},
+ {f:"티츄_P2G_D1_구현보고.html",t:"P2-G D1 블록가드",p:"Phase2 AI",d:"07-03",s:"상대-위협 블록가드·+16.9/R 채택"},
+ {f:"티츄_P2D_속도개선_reach16검증.html",t:"P2-D 속도개선·reach16",p:"Phase2 AI",d:"07-02",s:"LegalMoves 핫패스·reach-prob OFF"},
+ {f:"티츄_P2D2_ReachProb결과.html",t:"P2-D2 ReachProb 결과",p:"Phase2 AI",d:"07-01",s:"콜 단서 가중 EV·격리 이득 無"},
+ {f:"티츄_P2C_벤치결과.html",t:"P2-C 벤치 (DoD)",p:"Phase2 AI",d:"06-30",s:"Normal PIMC 통계적 우위·DoD 통과"},
+ {f:"티츄_Phase2_AI_PIMC_설계.html",t:"Phase2 AI PIMC 설계",p:"Phase2 AI",d:"06-28",s:"다세계 결정화 PIMC 아키텍처"},
+ {f:"티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html",t:"P1-D D6 빌드·60fps 게이트",p:"Phase1",d:"06-20",s:"안드로이드 Dev Build·실기 게이트"},
+ {f:"티츄_P1D_D5_사운드_설계.html",t:"P1-D D5 사운드 설계",p:"Phase1",d:"06-18",s:"SFX·오디오 서비스·오라클 비침범"},
+ {f:"티츄_P1D_D3_카드풀링_설계.html",t:"P1-D D3 카드 풀링 설계",p:"Phase1",d:"06-16",s:"루트별 CardChipPool 재사용"},
+ {f:"티츄_Phase1_잔여_아키텍처.html",t:"Phase1 잔여 아키텍처",p:"Phase1",d:"06-14",s:"앱셸/DI + 비주얼 단일 부트스트랩"},
+ {f:"docs/reports/2026-06-11-phase1b-presentation-design-report.html",t:"Phase1B 프레젠테이션 설계",p:"Phase1",d:"06-11",s:"비동기 드라이버·테이블 뷰"},
+ {f:"docs/reports/2026-06-10-phase1-mvp-design-report.html",t:"Phase1 MVP 설계",p:"Phase1",d:"06-10",s:"MVP 범위·아키텍처"},
+ {f:"docs/reports/2026-06-09-part2-plan-report.html",t:"Part2 계획",p:"기획",d:"06-09",s:"상태기계·정산·시뮬"},
+ {f:"티츄_프로토타입_기획서.html",t:"프로토타입 기획서",p:"기획",d:"06-08",s:"초기 게임 기획"},
+];
+const PHASES=["전체","기획","Phase1","Phase2 AI","콜헤드","프론티어","진단","플레이테스트"];
+let repFilter="전체", repQuery="";
+const repFilters=document.getElementById("repFilters");
+PHASES.forEach(p=>{const b=document.createElement("button");b.textContent=p;if(p==="전체")b.classList.add("on");
+  b.onclick=()=>{repFilter=p;repFilters.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));renderReports();};
+  repFilters.appendChild(b);});
+document.getElementById("repSearch").oninput=e=>{repQuery=e.target.value.trim().toLowerCase();renderReports();};
+const rlist=document.getElementById("rlist"),repCount=document.getElementById("repCount");
+function renderReports(){
+  const items=REPORTS.filter(r=>(repFilter==="전체"||r.p===repFilter)
+    &&(!repQuery||(r.t+" "+r.s+" "+r.f).toLowerCase().includes(repQuery)));
+  repCount.textContent=`(${items.length}/${REPORTS.length})`;
+  rlist.innerHTML="";
+  if(!items.length){rlist.innerHTML=`<div class="empty">일치하는 리포트가 없습니다</div>`;return;}
+  items.forEach(r=>{const c=document.createElement("div");c.className="rcard";
+    c.innerHTML=`<span class="rtag">${r.p} · ${r.d}</span><div class="rt">${r.t}</div><div class="rs">${r.s}</div><div class="rf">📋 클릭 = 파일명 복사</div>`;
+    c.onclick=()=>copy(r.f,"파일명 복사됨 — 로컬 폴더에서 열기");
+    rlist.appendChild(c);});
+}
+renderReports();
+</script>

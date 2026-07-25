@@ -2,6 +2,7 @@ using System;
 using DG.Tweening;
 using R3;
 using Tichu.GameFlow.Agents;
+using Tichu.Presentation.Audio;
 using UnityEngine;
 using VContainer.Unity;
 
@@ -20,19 +21,40 @@ namespace Tichu.Presentation.Shell
         MenuShellView _view;
         IDisposable _sub;
         AudioSource _bgm;   // 메뉴 BGM(앱-수명, App 씬 상주). 인게임에선 정지.
+        IAudioService _menuAudio;               // 메뉴 버튼 SFX(App-수명). 뱅크 부재 → NoOp.
+        AppLifecycleAudio _lifecycle;           // 앱 백그라운드 음소거 훅 호스트.
 
-        public MenuShellPresenter(AppFlowMachine flow, MatchSettings settings)
+        public MenuShellPresenter(AppFlowMachine flow, MatchSettings settings, IAudioService menuAudio = null)
         {
             _flow = flow;
             _settings = settings;
+            _menuAudio = menuAudio;
         }
 
         public void Start()
         {
+            VolumeSettings.Load();
             _view = new MenuShellView();
+            ResolveAudio();
+            _lifecycle = new GameObject("AppLifecycleAudio").AddComponent<AppLifecycleAudio>();
             WireButtons();
             SetupBgm();
+            VolumeSettings.Changed += OnVolumeChanged;
             _sub = _flow.State.Subscribe(Show);   // 구독 즉시 현재 화면(Intro) 발화 → 첫 패널 표시
+        }
+
+        // 메뉴 버튼 SFX 서비스 해결(미주입 시 뱅크 로드, 부재면 NoOp).
+        void ResolveAudio()
+        {
+            if (_menuAudio != null) return;
+            var bank = Resources.Load<AudioBank>("AudioBank");
+            _menuAudio = bank != null ? new UnityAudioService(bank, 2) : (IAudioService)new NoOpAudioService();
+        }
+
+        // 볼륨 슬라이더 변경 → BGM 소스 실시간 반영(SFX는 재생 시점 반영이라 구독 불필요).
+        void OnVolumeChanged()
+        {
+            if (_bgm != null) _bgm.volume = VolumeSettings.Bgm;
         }
 
         // 메뉴 BGM 소스 생성(루프). 클립은 Resources에서 로드 — 부재 시 무음(무예외).
@@ -44,7 +66,7 @@ namespace Tichu.Presentation.Shell
             _bgm.clip = clip;
             _bgm.loop = true;
             _bgm.playOnAwake = false;
-            _bgm.volume = 0.5f;
+            _bgm.volume = VolumeSettings.Bgm;
         }
 
         // 화면 상태에 따라 BGM 토글: 메뉴/결과면 재생(이미 재생 중이면 유지), 인게임이면 정지.
@@ -57,22 +79,28 @@ namespace Tichu.Presentation.Shell
 
         void WireButtons()
         {
-            _view.AddButton(ScreenState.Intro,      "시작하기",  () => _flow.Send(AppFlowEvent.IntroFinished));
-            _view.AddButton(ScreenState.MainHub,    "게임 시작", () => _flow.Send(AppFlowEvent.OpenModeSelect));
-            _view.AddButton(ScreenState.MainHub,    "게임 방법", () => _flow.Send(AppFlowEvent.OpenHowTo));
-            _view.AddButton(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
-            _view.AddButton(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.OpenDifficultySelect));   // → 난이도 선택
-            _view.AddButton(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
-            _view.AddButton(ScreenState.ModeSelect, "친구방",    () => { _flow.Send(AppFlowEvent.SelectFriendRoomStub); ShowToast("친구방은 Phase 3에서 제공됩니다"); });
-            _view.AddButton(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
-            _view.AddButton(ScreenState.DifficultySelect, "쉬움",   () => StartAt(Difficulty.Easy));
-            _view.AddButton(ScreenState.DifficultySelect, "보통",   () => StartAt(Difficulty.Normal));
-            _view.AddButton(ScreenState.DifficultySelect, "어려움", () => StartAt(Difficulty.Hard));
-            _view.AddButton(ScreenState.DifficultySelect, "전문가", () => StartAt(Difficulty.Expert));
-            _view.AddButton(ScreenState.DifficultySelect, "뒤로",   () => _flow.Send(AppFlowEvent.Back));
-            _view.AddButton(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
-            _view.AddButton(ScreenState.Settings,   "뒤로",      () => _flow.Send(AppFlowEvent.Back));            // 볼륨 슬라이더는 D5
+            Wire(ScreenState.Intro,      "시작하기",  () => _flow.Send(AppFlowEvent.IntroFinished));
+            Wire(ScreenState.MainHub,    "게임 시작", () => _flow.Send(AppFlowEvent.OpenModeSelect));
+            Wire(ScreenState.MainHub,    "게임 방법", () => _flow.Send(AppFlowEvent.OpenHowTo));
+            Wire(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
+            Wire(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.OpenDifficultySelect));   // → 난이도 선택
+            Wire(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
+            Wire(ScreenState.ModeSelect, "친구방",    () => { _flow.Send(AppFlowEvent.SelectFriendRoomStub); ShowToast("친구방은 Phase 3에서 제공됩니다"); });
+            Wire(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
+            Wire(ScreenState.DifficultySelect, "쉬움",   () => StartAt(Difficulty.Easy));
+            Wire(ScreenState.DifficultySelect, "보통",   () => StartAt(Difficulty.Normal));
+            Wire(ScreenState.DifficultySelect, "어려움", () => StartAt(Difficulty.Hard));
+            Wire(ScreenState.DifficultySelect, "전문가", () => StartAt(Difficulty.Expert));
+            Wire(ScreenState.DifficultySelect, "뒤로",   () => _flow.Send(AppFlowEvent.Back));
+            Wire(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
+            _view.AddSlider(ScreenState.Settings, "음악",   VolumeSettings.Bgm, VolumeSettings.SetBgm);
+            _view.AddSlider(ScreenState.Settings, "효과음", VolumeSettings.Sfx, VolumeSettings.SetSfx);
+            Wire(ScreenState.Settings,   "뒤로",      () => _flow.Send(AppFlowEvent.Back));
         }
+
+        // 버튼 클릭 시 클릭음을 낸 뒤 액션 실행(View는 오디오 무지 유지).
+        void Wire(ScreenState panel, string label, Action action)
+            => _view.AddButton(panel, label, () => { _menuAudio.PlaySfx(SfxId.ButtonClick); action(); });
 
         // 난이도를 홀더에 기록하고 매치를 시작한다(→ InGame). GameSessionPresenter가 이 값을 읽는다.
         void StartAt(Difficulty d)
@@ -138,8 +166,10 @@ namespace Tichu.Presentation.Shell
 
         public void Dispose()
         {
+            VolumeSettings.Changed -= OnVolumeChanged;
             _sub?.Dispose();
             if (_bgm != null) UnityEngine.Object.Destroy(_bgm.gameObject);
+            if (_lifecycle != null) UnityEngine.Object.Destroy(_lifecycle.gameObject);
         }
     }
 }

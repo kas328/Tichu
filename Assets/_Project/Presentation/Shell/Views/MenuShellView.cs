@@ -51,6 +51,55 @@ namespace Tichu.Presentation.Shell
             AddCenteredLabel(go.transform, label, 36);
         }
 
+        /// <summary>패널에 라벨 + 0~1 슬라이더를 추가하고 값 변경을 배선한다(코드 빌드).</summary>
+        public Slider AddSlider(ScreenState panel, string label, float initial, Action<float> onChange)
+        {
+            var root = _buttonRoots[panel];
+
+            var lbl = NewText($"Lbl_{label}", root, label, 30);
+            var lle = lbl.gameObject.AddComponent<LayoutElement>();
+            lle.preferredWidth = 460; lle.preferredHeight = 44;
+
+            var go = new GameObject($"Slider_{label}", typeof(RectTransform), typeof(Slider));
+            go.transform.SetParent(root, false);
+            var sle = go.AddComponent<LayoutElement>();
+            sle.preferredWidth = 460; sle.preferredHeight = 40;
+
+            var bg = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            bg.transform.SetParent(go.transform, false);
+            StretchFull((RectTransform)bg.transform);
+            bg.GetComponent<Image>().color = new Color(0.20f, 0.24f, 0.34f, 1f);
+
+            var fillArea = new GameObject("Fill Area", typeof(RectTransform));
+            fillArea.transform.SetParent(go.transform, false);
+            StretchFull((RectTransform)fillArea.transform);
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(fillArea.transform, false);
+            var fillRt = (RectTransform)fill.transform;
+            fillRt.anchorMin = new Vector2(0f, 0f); fillRt.anchorMax = new Vector2(0f, 1f);
+            fillRt.pivot = new Vector2(0f, 0.5f); fillRt.sizeDelta = new Vector2(10f, 0f);
+            fill.GetComponent<Image>().color = new Color(0.16f, 0.62f, 0.44f, 1f);
+
+            var handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+            handleArea.transform.SetParent(go.transform, false);
+            StretchFull((RectTransform)handleArea.transform);
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handle.transform.SetParent(handleArea.transform, false);
+            var hRt = (RectTransform)handle.transform;
+            hRt.sizeDelta = new Vector2(30f, 40f);
+            handle.GetComponent<Image>().color = new Color(0.92f, 0.94f, 0.98f, 1f);
+
+            var slider = go.GetComponent<Slider>();
+            slider.fillRect = fillRt;
+            slider.handleRect = hRt;
+            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f; slider.maxValue = 1f;
+            slider.value = initial;
+            slider.onValueChanged.AddListener(v => onChange(v));
+            return slider;
+        }
+
         void BuildPanel(ScreenState s, Transform parent)
         {
             var go = new GameObject($"Panel_{s}", typeof(RectTransform), typeof(CanvasGroup), typeof(Image));

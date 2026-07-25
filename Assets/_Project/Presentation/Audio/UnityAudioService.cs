@@ -9,7 +9,6 @@ namespace Tichu.Presentation.Audio
     /// </summary>
     public sealed class UnityAudioService : IAudioService
     {
-        private const float Vol = 1f;
         private readonly AudioBank _bank;
         private readonly AudioSource[] _voices;
         private int _next;
@@ -32,7 +31,7 @@ namespace Tichu.Presentation.Audio
             if (_bank == null) return;                 // 명시 주입 방어(bank null)
             var clip = _bank.Clip(id);
             if (clip == null) return;                  // 미할당 → 무음(PlayOneShot 미호출)
-            _voices[_next++ % _voices.Length].PlayOneShot(clip, Vol);
+            _voices[_next++ % _voices.Length].PlayOneShot(clip, VolumeSettings.Sfx);
         }
     }
 }

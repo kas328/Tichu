@@ -247,7 +247,10 @@ namespace Tichu.GameFlow.Agents
             {
                 // 끝내기 모드: 가장 많은 카드를 터는 수(아웃 추진; 콤보를 자연히 우선 → 1장 상대도 봉쇄).
                 // 동수면 가장 약한 수(고카드 제어를 남겨 저카드 먼저 흘리고 아웃 확보 — ①).
-                chosen = MostShedding(pool)!;
+                // ③′(사용자 정제): 단, '확실한 승자 싱글'(공개정보상 아무도 못 이김)을 내면 남은 패가
+                //   정확히 한 족보(=다음 리드로 아웃)인 경우엔 그 싱글을 먼저 리드해 선을 유지하고 마무리
+                //   ({10,A}→A). 확실승자만 발동해 넓은 카브아웃의 회귀({J,Q})를 회피. 없으면 MostShedding.
+                chosen = GuaranteedWinnerThenOutLead(ctx, pool) ?? MostShedding(pool)!;
             }
             else
             {
@@ -386,7 +389,11 @@ namespace Tichu.GameFlow.Agents
                 && (wastesPoints || wastesHighCombo))
                 return TurnDecision.Pass;
 
-            return TurnDecision.Play(lowestWin);
+            // ① 봉황 콤보 보존: 밟기로 결정됐고(패스 아님) lowestWin 이 봉황을 콤보(≥2장)에 쓰면,
+            // 점수 없고 프리미엄(Q+) 아닌 자연(비봉황) 승수가 있으면 그것으로 밟아 귀한 봉황을 아낀다
+            // (#2 봉황싱글 보존의 콤보판). 트릭 헌납 없음(패스 결정은 위에서 끝). 아웃(goesOut)이면 유지.
+            var play = goesOut ? lowestWin : PreferNaturalOverPhoenixCombo(lowestWin, nonBomb);
+            return TurnDecision.Play(play);
         }
 
         // ── 폭탄 인터럽트 ────────────────────────────────────────────────────────────
@@ -476,6 +483,89 @@ namespace Tichu.GameFlow.Agents
                 { bestCount = cnt; bestStrength = st; best = m; }
             }
             return best;
+        }
+
+        /// <summary>③′(사용자 정제): 끝내기 리드에서 '확실한 승자 싱글'(공개정보상 아무도 못 이김: 더 높은
+        /// 미공개 자연 싱글·용·봉황 없음)을 내면 남은 패가 정확히 한 족보(=다음 리드로 아웃)인 경우, 그 싱글을
+        /// 먼저 리드해 선을 유지하고 마무리한다({10,A}→A 먼저). 확실승자만 발동해 넓은 카브아웃의 회귀({J,Q}
+        /// 등 비-확실승자)를 회피. 폭탄 위협은 무시(희소). 싱글 확실승자만 지원(v1). 없으면 null.</summary>
+        public static Combination? GuaranteedWinnerThenOutLead(in DecisionContext ctx, IReadOnlyList<Combination> pool)
+        {
+            var hand = ctx.MyHand;
+            if (hand.Count < 2) return null;   // 1장이면 MostShedding(=그 1장)로 그냥 아웃
+            ComputeSeen(ctx.State, hand, out bool dragonSeen, out bool phoenixSeen, out var natSeen);
+            for (int i = 0; i < pool.Count; i++)
+            {
+                var c = pool[i];
+                if (c.Type != CombinationType.Single || c.Cards.Count != 1) continue;   // 싱글 확실승자만
+                if (!IsGuaranteedWinnerSingle(c.Cards[0], dragonSeen, phoenixSeen, natSeen)) continue;
+                if (RestFormsOneCombo(hand, c.Cards[0])) return c;
+            }
+            return null;
+        }
+
+        /// <summary>싱글이 공개정보상 확실한 트릭 승자인가(폭탄 무시). 용=항상 참. 자연=미공개 용·봉황이
+        /// 없고(둘 다 싱글을 이김) 더 높은 미공개 자연 싱글도 없어야 참. 봉황/개/마작 싱글은 거짓.</summary>
+        private static bool IsGuaranteedWinnerSingle(Card card, bool dragonSeen, bool phoenixSeen, int[] natSeen)
+        {
+            if (card.Special == SpecialKind.Dragon) return true;
+            if (card.IsSpecial) return false;
+            if (!dragonSeen || !phoenixSeen) return false;   // 미공개 용/봉황이 어떤 싱글이든 이김
+            for (int s = card.Rank + 1; s <= 14; s++)
+                if (4 - natSeen[s] > 0) return false;         // 더 높은 미공개 자연 싱글 존재
+            return true;
+        }
+
+        /// <summary>공개 카드(내 손 + 완료·현재 트릭에 나온 모든 카드)를 집계 — 용/봉황 목격 여부와 자연 랭크별 개수.</summary>
+        private static void ComputeSeen(GameState state, IReadOnlyList<Card> myHand,
+            out bool dragonSeen, out bool phoenixSeen, out int[] natSeen)
+        {
+            var seen = new int[15];
+            bool dSeen = false, pSeen = false;
+            for (int i = 0; i < myHand.Count; i++) MarkSeen(myHand[i], seen, ref dSeen, ref pSeen);
+            var done = state.CompletedTricks;
+            for (int t = 0; t < done.Count; t++) MarkTrick(done[t], seen, ref dSeen, ref pSeen);
+            if (state.CurrentTrick != null) MarkTrick(state.CurrentTrick, seen, ref dSeen, ref pSeen);
+            dragonSeen = dSeen; phoenixSeen = pSeen; natSeen = seen;
+        }
+
+        private static void MarkTrick(Trick trick, int[] natSeen, ref bool dragonSeen, ref bool phoenixSeen)
+        {
+            var h = trick.History;
+            for (int i = 0; i < h.Count; i++)
+            {
+                var combo = h[i].Combination;
+                if (combo == null) continue;
+                var cards = combo.Cards;
+                for (int j = 0; j < cards.Count; j++) MarkSeen(cards[j], natSeen, ref dragonSeen, ref phoenixSeen);
+            }
+        }
+
+        private static void MarkSeen(Card c, int[] natSeen, ref bool dragonSeen, ref bool phoenixSeen)
+        {
+            switch (c.Special)
+            {
+                case SpecialKind.Dragon: dragonSeen = true; break;
+                case SpecialKind.Phoenix: phoenixSeen = true; break;
+                case SpecialKind.Dog: case SpecialKind.Mahjong: break;
+                default: if (c.Rank >= 2 && c.Rank <= 14) natSeen[c.Rank]++; break;
+            }
+        }
+
+        /// <summary>손패에서 remove 1장을 뺀 나머지가 정확히 한 족보(합법 단일 조합)인가 — 다음 리드로 아웃 가능.</summary>
+        private static bool RestFormsOneCombo(IReadOnlyList<Card> hand, Card remove)
+        {
+            int n = hand.Count;
+            if (n <= 1) return false;
+            var rest = new Card[n - 1];
+            int k = 0; bool removed = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (!removed && hand[i].Equals(remove)) { removed = true; continue; }
+                if (k < rest.Length) rest[k++] = hand[i];
+            }
+            if (!removed || k != rest.Length) return false;
+            return CombinationRecognizer.Recognize(rest, TrickContext.Lead).Type != CombinationType.Invalid;
         }
 
         /// <summary>#3 끝내기 셰딩 라이브 가드: 가장 많이 터는 리드(콤보 우선, 동수면 강한 수). 없으면 null.
@@ -740,6 +830,40 @@ namespace Tichu.GameFlow.Agents
                 if (k < bestK) { bestK = k; best = wins[i]; }
             }
             return best;
+        }
+
+        /// <summary>콤보/싱글에 봉황이 포함됐는가(귀한 와일드카드 소비).</summary>
+        private static bool ContainsPhoenix(Combination m)
+        {
+            for (int i = 0; i < m.Cards.Count; i++)
+                if (m.Cards[i].Special == SpecialKind.Phoenix) return true;
+            return false;
+        }
+
+        /// <summary>봉황을 포함하지 않는 가장 낮은(약한) 승수. 전부 봉황 포함이면 null.</summary>
+        private static Combination? CheapestNonPhoenixWin(IReadOnlyList<Combination> wins)
+        {
+            Combination? best = null; int bestK = int.MaxValue;
+            for (int i = 0; i < wins.Count; i++)
+            {
+                if (ContainsPhoenix(wins[i])) continue;
+                int k = MoveOrder.Strength(wins[i]);
+                if (k < bestK) { bestK = k; best = wins[i]; }
+            }
+            return best;
+        }
+
+        /// <summary>① 봉황 콤보 보존: chosen 이 봉황을 콤보(≥2장)에 쓰는 밟기면, 점수 없고 프리미엄(Q+)
+        /// 아닌 자연(비봉황) 승수가 있으면 그것으로 대체해 봉황을 아낀다. 없거나 자연이 점수·프리미엄이면
+        /// chosen 유지(봉황 보존이 손해거나 패스규칙 침범 방지). 트릭 헌납 없음 — 밟는 카드만 스왑.</summary>
+        private static Combination PreferNaturalOverPhoenixCombo(Combination chosen, IReadOnlyList<Combination> wins)
+        {
+            if (chosen.Cards.Count < 2 || !ContainsPhoenix(chosen)) return chosen;   // 봉황 콤보만
+            var natural = CheapestNonPhoenixWin(wins);
+            if (natural == null) return chosen;                                      // 자연 대안 없음 → 봉황 유지
+            if (natural.PointsInPlay > 0) return chosen;                             // 점수 자연 → 보류(점수·패스규칙 보존)
+            if (natural.Rank >= HighComboSaveScaled) return chosen;                  // 프리미엄(Q+) 자연 → 봉황 보존이 손해 → 보류
+            return natural;
         }
 
         /// <summary>상대팀이 티츄/큰티츄를 선언했거나 상대가 아웃 임박이면 위협(원투 저지 동기).</summary>

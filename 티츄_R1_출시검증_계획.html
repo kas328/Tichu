@@ -1,0 +1,342 @@
+<title>티츄 · R1 출시 검증 계획</title>
+<style>
+  :root{
+    --paper:#f4f2ea; --surface:#ffffff; --panel:#faf9f3;
+    --ink:#1a231e; --sub:#55605a; --faint:#8b948c;
+    --line:#e5e8df; --line2:#d4d9cd;
+    --jade:#0e7a5a; --jade-2:#15b187; --jade-soft:#e7f4ee;
+    --gold:#a97913; --gold-soft:#fbf1da;
+    --red:#c33b3f; --red-soft:#fbe9ea;
+    --blue:#2f66c9; --blue-soft:#e9f0fb;
+    --gray-soft:#eef1ec;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(20,40,30,.05), 0 10px 30px rgba(20,40,30,.06);
+    --mono:'JetBrains Mono','SFMono-Regular','Consolas',monospace;
+    --sans:'Pretendard','Apple SD Gothic Neo','Malgun Gothic','Segoe UI',sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0f130e; --surface:#161b14; --panel:#1b211a;
+      --ink:#e9ede6; --sub:#a4aea3; --faint:#6d776e;
+      --line:#262d24; --line2:#333c31;
+      --jade:#38c795; --jade-2:#2ab082; --jade-soft:#12251d;
+      --gold:#e0ad4a; --gold-soft:#2a2110;
+      --red:#ef6d70; --red-soft:#2c1516;
+      --blue:#7aa6ef; --blue-soft:#141d2c;
+      --gray-soft:#1f251d;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#f4f2ea; --surface:#ffffff; --panel:#faf9f3;
+    --ink:#1a231e; --sub:#55605a; --faint:#8b948c;
+    --line:#e5e8df; --line2:#d4d9cd;
+    --jade:#0e7a5a; --jade-2:#15b187; --jade-soft:#e7f4ee;
+    --gold:#a97913; --gold-soft:#fbf1da;
+    --red:#c33b3f; --red-soft:#fbe9ea;
+    --blue:#2f66c9; --blue-soft:#e9f0fb;
+    --gray-soft:#eef1ec;
+    --shadow:0 1px 2px rgba(20,40,30,.05), 0 10px 30px rgba(20,40,30,.06);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0f130e; --surface:#161b14; --panel:#1b211a;
+    --ink:#e9ede6; --sub:#a4aea3; --faint:#6d776e;
+    --line:#262d24; --line2:#333c31;
+    --jade:#38c795; --jade-2:#2ab082; --jade-soft:#12251d;
+    --gold:#e0ad4a; --gold-soft:#2a2110;
+    --red:#ef6d70; --red-soft:#2c1516;
+    --blue:#7aa6ef; --blue-soft:#141d2c;
+    --gray-soft:#1f251d;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);line-height:1.62;-webkit-font-smoothing:antialiased;
+    font-feature-settings:"tnum";}
+  .wrap{max-width:940px;margin:0 auto;padding:0 20px 96px}
+
+  /* ---- header ---- */
+  header.cover{position:relative;overflow:hidden;
+    background:
+      radial-gradient(1200px 300px at 88% -30%, rgba(21,177,135,.28), transparent 60%),
+      linear-gradient(140deg,#0b4d3a 0%, #0e6d51 55%, #12855f 100%);
+    color:#eafaf3;padding:44px 40px 40px;border-radius:0 0 26px 26px;box-shadow:var(--shadow)}
+  header.cover .kicker{font-size:12px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+    opacity:.82;display:flex;align-items:center;gap:9px}
+  header.cover h1{margin:.34em 0 .3em;font-size:29px;line-height:1.22;letter-spacing:-.015em;
+    font-weight:800;text-wrap:balance;max-width:22ch}
+  header.cover .dek{margin:0;font-size:15px;opacity:.94;max-width:60ch}
+  .metarow{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  .pill{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.26);
+    padding:5px 12px;border-radius:999px;font-size:12.5px;font-weight:600;backdrop-filter:blur(2px)}
+  .pill.ok{background:rgba(255,255,255,.2)}
+  .suit{opacity:.5;font-size:13px;letter-spacing:2px}
+
+  /* ---- sections ---- */
+  section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:28px 30px;margin:20px 0;box-shadow:var(--shadow)}
+  .eyebrow{font-size:11.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--jade);
+    display:flex;align-items:center;gap:8px;margin:0 0 4px}
+  .eyebrow::before{content:"";width:16px;height:2px;background:var(--jade);border-radius:2px}
+  h2{font-size:21px;margin:2px 0 14px;letter-spacing:-.01em;font-weight:800}
+  h3{font-size:15.5px;margin:22px 0 8px;font-weight:750;letter-spacing:-.005em}
+  h3:first-of-type{margin-top:6px}
+  p{margin:.5em 0;font-size:14.5px;color:var(--ink)}
+  .lead{color:var(--sub);font-size:15px}
+  code{font-family:var(--mono);font-size:12.5px;background:var(--gray-soft);
+    border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink)}
+
+  /* ---- stat tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 4px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:14px 15px}
+  .tile .lab{font-size:11.5px;color:var(--faint);font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+  .tile .val{font-size:22px;font-weight:800;margin-top:3px;letter-spacing:-.02em;line-height:1.15}
+  .tile .val small{font-size:13px;font-weight:600;color:var(--sub);letter-spacing:0}
+  .tile.accent .val{color:var(--jade)}
+
+  /* ---- tables ---- */
+  .tbl-scroll{overflow-x:auto;margin:14px 0;border-radius:11px;border:1px solid var(--line2)}
+  table{width:100%;border-collapse:collapse;font-size:13.3px;min-width:520px}
+  th,td{padding:10px 13px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+  thead th{background:var(--panel);color:var(--sub);font-weight:750;font-size:12px;
+    text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--line2)}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr.hl{background:var(--jade-soft)}
+  tbody tr.hl td:first-child{box-shadow:inset 3px 0 0 var(--jade)}
+  td b{font-weight:700}
+
+  /* ---- tags ---- */
+  .tag{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
+    border:1px solid transparent;white-space:nowrap;line-height:1.5}
+  .t-green{background:var(--jade-soft);color:var(--jade);border-color:color-mix(in srgb,var(--jade) 30%,transparent)}
+  .t-gold{background:var(--gold-soft);color:var(--gold);border-color:color-mix(in srgb,var(--gold) 32%,transparent)}
+  .t-red{background:var(--red-soft);color:var(--red);border-color:color-mix(in srgb,var(--red) 32%,transparent)}
+  .t-blue{background:var(--blue-soft);color:var(--blue);border-color:color-mix(in srgb,var(--blue) 32%,transparent)}
+  .t-gray{background:var(--gray-soft);color:var(--sub);border-color:var(--line2)}
+
+  /* ---- callouts ---- */
+  .callout{display:flex;gap:13px;padding:15px 17px;border-radius:12px;margin:14px 0;font-size:14px}
+  .callout .ic{flex:0 0 auto;font-size:17px;line-height:1.4}
+  .callout .bd{min-width:0}
+  .callout .bd b{color:var(--ink)}
+  .c-note{background:var(--blue-soft);border:1px solid color-mix(in srgb,var(--blue) 24%,transparent)}
+  .c-warn{background:var(--gold-soft);border:1px solid color-mix(in srgb,var(--gold) 26%,transparent)}
+  .c-ok{background:var(--jade-soft);border:1px solid color-mix(in srgb,var(--jade) 26%,transparent)}
+
+  /* ---- track cards (R1 detail) ---- */
+  .track{border:1px solid var(--line2);border-radius:13px;padding:18px 20px;margin:14px 0;background:var(--panel)}
+  .track > .head{display:flex;align-items:center;gap:11px;margin-bottom:4px}
+  .track .badge{flex:0 0 auto;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    font-weight:800;font-size:13px;color:#fff;background:linear-gradient(135deg,var(--jade),var(--jade-2))}
+  .track .head h3{margin:0;font-size:16px}
+  .track .head .muted{color:var(--faint);font-size:12.5px;font-weight:600;margin-left:auto}
+
+  ul.check{list-style:none;margin:8px 0;padding:0}
+  ul.check li{position:relative;padding-left:26px;margin:7px 0;font-size:13.8px}
+  ul.check li::before{content:"☐";position:absolute;left:0;top:-1px;color:var(--jade);font-size:15px}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+  .decision{border:1px solid var(--line2);border-radius:12px;padding:16px 18px;background:var(--surface)}
+  .decision .n{font-size:11.5px;font-weight:800;color:var(--jade);letter-spacing:.06em}
+  .decision h4{margin:4px 0 6px;font-size:15px;font-weight:750}
+  .decision p{font-size:13.4px;color:var(--sub);margin:.3em 0}
+
+  /* ---- approval footer ---- */
+  .approve{background:linear-gradient(140deg,var(--jade-soft),var(--surface));
+    border:1px solid color-mix(in srgb,var(--jade) 30%,transparent)}
+  .approve h2{color:var(--jade)}
+  .steps{list-style:none;counter-reset:s;margin:10px 0 0;padding:0}
+  .steps li{counter-increment:s;position:relative;padding-left:38px;margin:11px 0;font-size:14px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;
+    background:var(--jade);color:#fff;border-radius:8px;display:grid;place-items:center;
+    font-weight:800;font-size:12.5px}
+  .steps li b{font-weight:700}
+
+  .foot{text-align:center;color:var(--faint);font-size:12px;margin-top:26px;line-height:1.7}
+
+  @media (max-width:680px){
+    header.cover{padding:34px 22px 30px}
+    header.cover h1{font-size:24px}
+    section{padding:22px 18px}
+    .tiles{grid-template-columns:repeat(2,1fr)}
+    .split{grid-template-columns:1fr}
+  }
+</style>
+
+<header class="cover">
+  <div class="kicker"><span class="suit">♠ ♥ ♦ ♣</span> Tichu · Release Track</div>
+  <h1>R1 출시 검증 계획</h1>
+  <p class="dek">게임은 기능적으로 완성됐다. 이제 <b>Google Play 정식 출시</b>로 가는 5트랙 중 첫 관문 — 실기기 성능과 미확인 AI 부채를 검증해 <b>Phase 1을 공식 종료</b>한다. 검토·승인용 문서.</p>
+  <div class="metarow">
+    <span class="pill">2026-07-26</span>
+    <span class="pill ok">main = origin/main · 동기</span>
+    <span class="pill">방향 A · 출시/검증 트랙</span>
+    <span class="pill">범위: Google Play 정식 출시</span>
+    <span class="pill ok">이름: Tichu Master</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- 현황 -->
+  <section>
+    <p class="eyebrow">현황 스냅샷</p>
+    <h2>지금 어디에 있나</h2>
+    <p class="lead">Phase 0~2가 모두 <code>main</code>에 머지·푸시됨. 코드는 앞서갔지만 <b>Phase 1이 공식적으로 닫힌 적이 없다</b> — 그게 이 트랙의 출발점.</p>
+
+    <div class="tiles">
+      <div class="tile"><div class="lab">Phase 0 · 룰엔진</div><div class="val">완료 <small>155 tests</small></div></div>
+      <div class="tile"><div class="lab">Phase 1 · MVP·사운드</div><div class="val" style="color:var(--gold)">기능 완료 <small>·미종료</small></div></div>
+      <div class="tile"><div class="lab">Phase 2 · AI(PIMC)</div><div class="val">광범위 <small>·검증대기</small></div></div>
+      <div class="tile accent"><div class="lab">저장소</div><div class="val">Clean <small>0/0</small></div></div>
+    </div>
+
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Phase</th><th>상태</th><th>최신 지점</th></tr></thead>
+        <tbody>
+          <tr><td><b>Phase 0</b> 룰엔진</td><td><span class="tag t-green">완료</span></td><td>155 tests + 10만판 무결성</td></tr>
+          <tr><td><b>Phase 1</b> MVP·비주얼·사운드</td><td><span class="tag t-gold">기능 완료 · 미종료</span></td><td>최신 main = D5.1 사운드 폴리시(버튼음·볼륨패널·백그라운드 음소거)</td></tr>
+          <tr><td><b>Phase 2</b> AI(PIMC)</td><td><span class="tag t-green">광범위 개발</span></td><td>난이도 티어 + 선택 UI + 콜헤드(Grand+Small) + ①봉황콤보 + ③′확실승자 리드</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>핵심 갭 3가지</h3>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>#</th><th>갭</th><th>내용</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag t-red">🔴</span></td><td><b>실기기 D6 게이트 미실행</b></td><td>60fps 실측 + "한 판 더" 손맛 — 사람만 할 수 있어 미완. Phase 1→2 공식 관문.</td></tr>
+          <tr><td><span class="tag t-gold">🟠</span></td><td><b>플레이테스트 미확인 부채</b></td><td>벤치로 채택했지만 실기 미확인인 AI 변경 누적(③′·①·#4·C1·07-15 등).</td></tr>
+          <tr><td><span class="tag t-gold">🟡</span></td><td><b>AI 강도 천장</b></td><td>값싼 레버 소진. 정직한 결론: 봇은 이미 공개 티츄 SOTA 이상. <span class="tag t-gray">R1 범위 밖</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 로드맵 -->
+  <section>
+    <p class="eyebrow">전체 그림</p>
+    <h2>Google Play 출시 = 5트랙</h2>
+    <p class="lead"><b>검증(R1)이 전부의 관문.</b> 검증 안 된 빌드에 스토어 자산·서명·정책을 붙이는 건 무의미하니, R1부터 상세 설계한다.</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>트랙</th><th>핵심</th><th>주 담당</th><th>순서</th></tr></thead>
+        <tbody>
+          <tr class="hl"><td><b>R1 검증</b></td><td>D6 실기기 게이트 + 미확인 부채 플레이테스트 → Phase 1 종료</td><td>🧑 당신 위주</td><td><span class="tag t-green">지금</span></td></tr>
+          <tr><td><b>R2 빌드/서명</b></td><td>Release keystore·AAB·타겟 API·R8·권한 감사</td><td>내가 설계</td><td>R1 후</td></tr>
+          <tr><td><b>R3 스토어 자산</b></td><td>아이콘·피처그래픽·스크린샷·스토어 문구</td><td>🧑 + 스캐폴딩</td><td>R2 병행</td></tr>
+          <tr><td><b>R4 정책</b></td><td>개인정보처리방침·Data safety·콘텐츠 등급·64bit</td><td>내가 초안</td><td>R3 병행</td></tr>
+          <tr><td><b>R5 배포</b></td><td>Play Console 계정·내부→비공개→프로덕션·사전출시보고서</td><td>🧑 제출</td><td>최종</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- R1 상세 -->
+  <section>
+    <p class="eyebrow">이 문서의 본론</p>
+    <h2>R1 검증 — 상세 설계</h2>
+    <p class="lead">S23 한 대(플래그십)만 있는 현실을 반영해 세 부분으로 나눈다.</p>
+
+    <div class="track">
+      <div class="head"><span class="badge">a</span><h3>성능 게이트</h3><span class="muted">S23 스모크 · 저사양 미대응</span></div>
+      <p><b>제품 결정 — 저사양 미대응.</b> 저사양 사용자 비중이 미미해 성능 게이트를 현대 중급+ 기기 기준으로 단순화. 보유한 <b>S23 스모크가 곧 게이트</b>다.</p>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>항목</th><th>언제</th><th>방법</th></tr></thead>
+          <tbody>
+            <tr><td><b>DoD#2</b> 60fps 스모크(현대 기기)</td><td><span class="tag t-green">R1</span></td><td>S23 Dev Build + FpsOverlay 상시 녹색(≥55), 적색 스파이크 0</td></tr>
+            <tr><td><s>저사양 60fps 확정</s></td><td><span class="tag t-gray">범위 제외</span></td><td>R5 Play 사전 출시 보고서는 무료 <b>참고자료로만</b>(게이트 아님)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="check">
+        <li>풀매치(1000점) 크래시 0으로 완주</li>
+        <li>전 구간 FpsOverlay 녹색 유지 · 적색 스파이크 없음</li>
+        <li>DoTween 애니(플레이 팝·차례 펄스·결과 팝) 프레임 드랍 체감 없음</li>
+        <li>여러 라운드 연속 시 GC 스파이크 끊김 없음(D3 풀링)</li>
+      </ul>
+      <div class="callout c-warn"><div class="ic">⚠️</div><div class="bd"><b>첫 관문:</b> D6 시점 APK 빌드는 미수행. Unity Hub에 <b>Android Build Support(SDK·NDK·JDK)</b> 설치부터 확인해야 한다.</div></div>
+    </div>
+
+    <div class="track">
+      <div class="head"><span class="badge">b</span><h3>미확인 AI 부채 통합 체크리스트</h3><span class="muted">핵심 작업량 · 1패스</span></div>
+      <p>채택했지만 실기 미확인인 변경을 <b>하나의 가이드 체크리스트</b>로 통합해, S23 Expert 집중 플레이테스트 1패스로 전수 관찰한다. 기존 인터랙티브 대시보드를 이 항목으로 확장.</p>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>항목</th><th>라이브에서 무엇을 보나</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td><b>③′ 확실승자 리드</b></td><td><code>{10,A}</code>에서 <b>A 먼저</b> 리드하고 나가는가(10 먼저 리드해 밟히지 않는가)</td><td><span class="tag t-gold">배선완료·미확인</span></td></tr>
+            <tr><td><b>① 봉황콤보 보존</b></td><td>봉황을 싱글로 헛쓰지 않고 자연 승수로 밟는가</td><td><span class="tag t-gold">미확인</span></td></tr>
+            <tr><td><b>#4 라지티츄 지원</b></td><td>파트너 티츄 콜 시 최고카드 교환·밟기 금지·먼저 나가기 금지로 협조하는가</td><td><span class="tag t-gold">미확인</span></td></tr>
+            <tr><td><b>#4c 살리기</b></td><td>콜한 파트너 못 나갈 상황이면 살려주는 탈출을 하는가</td><td><span class="tag t-gold">미확인</span></td></tr>
+            <tr><td><b>C1 교환핀</b></td><td>(간접) 교환 후 넘긴 카드 좌석을 아는 듯한 플레이</td><td><span class="tag t-gold">미확인</span></td></tr>
+            <tr><td><b>07-15 · D3 구조보존리드</b></td><td>스트레이트/트리플/연속페어 깨는 싱글 리드를 회피하는가</td><td><span class="tag t-gold">미확인</span></td></tr>
+            <tr><td><b>콜헤드(Grand/Small)</b></td><td>(재확인) Grand 더 자주 · 이상한 Small 감소</td><td><span class="tag t-green">07-24 확인됨</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>+ 일반 스모크</h3>
+      <ul class="check">
+        <li>4난이도(쉬움/보통/어려움/전문가) 각각 시작·정상 동작</li>
+        <li>풀매치까지 크래시 0 · 모든 룰 인터랙션(폭탄·용·개·마작 소원·티츄/큰티츄·1-2 피니시) UI 정상</li>
+        <li>D5.1 사운드: 버튼음·볼륨 패널·백그라운드 음소거 정상</li>
+        <li>가로 세이프에어리어(노치 미가림)·방향 잠금</li>
+      </ul>
+      <div class="callout c-note"><div class="ic">🧭</div><div class="bd"><b>발견 처리 철칙:</b> 버그·연출 → 직접 수정. <b>강도 관련(리드/셰딩/밟기) → 반드시 격리벤치 먼저</b>, ≥0일 때만 채택. ⚠️ 라이브 EV 오버라이드는 상습 회귀 이력 — 인간 직관이 국소적으론 옳아도 강도 이득은 대개 없다. 롤아웃 천장 한계(인간 라지티츄 응징 등)는 연구티어로 수용.</div></div>
+    </div>
+
+    <div class="track">
+      <div class="head"><span class="badge">c</span><h3>Phase 1 공식 종료</h3><span class="muted">DoD 재판정</span></div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr><th>게이트</th><th>통과 조건</th><th>판정</th></tr></thead>
+          <tbody>
+            <tr><td>완주 (DoD#1)</td><td>풀매치 크래시 0 · 룰 인터랙션 정상</td><td><span class="tag t-gray">☐ Pass / Fail</span></td></tr>
+            <tr><td>성능 (DoD#2)</td><td>S23 60fps 유지 · 병목 체감 0 <span class="tag t-gray">저사양 미대응</span></td><td><span class="tag t-gray">☐ Pass / Fail</span></td></tr>
+            <tr><td>부채 검증 (R1-b)</td><td>통합 체크리스트 전수 관찰 · 발견 처리/수용</td><td><span class="tag t-gray">☐ Pass / Fail</span></td></tr>
+            <tr><td>손맛 (DoD#3)</td><td>"한 판 더" 의향 합격</td><td><span class="tag t-gray">☐ Pass / Fail</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout c-ok"><div class="ic">✅</div><div class="bd">DoD#2b(저사양) 제외 전 항목 Pass → <b>Phase 1 공식 종료 선언</b> → 대시보드·메모리 갱신 → R2 착수.</div></div>
+    </div>
+  </section>
+
+  <!-- 결정됨 -->
+  <section>
+    <p class="eyebrow">이번에 확정된 두 가지</p>
+    <h2>정해진 결정</h2>
+    <div class="split">
+      <div class="decision">
+        <div class="n">결정 1 · 성능</div>
+        <h4>저사양 미대응</h4>
+        <p>저사양 비중이 미미 → 성능 게이트를 <b>S23(현대 기기) 60fps 스모크</b> 하나로 단순화. 저사양 60fps 확정은 범위 제외(R5 사전출시보고서는 참고자료로만).</p>
+      </div>
+      <div class="decision">
+        <div class="n">결정 2 · 이름</div>
+        <h4>게임명 = <b>Tichu Master</b></h4>
+        <p>'Tichu' 유지로 검색 발견성을 살리고 'Master'로 구분(TichuOne류). Play에 동일명 앱 없음(이름 확보 OK). ⚠️ 상표 회피가 아닌 유지 — 발견성↔상표노출 트레이드오프 수용. 인게임 콜 명칭은 그대로.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 승인 -->
+  <section class="approve">
+    <p class="eyebrow">다음 단계</p>
+    <h2>승인해주시면</h2>
+    <p class="lead">아직 커밋 안 했습니다 — 확립된 워크플로우(항상 feature 브랜치 → 승인 후 <code>--no-ff</code> 머지)를 따라 main에 바로 안 올렸습니다.</p>
+    <ol class="steps">
+      <li><b>스펙 검토</b> — 이 계획(특히 위 두 판단)에서 고칠 게 있으면 알려주세요.</li>
+      <li><b>브랜치 + 커밋</b> — <code>feat/r1-release-verification</code> 생성, 스펙 문서 커밋.</li>
+      <li><b>구현계획 작성</b> — writing-plans로 R1 상세 실행계획(체크리스트 확장 → 빌드 안내 → 플레이테스트 → 분류·처리 → 종료).</li>
+    </ol>
+    <div class="callout c-note" style="margin-top:16px"><div class="ic">📄</div><div class="bd">원본 스펙: <code>docs/superpowers/specs/2026-07-26-r1-release-verification-design.md</code></div></div>
+  </section>
+
+  <div class="foot">티츄 · R1 출시 검증 계획 · 검토·승인용 · 방향 A(출시/검증) → Google Play 정식 출시 5트랙 중 R1</div>
+
+</div>

@@ -140,6 +140,20 @@
     padding:8px 10px;font:13px/1.5 var(--sans);resize:vertical;min-height:50px}
   .note .hint{font-size:11px;color:var(--warn);margin-bottom:4px}
   .parked{border:1px dashed var(--line2);border-radius:10px;padding:9px 13px;margin:7px 0;font-size:12px;color:var(--muted)}
+  /* ---- checklist round selector ---- */
+  .clsel{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+  .cltab{font-family:inherit;text-align:left;border:1px solid var(--line2);background:var(--panel);
+    border-radius:11px;padding:9px 14px;cursor:pointer;display:flex;flex-direction:column;gap:1px;transition:.15s}
+  .cltab:hover{border-color:var(--acc)}
+  .cltab.on{border-color:var(--acc);background:var(--acc-soft);box-shadow:var(--shadow)}
+  .cltab .clnm{font-size:13.5px;font-weight:800;color:var(--ink)}
+  .cltab .cldt{font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .cltab.arch{opacity:.68}
+  .cltab.arch.on{opacity:1}
+  .roban{font-size:12px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line2);
+    border-radius:10px;padding:8px 13px;margin-bottom:6px}
+  .seg button:disabled{opacity:.45;cursor:default}
+  select:disabled,button.ghost:disabled{opacity:.45;cursor:default}
   /* ---- reports ---- */
   .rtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
   .search{flex:1 1 240px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line2);
@@ -256,6 +270,7 @@
   <!-- ============ PLAYTEST ============ -->
   <section class="view" id="v-play">
     <h2 class="sec">인터랙티브 플레이테스트 체크리스트</h2>
+    <div class="clsel" id="clsel"></div>
     <div class="clbar panel">
       <div class="prog"><i id="progbar"></i></div>
       <div class="counts">
@@ -318,90 +333,143 @@ async function copy(text,msg){ try{await navigator.clipboard.writeText(text);sho
   catch(e){ const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();
     try{document.execCommand("copy");showToast(msg||"복사됨");}catch(_){showToast("복사 실패 — 직접 선택");}t.remove(); } }
 
-// ---------- checklist ----------
-const CL=[
- {sec:"A",title:"콜 선언 빈도 — 콜 헤드",badge:"최우선·검증중",hl:true,items:[
-   {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86% · 사용자 '더 부름' 관측"},
-   {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
-   {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18% · 사용자 '이상한 스몰티츄 줄음' 관측"},
-   {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
- {sec:"B",title:"AI 아웃 · 낭비 품질",badge:"",hl:false,items:[
-   {id:"B1",t:"엔드게임에서 저싱글 안 남기고 아웃",d:"⚠️ 10·A에서 10 먼저 내 밟힘 관측(③)"},
-   {id:"B2",t:"콜러가 고카드·봉황·용을 안 낭비",d:"⚠️ 봉황 7페어·K블록 낭비 관측(①②)"},
-   {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
-   {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
-   {id:"B5",t:"마작 소원(콜) · 스몰티츄 하한",d:"손에 없는 최고 랭크 소원 / 한계 티츄 감소"},
-   {id:"B6",t:"교환핀 — 넘긴 카드 좌석을 아는 듯 플레이 (C1)",d:"간접 관찰: 내가 준 카드를 낼 상대·타이밍을 AI가 예측하는 듯한가"},
-   {id:"B7",t:"구조보존 리드 — 족보 깨는 싱글 리드 회피 (07-15/D3)",d:"스트레이트/트리플/연속페어를 깨는 헛싱글을 리드하지 않는가"}]},
- {sec:"C",title:"라지티츄 팀 지원 (#4 계열)",badge:"실기만 검증가능",hl:false,items:[
-   {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
- {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
-   {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
-   {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
-   {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
-   {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
- {sec:"E",title:"일반 스모크 — 출시 품질",badge:"출시 스모크",hl:false,items:[
-   {id:"E1",t:"4난이도(쉬움/보통/어려움/전문가) 각각 시작·정상 동작",d:""},
-   {id:"E2",t:"풀매치(1000점) 크래시·멈춤 없이 완주",d:""},
-   {id:"E3",t:"모든 룰 인터랙션 정상",d:"폭탄·용·개·마작소원·티츄/큰티츄·1-2 피니시 UI"},
-   {id:"E4",t:"D5.1 사운드 — 버튼 클릭음·볼륨 슬라이더·백그라운드 음소거",d:""},
-   {id:"E5",t:"가로 세이프에어리어(노치/펀치홀 미가림)·방향 잠금",d:""}]},
- {sec:"F",title:"S23 성능 스모크 — 실기 (R1-a)",badge:"실기 S23",hl:true,items:[
-   {id:"F1",t:"풀매치 크래시 0으로 완주",d:""},
-   {id:"F2",t:"전 구간 FpsOverlay 녹색(≥55)·적색 스파이크 없음",d:""},
-   {id:"F3",t:"DoTween 애니(플레이팝·차례펄스·결과팝) 프레임드랍 체감 없음",d:""},
-   {id:"F4",t:"입력(손패·버튼)→화면 반응 지연 체감 없음",d:""},
-   {id:"F5",t:"여러 라운드 연속 GC 스파이크 끊김 없음 (D3 풀링)",d:""}]},
+// ---------- checklists (multi-round) ----------
+// 회차별 별개 체크리스트. 새 회차는 배열 맨 앞에 추가(기존 위에 얹지 않음). 이전 회차는 archived:true 로 보관(읽기 전용).
+const CHECKLISTS=[
+ { id:"r1", name:"R1 출시검증", date:"2026-07-31", key:"tichu_ck_r1", archived:false, parked:[], sections:[
+   {sec:"A",title:"콜 선언 빈도 — 콜 헤드 (재확인)",badge:"",hl:false,items:[
+     {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86%"},
+     {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
+     {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18%"},
+     {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
+   {sec:"B",title:"AI 아웃 · 낭비 품질 — 부채 검증",badge:"R1-b",hl:true,items:[
+     {id:"B1",t:"엔드게임 확실승자 리드 — {10,A}에서 A 먼저 내고 아웃 (③′)",d:"저싱글 먼저 내 밟히지 않는가"},
+     {id:"B2",t:"봉황 보존 — 싱글로 헛쓰지 않고 자연 승수로 밟기 (①)",d:"7페어·K블록 헛낭비 없는가"},
+     {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
+     {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
+     {id:"B5",t:"교환핀 — 넘긴 카드 좌석을 아는 듯 플레이 (C1)",d:"간접 관찰: 내가 준 카드를 낼 상대·타이밍을 예측하는가"},
+     {id:"B6",t:"구조보존 리드 — 족보 깨는 싱글 리드 회피 (07-15/D3)",d:"스트레이트/트리플/연속페어 깨는 헛싱글 안 내는가"}]},
+   {sec:"C",title:"라지티츄 팀 지원 (#4)",badge:"실기만 검증가능",hl:false,items:[
+     {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
+   {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
+     {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
+     {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
+     {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
+     {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+   {sec:"E",title:"일반 스모크 — 출시 품질",badge:"출시 스모크",hl:false,items:[
+     {id:"E1",t:"4난이도(쉬움/보통/어려움/전문가) 각각 시작·정상 동작",d:""},
+     {id:"E2",t:"풀매치(1000점) 크래시·멈춤 없이 완주",d:""},
+     {id:"E3",t:"모든 룰 인터랙션 정상",d:"폭탄·용·개·마작소원·티츄/큰티츄·1-2 피니시 UI"},
+     {id:"E4",t:"D5.1 사운드 — 버튼 클릭음·볼륨 슬라이더·백그라운드 음소거",d:""},
+     {id:"E5",t:"가로 세이프에어리어(노치/펀치홀 미가림)·방향 잠금",d:""}]},
+   {sec:"F",title:"S23 성능 스모크 — 실기 (R1-a)",badge:"실기 S23",hl:true,items:[
+     {id:"F1",t:"풀매치 크래시 0으로 완주",d:""},
+     {id:"F2",t:"전 구간 FpsOverlay 녹색(≥55)·적색 스파이크 없음",d:""},
+     {id:"F3",t:"DoTween 애니(플레이팝·차례펄스·결과팝) 프레임드랍 체감 없음",d:""},
+     {id:"F4",t:"입력(손패·버튼)→화면 반응 지연 체감 없음",d:""},
+     {id:"F5",t:"여러 라운드 연속 GC 스파이크 끊김 없음 (D3 풀링)",d:""}]},
+ ]},
+ { id:"v2", name:"Expert 관측", date:"2026-07-24", key:"tichu_playtest_v2", archived:true,
+   parked:["Issue A — 봉황을 낮은 콤보에 낭비 (파킹·콤보가드 −6.9/R)",
+     "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
+     "② 라지티츄 응징 (롤아웃 천장 한계·연구티어)",
+     "Issue3 — 특정 리드 순서 (엔드게임셰딩 가드와 상충)"], sections:[
+   {sec:"A",title:"콜 선언 빈도 — 콜 헤드",badge:"최우선·검증중",hl:true,items:[
+     {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86% · 사용자 '더 부름' 관측"},
+     {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
+     {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18% · 사용자 '이상한 스몰티츄 줄음' 관측"},
+     {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
+   {sec:"B",title:"AI 아웃 · 낭비 품질",badge:"",hl:false,items:[
+     {id:"B1",t:"엔드게임에서 저싱글 안 남기고 아웃",d:"⚠️ 10·A에서 10 먼저 내 밟힘 관측(③)"},
+     {id:"B2",t:"콜러가 고카드·봉황·용을 안 낭비",d:"⚠️ 봉황 7페어·K블록 낭비 관측(①②)"},
+     {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
+     {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
+     {id:"B5",t:"마작 소원(콜) · 스몰티츄 하한",d:"손에 없는 최고 랭크 소원 / 한계 티츄 감소"}]},
+   {sec:"C",title:"라지티츄 팀 지원 (#4 계열)",badge:"실기만 검증가능",hl:false,items:[
+     {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
+   {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
+     {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
+     {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
+     {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
+     {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+ ]},
 ];
-const PARKED=["Issue A — 봉황을 낮은 콤보에 낭비 (파킹·콤보가드 −6.9/R)",
- "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
- "② 라지티츄 응징 (롤아웃 천장 한계·연구티어)",
- "Issue3 — 특정 리드 순서 (엔드게임셰딩 가드와 상충)"];
-const CKEY="tichu_playtest_v2";
-let cs=JSON.parse(localStorage.getItem(CKEY)||"{}");
-const cllist=document.getElementById("cllist");
-CL.forEach(sec=>{
-  const h=document.createElement("div");h.className="clhead"+(sec.hl?" hl":"");
-  h.innerHTML=`<span class="n">${sec.sec}</span> ${sec.title}`+(sec.badge?` <span class="bd">${sec.badge}</span>`:"");
-  cllist.appendChild(h);
-  sec.items.forEach(it=>{
-    const cur=cs[it.id]||{v:"",note:""};
-    const el=document.createElement("div");el.className="item";el.dataset.state=cur.v;
-    el.innerHTML=`<div class="t">${it.t}</div>`+(it.d?`<div class="d">${it.d}</div>`:"")+
-      `<div class="seg">
-        <button data-v="good" class="${cur.v==='good'?'on':''}">👍 좋음</button>
-        <button data-v="bad" class="${cur.v==='bad'?'on':''}">⚠️ 이상함</button>
-        <button data-v="none" class="${cur.v==='none'?'on':''}">➖ 미확인</button></div>
-       <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
-        <textarea placeholder="구체 상황을 적어주세요">${cur.note||""}</textarea></div>`;
-    el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
-      const v=b.dataset.v; cs[it.id]=cs[it.id]||{v:"",note:""};
-      cs[it.id].v=(cs[it.id].v===v?"":v); el.dataset.state=cs[it.id].v;
-      el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===cs[it.id].v)); csave();
-    });
-    el.querySelector("textarea").oninput=e=>{cs[it.id]=cs[it.id]||{v:"",note:""};cs[it.id].note=e.target.value;csave();};
-    cllist.appendChild(el);
-  });
-});
-const ph=document.createElement("div");ph.className="clhead";
-ph.innerHTML=`<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
-cllist.appendChild(ph);
-PARKED.forEach(p=>{const d=document.createElement("div");d.className="parked";d.textContent="• "+p;cllist.appendChild(d);});
-const diffSel=document.getElementById("diff");diffSel.value=cs.__diff||"";
+const AKEY="tichu_ck_active";
+let activeId=localStorage.getItem(AKEY)||CHECKLISTS[0].id;
+function actCl(){return CHECKLISTS.find(c=>c.id===activeId)||CHECKLISTS[0];}
+let cs={};
+function loadCs(){cs=JSON.parse(localStorage.getItem(actCl().key)||"{}");}
+loadCs();
+const clsel=document.getElementById("clsel"), cllist=document.getElementById("cllist");
+const cGood=document.getElementById("cGood"),cBad=document.getElementById("cBad"),cNone=document.getElementById("cNone"),progbar=document.getElementById("progbar");
+const diffSel=document.getElementById("diff"), resetBtn=document.getElementById("resetBtn");
 diffSel.onchange=()=>{cs.__diff=diffSel.value;csave();};
-function csave(){localStorage.setItem(CKEY,JSON.stringify(cs));crender();}
+
+function renderSel(){
+  clsel.innerHTML="";
+  CHECKLISTS.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="cltab"+(c.id===activeId?" on":"")+(c.archived?" arch":"");
+    b.innerHTML=`<span class="clnm">${c.name}</span><span class="cldt">${c.date} · ${c.archived?"보관":"진행"}</span>`;
+    b.onclick=()=>{activeId=c.id;localStorage.setItem(AKEY,activeId);loadCs();renderAll();};
+    clsel.appendChild(b);
+  });
+}
+function renderList(){
+  const cl=actCl(), ro=cl.archived;
+  cllist.innerHTML="";
+  if(ro){const bn=document.createElement("div");bn.className="roban";bn.textContent="📁 보관된 체크리스트 — 읽기 전용 (기록 보존)";cllist.appendChild(bn);}
+  cl.sections.forEach(sec=>{
+    const h=document.createElement("div");h.className="clhead"+(sec.hl?" hl":"");
+    h.innerHTML=`<span class="n">${sec.sec}</span> ${sec.title}`+(sec.badge?` <span class="bd">${sec.badge}</span>`:"");
+    cllist.appendChild(h);
+    sec.items.forEach(it=>{
+      const cur=cs[it.id]||{v:"",note:""};
+      const el=document.createElement("div");el.className="item";el.dataset.state=cur.v;
+      el.innerHTML=`<div class="t">${it.t}</div>`+(it.d?`<div class="d">${it.d}</div>`:"")+
+        `<div class="seg">
+          <button data-v="good" class="${cur.v==='good'?'on':''}" ${ro?'disabled':''}>👍 좋음</button>
+          <button data-v="bad" class="${cur.v==='bad'?'on':''}" ${ro?'disabled':''}>⚠️ 이상함</button>
+          <button data-v="none" class="${cur.v==='none'?'on':''}" ${ro?'disabled':''}>➖ 미확인</button></div>
+         <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
+          <textarea placeholder="구체 상황을 적어주세요" ${ro?'readonly':''}>${cur.note||""}</textarea></div>`;
+      if(!ro){
+        el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+          const v=b.dataset.v; cs[it.id]=cs[it.id]||{v:"",note:""};
+          cs[it.id].v=(cs[it.id].v===v?"":v); el.dataset.state=cs[it.id].v;
+          el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===cs[it.id].v)); csave();
+        });
+        el.querySelector("textarea").oninput=e=>{cs[it.id]=cs[it.id]||{v:"",note:""};cs[it.id].note=e.target.value;csave();};
+      }
+      cllist.appendChild(el);
+    });
+  });
+  if(cl.parked&&cl.parked.length){
+    const ph=document.createElement("div");ph.className="clhead";
+    ph.innerHTML=`<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
+    cllist.appendChild(ph);
+    cl.parked.forEach(p=>{const d=document.createElement("div");d.className="parked";d.textContent="• "+p;cllist.appendChild(d);});
+  }
+}
+function csave(){localStorage.setItem(actCl().key,JSON.stringify(cs));crender();}
 function crender(){let g=0,b=0,n=0,total=0;
-  CL.forEach(s=>s.items.forEach(it=>{total++;const v=(cs[it.id]||{}).v;
+  actCl().sections.forEach(s=>s.items.forEach(it=>{total++;const v=(cs[it.id]||{}).v;
     if(v==="good")g++;else if(v==="bad")b++;else if(v==="none")n++;}));
   cGood.textContent=g;cBad.textContent=b;cNone.textContent=n;
-  progbar.style.width=(100*(g+b+n)/total)+"%";}
-const cGood=document.getElementById("cGood"),cBad=document.getElementById("cBad"),cNone=document.getElementById("cNone"),progbar=document.getElementById("progbar");
-crender();
-document.getElementById("resetBtn").onclick=()=>{if(confirm("모든 판정·메모를 지울까요?")){cs={};localStorage.removeItem(CKEY);location.reload();}};
-function buildReport(){let g=0,b=0,n=0;const bad=[],good=[];
-  CL.forEach(s=>s.items.forEach(it=>{const st=cs[it.id]||{};
+  progbar.style.width=(total?100*(g+b+n)/total:0)+"%";}
+function renderAll(){
+  const ro=actCl().archived;
+  renderSel();renderList();
+  diffSel.value=cs.__diff||""; diffSel.disabled=ro; resetBtn.disabled=ro;
+  crender();
+}
+renderAll();
+resetBtn.onclick=()=>{if(actCl().archived)return;
+  if(confirm(`"${actCl().name}" 체크리스트의 판정·메모를 지울까요?`)){cs={};localStorage.removeItem(actCl().key);renderAll();}};
+function buildReport(){const cl=actCl();let g=0,b=0,n=0;const bad=[],good=[];
+  cl.sections.forEach(s=>s.items.forEach(it=>{const st=cs[it.id]||{};
     if(st.v==="good"){g++;good.push(it.id);}else if(st.v==="bad"){b++;bad.push({id:it.id,t:it.t,note:(st.note||"").trim()});}else if(st.v==="none")n++;}));
-  let o=`티츄 플레이테스트 결과 (2026-07-24)\n난이도: ${cs.__diff||"(미선택)"}\n좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
+  let o=`티츄 플레이테스트 결과 — ${cl.name} (${cl.date})\n난이도: ${cs.__diff||"(미선택)"}\n좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
   if(good.length)o+=`\n👍 좋음: ${good.join(", ")}\n`;
   if(bad.length){o+=`\n⚠️ 이상함:\n`;bad.forEach(x=>o+=`- [${x.id}] ${x.t}${x.note?` — ${x.note}`:" — (메모 없음)"}\n`);}else o+=`\n⚠️ 이상함: 없음\n`;
   return o;}

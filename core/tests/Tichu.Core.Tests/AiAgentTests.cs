@@ -792,6 +792,25 @@ namespace Tichu.Core.Tests
             Assert.That(d.Move!.Cards[0].Special, Is.EqualTo(SpecialKind.Phoenix));
         }
 
+        [Test]
+        public void DecideFollow_blocks_tichu_threat_with_natural_not_phoenix()
+        {
+            // 플레이테스트 B2(2026-08-08): 상대(seat1) 티츄 콜 → OpponentThreat 발동, 상대 Top 은 낮은 single 10.
+            // seat0 은 봉황과 자연 J 를 모두 보유. 봉황 단독은 스케일 랭크가 반칸 위(21)라 자연 J(22)보다
+            // "싸" 보여 CheapestNonStructural 이 봉황을 고른다 → 귀한 봉황 낭비. 자연 J 로 막아야 한다.
+            // D1 위협 블록 자체는 유지(패스로 바꾸지 않는다) — 고르는 카드만 자연 우선.
+            var s = FollowState(0, Single(10), topOwner: 1, accumulatedPoints: 0,
+                Hand(Card.Phoenix, N(11, Suit.Jade), N(2, Suit.Pagoda), N(4, Suit.Star)),
+                Hand(N(2, Suit.Sword), N(3, Suit.Sword), N(5, Suit.Sword), N(7, Suit.Sword), N(9, Suit.Sword)),
+                Hand(N(2, Suit.Jade), N(3, Suit.Jade), N(5, Suit.Jade), N(7, Suit.Jade), N(9, Suit.Jade)),
+                Hand(N(3, Suit.Pagoda), N(5, Suit.Pagoda), N(7, Suit.Pagoda), N(9, Suit.Pagoda), N(12, Suit.Pagoda)));
+            s.Seats[1].Call = TichuCall.Tichu;
+            var d = new AiAgent(1UL, 0).DecideTurn(GameFlowHelpers.Context(s, 0));
+            Assert.That(d.IsPass, Is.False, "티츄 위협은 막는다(D1 규율 유지)");
+            Assert.That(d.Move!.Cards[0].Special, Is.Not.EqualTo(SpecialKind.Phoenix), "자연 승수가 있으면 봉황을 낭비하지 않는다");
+            Assert.That(d.Move!.Cards[0].Rank, Is.EqualTo(11), "자연 J 로 막는다");
+        }
+
         // ── DecideTurn: 엔드게임 리드 경합(팀메이트 아웃, 플레이테스트 버그2) ─────────────
         // 팀메이트(파트너)가 이미 아웃한 뒤엔 상대의 낮은 리드를 점수카드로라도 경합해 선/템포를
         // 헌납하지 않는다(상대가 자유롭게 털어 아웃하는 것 저지). 미들게임 안티낭비는 유지.

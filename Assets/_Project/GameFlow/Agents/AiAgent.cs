@@ -879,20 +879,29 @@ namespace Tichu.GameFlow.Agents
         /// <summary>
         /// 위협을 막을 수 있는 가장 싼 수(점수 무관). 단 "스트레이트를 깨는 싱글"은 제외(비용 극심).
         /// 깰 수밖에 없으면 null → 호출부가 보내준다(패스).
+        /// 봉황 포함 수는 후순위 — 봉황 단독은 스케일 랭크가 반칸 위(10 위=21)라 자연 J(22)보다 싸게
+        /// 오인되어 귀한 봉황을 낭비한다. 자연 승수가 하나라도 있으면 그쪽, 없으면 봉황으로라도 막는다
+        /// (위협 저지 자체는 유지 — D1 규율을 약화시키지 않는다).
         /// </summary>
         private static Combination? CheapestNonStructural(IReadOnlyList<Card> hand, IReadOnlyList<Combination> wins)
         {
             var inRun = StraightRanks(hand);
             Combination? best = null;
             int bestK = int.MaxValue;
+            Combination? bestPhoenix = null;
+            int bestPhoenixK = int.MaxValue;
             for (int i = 0; i < wins.Count; i++)
             {
                 var m = wins[i];
                 if (BreaksStraight(m, inRun)) continue;
                 int k = MoveOrder.Strength(m);
-                if (k < bestK) { bestK = k; best = m; }
+                if (ContainsPhoenix(m))
+                {
+                    if (k < bestPhoenixK) { bestPhoenixK = k; bestPhoenix = m; }
+                }
+                else if (k < bestK) { bestK = k; best = m; }
             }
-            return best;
+            return best ?? bestPhoenix;
         }
 
         /// <summary>D3: 리드 후보 중 "가치 구조를 홀로 깨는 싱글"을 제외한다. 제외 후 비면 원본 유지(폴백).

@@ -1,0 +1,1551 @@
+{
+  "count": 72,
+  "entries": [
+    {
+      "file": "티츄_R1_판정결과.html",
+      "title": "R1 출시검증 판정 결과 — DoD 4게이트 Pass · Phase 1 공식 종료",
+      "date": "2026-08-08",
+      "type": "플레이테스트",
+      "phase": "출시/R",
+      "topics": [
+        "출시/R1",
+        "DoD판정",
+        "Phase1종료",
+        "S23실기",
+        "세이프에어리어",
+        "봉황보존"
+      ],
+      "summary": "S23 실기 Expert 플레이테스트(25항목 전수, 좋음 20·이상함 4·미확인 1)로 R1 검증을 종결한 판정 문서. DoD 4게이트(완주·성능·부채검증·손맛) 전부 Pass. 발견 4건은 실버그 2건(E5 코너 UI 잘림, B2 위협블록 봉황 낭비 — 둘 다 수정·실기 재확인)과 오관측/천장 2건(B1 리드순서=정상, A4 티츄성공률=롤아웃 천장 수용)으로 처분했고, 미확인 1건(F2 FPS 판독)은 E5 수정으로 해소했다. 벤치만 통과했던 AI 부채 8건도 실기 전수 관찰에서 회귀 0.",
+      "outcome": "Phase 1 공식 종료 선언. R2(빌드/서명) 착수 조건 성립 — keystore 백업·AAB·targetSdk 고정·R8. 이월: 카드 무늬 미표시(Android 폰트 폴백에 ♠♣♥♦ 없음) → 카드 아트 트랙, 출시 차단 아님.",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/plans/2026-07-31-r1-release-verification.md",
+      "title": "R1 출시검증 구현계획 — 4 Task(체크리스트·성능스모크·플레이테스트·종료)",
+      "date": "2026-07-31",
+      "type": "로드맵/계획",
+      "phase": "출시/R",
+      "topics": [
+        "출시/R1",
+        "구현계획",
+        "실기게이트",
+        "격리벤치규율"
+      ],
+      "summary": "R1 검증 스펙을 실행 계획으로 옮긴 문서. Task 1 대시보드 부채 체크리스트 확장(에이전트), Task 2 S23 성능 스모크·Task 3 Expert 플레이테스트(사람 게이트), Task 4 Phase 1 종료 반영. 발견 분류 결정트리(버그→TDD / 강도→HeuristicStrengthBench 페어드 격리벤치 ≥0만 채택 / 롤아웃 천장→defer)를 규율로 못박았다.",
+      "outcome": "4 Task 전부 완료 — 판정 결과는 티츄_R1_판정결과.html 참조",
+      "status": "완료"
+    },
+    {
+      "file": "티츄_프로토타입_기획서.html",
+      "title": "티츄 프로토타입 상세 기획서 (v0.1)",
+      "date": "2026-06-08",
+      "type": "기획",
+      "phase": "메타",
+      "topics": [
+        "기획서",
+        "게임규칙",
+        "AI설계",
+        "네트워킹",
+        "아키텍처"
+      ],
+      "summary": "모바일 티츄(Unity/C#)의 프로토타입 단계 상세 기획서 v0.1. 비전·핵심가치(가독성·정식룰·강한AI)부터 덱/특수카드/콤보/점수 규칙, 화면·UI/UX, 게임 시퀀스, AI 설계, 네트워킹, 기술 아키텍처, 개발 로드맵, 리스크까지 프로젝트 전반을 정의하는 13장 구성의 founding 문서.",
+      "outcome": "설계만 — 프로젝트 방향·룰·아키텍처(RuleEngine 순수C# 코어 공유)·모드·로드맵 정의",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_Phase1_잔여_아키텍처.html",
+      "title": "Phase 1 잔여 아키텍처 — P1-C 앱셸·DI + P1-D 비주얼·손맛",
+      "date": "2026-06-15",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "앱셸",
+        "DI/VContainer",
+        "비주얼/DoTween",
+        "모바일 가로/60fps",
+        "아키텍처"
+      ],
+      "summary": "Phase 1 MVP 완료(DoD)까지 남은 두 묶음 — 앱 흐름/메뉴/DI(P1-C)와 실제 아트·DoTween 애니·사운드·모바일 가로/60fps(P1-D)의 실행 아키텍처를 정의한 설계 보고서. 멀티에이전트 3안 패널→만장일치 심사→종합→적대적 검증으로 도출.",
+      "outcome": "승자=진화형 단일-부트스트랩 셸(9.0/10). 새 asmdef 0개·씬 1개 추가, VContainer·DoTween 패키지 도입, 순수 AppFlowReducer, 오라클 비트동일성 불변식 보존. 설계만(구현 후속).",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_P1D_D3_카드풀링_설계.html",
+      "title": "P1-D / D3 — 카드 풀링 + Canvas 정적·동적 분리 설계",
+      "date": "2026-06-18",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "카드풀링",
+        "Canvas분리",
+        "CardChipPool",
+        "오라클보존",
+        "EditMode TDD"
+      ],
+      "summary": "매 스냅샷마다 카드 뷰를 Destroy+재생성하던 렌더 핫스팟(RenderHand/Backs/Trick)을 루트별 CardChipPool(SetActive 토글 재사용)과 정적/동적 Canvas 분리로 전환하는 P1-D D3 설계 문서. 멀티에이전트 적대적 5차원 검증으로 두 결함(서브캔버스 GraphicRaycaster 누락·버튼 리스너 풀 누수)을 구현 전에 차단했다.",
+      "outcome": "설계만(구현 전). 오라클 비트동일 보존 불변식 + EditMode 테스트 5종 정의, 실측(60fps/GC)은 D6로 이월. 두 결함 사전 차단.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_P1D_D5_사운드_설계.html",
+      "title": "Phase1-D D5 사운드 설계·구현계획 (IAudioService + AudioBank + SFX 훅)",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "사운드",
+        "D5",
+        "IAudioService",
+        "SfxMap",
+        "오라클보존"
+      ],
+      "summary": "D4의 IPlayAnimator 시임을 1:1 미러링해 IAudioService(PlaySfx 단일 훅) + SfxMap(순수 매핑) + AudioBank(SO) + UnityAudioService(AudioSource[6] 풀)를 만들고, RuntimeTableView.Subscribe의 기존 vm 관측에 오디오 한 겹을 additive로 얹는 인게임 SFX 설계·TDD(T1~T6) 구현계획. no-op 3중 가드로 사운드 에셋 0개여도 통과하며 오라클 비트동일성을 보존한다.",
+      "outcome": "설계만 — 멀티에이전트 패널→적대검증 4렌즈로 도출, minor 11건(S1~S11) 선반영. 결정 A(PlaySfx 단일)·B(T1~T6 한 PR) 권장. 버튼SFX/BGM/볼륨/Pause는 D5.1 이월.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html",
+      "title": "P1-D D6 — Android 빌드·60fps·가독성 게이트 체크리스트",
+      "type": "체크리스트",
+      "phase": "Phase1",
+      "date": null,
+      "topics": [
+        "빌드",
+        "60fps",
+        "가독성",
+        "손맛",
+        "Phase1 DoD"
+      ],
+      "summary": "Phase 1 MVP 완료 기준(DoD 3조건)을 닫는 게이트 문서로, 코드·EditMode로 커버 불가한 실기기 Android 60fps 실측과 가독성·\"한 판 더\" 정성 평가를 체크리스트로 정의한다. D6 자동화분(빌드 식별자 정리·FpsOverlay·본 체크리스트)은 완료했고, APK 빌드·실기기 측정·플레이테스트는 사람이 수행한다.",
+      "outcome": "D6 자동화분 완료(빌드 식별자 정리·FpsOverlay·체크리스트), 실기기 4/4 Pass 게이트는 사람 수행 대기 → 통과 시 Phase 1 종료·Phase 2(AI) 착수",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_Phase2_AI_PIMC_설계.html",
+      "title": "Phase 2 — PIMC 강 AI 설계 스펙",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "난이도티어",
+        "Determinizer",
+        "벤치/DoD"
+      ],
+      "summary": "티츄 불완전정보 파트너십 트릭게임의 강 AI를 PIMC(미관측 손패 N세계 결정화→현 휴리스틱 롤아웃→수별 EV 투표)로 구현하는 Phase 2 설계 스펙. 아키텍처 삽입(IAgent/IDecisionAgent, 신규 asmdef 0, 오라클 비침범), 탐색 흐름, Determinizer 치트가드, 4난이도 티어, 특수카드·협력·GC 리스크, Wilson CI 벤치/DoD, P2-A~E 로드맵을 다룬다.",
+      "outcome": "설계 승인됨 → 구현계획 대기. 세계수·롤아웃·예산 구체 수치는 P2-C 벤치로 확정 보류. DoD=Hard가 휴리스틱봇 대비 Wilson CI 하한>0.5",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_P2C_벤치결과.html",
+      "title": "P2-C 벤치 결과 — Normal PIMC vs 휴리스틱 (DoD 통과)",
+      "date": "2026-06-25",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "벤치",
+        "DoD",
+        "휴리스틱"
+      ],
+      "summary": "Phase2 P2-C에서 Normal PIMC AI와 현 휴리스틱(AiAgent)을 미러드딜 라운드 벤치로 비교한 결과 보고서. 100라운드 확정 측정과 재사용 벤치 하니스(BenchStats·PimcBench)를 정리했다.",
+      "outcome": "DoD 통과 — 100R 평균 +127.3점/R, 승률 69%, Wilson 95% 하한 0.594>0.5로 Normal PIMC가 휴리스틱을 통계적으로 우위",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_P2D2_ReachProb결과.html",
+      "title": "P2-D2 reach-probability 격리 벤치 결과",
+      "date": "2026-06-25",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "reach-prob",
+        "격리벤치",
+        "Hard티어"
+      ],
+      "summary": "같은 딜·같은 예산(4세계×2롤아웃)에서 reach-probability만 ON/OFF로 비교한 격리 벤치 결과 보고서. 4세계에서 reach-prob가 강도를 올리지 못했음(노이즈 범위 내 오히려 근소 열세)을 정직하게 보고하고 Hard 티어 적용 여부 3안을 제시한다.",
+      "outcome": "4세계 예산에서 측정 가능한 이득 없음(reach OFF +209.6/R vs ON +190.4/R, 차이 −19는 노이즈). 구현은 정확·검증됨. 권장안 A=머지+Hard ON 유지(16세계 효과는 엔진 가속 후 검증)",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_P2D_속도개선_reach16검증.html",
+      "title": "P2-D 엔진 속도개선 + reach-prob 16세계 검증",
+      "date": "2026-06-25",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "reach-prob",
+        "속도최적화",
+        "LegalMoves"
+      ],
+      "summary": "LegalMoveGenerator 핫패스의 호출당 할당을 ThreadStatic 버퍼 재사용으로 제거해 bytes/call −91%·Unity 16세계 라운드 ~4배 가속을 달성하고, 그로써 가능해진 reach-prob의 16세계 정직한 통계 검증을 수행한 벤치 문서.",
+      "outcome": "속도개선 채택(~4배). reach-prob는 16세계에서도 이득 무(배치1 +25.2/R 노이즈→배치2 −13.1/R 부호반전, 풀링 동률) → Hard/Expert useReachProb OFF 전환, 코드는 비활성 보존.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_AI강화_검증_로드맵.html",
+      "title": "티츄 AI — 세계수 무차별 검증 & 강화 로드맵",
+      "date": "2026-07-03",
+      "type": "로드맵/계획",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "세계수 검증",
+        "전략융합",
+        "강화 로드맵"
+      ],
+      "summary": "격리 self-play 벤치와 25에이전트 다중탐색으로 PIMC 세계수의 강한 수확체감(양성대조로 하니스 검증)을 확정하고, \"AI가 약한\" 원인을 전략융합+롤아웃천장으로 규명한 뒤 18개 강화 레버를 적대검증해 우선순위화(Top3=D1 라이브가드·B1 α-μ·A1/A2 롤아웃강화)한 로드맵 문서.",
+      "outcome": "세계수는 소진된 레버로 판정(폐기), 강도는 알고리즘 축(D1→B1→A1/A2)으로 전환. 티어를 세계수가 아닌 알고리즘 사다리로 재정렬 제안. 설계·우선순위 문서(구현 전).",
+      "status": "완료"
+    },
+    {
+      "file": "티츄_P2G_D1_구현보고.html",
+      "title": "P2-G D1 상대-위협 블록 가드 구현 보고",
+      "date": "2026-07-03",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "블록가드",
+        "D1",
+        "TDD"
+      ],
+      "summary": "PIMC 라이브 EV가 아웃/티츄 위협 상대를 못 막는 증상을 고치기 위해, EV 탐색 전에 상대-Top 위협 블록 휴리스틱 가드(D1)를 TDD로 구현하고 PIMC 전 티어(Normal/Hard/Expert)에 ON한 구현·검증 보고서.",
+      "outcome": "채택(전 PIMC 티어 ON) · 비-회귀 벤치 delta +16.9/R(n=32 단일배치, 회귀 없음·강도 확정 아님) · main 병합",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_P2G_B1_벤치결과.html",
+      "title": "P2-G B1 α-μ 강건 백업 벤치 결과 (보류)",
+      "date": "2026-07-03",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "강건백업",
+        "α-μ",
+        "세계수분산"
+      ],
+      "summary": "PIMC AI의 분산 페널티 강건 백업(argmax(mean − λ·std))을 self-play 미러드 딜 head-to-head로 8세계 프록시·16세계 확정 2배치 λ 스윕으로 검증한 벤치 리포트. 세계당 4회 롤아웃 노이즈가 세계 간 분산에 섞여 강건 백업이 전략 융합이 아닌 노이즈를 벌하는지 판정한다.",
+      "outcome": "보류(프리셋 OFF 유지, 비트불변). 16세계 모든 λ에서 배치 간 부호 반전, 8세계 +32.5/R은 노이즈였음. 코드·스펙·테스트는 재실험용 보존.",
+      "status": "파킹"
+    },
+    {
+      "file": "티츄_P2G_B1_설계브리프.html",
+      "title": "P2-G B1 α-μ 강건 백업 설계 브리프",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "강건백업",
+        "α-μ",
+        "전략융합"
+      ],
+      "summary": "PIMC의 argmax(mean) 선택이 전략 융합의 근본 원인이라 보고, 리프·후보생성은 그대로 두고 선택 규칙만 mean − λ·downside로 바꾸는 α-μ 강건 백업(B1)의 설계 브리프. downside 측정법 3안(A 분산페널티/B 최악세계/C CVaR)을 비교하고 게이트·검증 계획을 제시한다.",
+      "outcome": "A안(분산 페널티 mean − λ·std)으로 프로토타입 추천, λ 스윕 + self-play 2배치 부호안정 검증 계획. 승인 대기 상태의 설계만.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_진행현황_2026-07-04.html",
+      "title": "티츄 진행 현황 & 다음 로드맵 (2026-07-04)",
+      "date": "2026-07-04",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "P2-G",
+        "강화레버",
+        "티어정합성"
+      ],
+      "summary": "Phase 0·1 완료 및 Phase 2 AI(PIMC) 진행 상황을 정리한 전체 브리핑. 직전 P2-G 세션의 레버 채택/보류 결과, 남은 18개 강화 레버, 미해결 구조 이슈(예산 역전·티어 재정렬), 다음 작업 4선택지를 담았다.",
+      "outcome": "D1(위협블록 +16.9/R)·A2(폭탄) 채택, B1(α-μ)·콤보가드 보류. 미해결 이슈 2건(예산 역전 Normal900>Hard250, 알고리즘 티어축 공백). 다음=예산/티어 정합성 수정 권장",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_티어정합성_설계.html",
+      "title": "예산 역전 수정 & 티어 정합성 설계 제안",
+      "date": "2026-07-04",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "난이도티어",
+        "예산",
+        "정합성"
+      ],
+      "summary": "Normal/Hard/Expert 티어의 3중 역전(예산·caller 어그레션 플래그·Expert 굶주림)을 단조 정합성으로 고치는 설계 제안. 탐색이 관전 딜레이 900ms와 겹쳐 돌아 900ms 이내 탐색은 체감 지연 0이라는 인사이트를 근거로 예산 900 통일과 세계수 배치안 A(상향 사다리 16/20/24)·B(최소 수술)를 제시.",
+      "outcome": "A안(상향 사다리) 추천 — 예산 900 통일·caller 전 PIMC 티어 ON·세계수 Normal16/Hard20/Expert24, 구조적 단조로 재벤치 불요. 설계 제안(승인 전)",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_난이도선택UI_설계.html",
+      "title": "난이도 선택 UI 설계 제안 (배치 3안·A안 추천)",
+      "date": "2026-07-04",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "난이도선택",
+        "UI/UX",
+        "앱셸",
+        "VContainer",
+        "AppFlow"
+      ],
+      "summary": "AI 대전의 난이도(쉬움/보통/어려움/전문가)를 선택하는 UI를 앱 셸 흐름 어디에 넣을지 다루는 승인 전 설계 문서. 배치 3안(A 전용 화면·B 모드선택 인라인·C 설정)을 비교하고, 난이도는 순수 reducer가 아닌 셸 상태 홀더 MatchSettings로 운반하는 방식과 A안 구현 스케치(파일별 변경표)를 제시한다.",
+      "outcome": "A안(전용 난이도 선택 화면) 추천 — 기존 패널/AddButton 재사용·발견성 최고. 난이도는 MatchSettings DI 홀더로 운반(reducer 순수 유지), 지속성은 세션 인메모리(PlayerPrefs는 YAGNI 후속). 승인 전 설계만.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_Expert진단_2차.html",
+      "title": "Expert 플레이 진단 2차 — 파트너 티츄 무시 버그 (코드 근거)",
+      "date": "2026-07-04",
+      "type": "진단",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "파트너티츄",
+        "교환",
+        "진단"
+      ],
+      "summary": "제대로 된 Expert(900ms·caller ON) 재플레이 관측 4종을 AiAgent.cs 코드 근거로 진단한 문서. 핵심은 AI가 파트너의 티츄 콜을 전혀 참조하지 않아 교환·밟기·먼저나가기 세 증상이 한 뿌리로 발생하며 라지티츄 200점을 파탄내는 치명 버그라는 발견.",
+      "outcome": "클러스터 A(파트너 티츄 지원 #4a/#4b/#4c) 최우선 win-win 수정 권장, B(봉황낭비)·C(셰딩/리드)는 격리벤치 신중 진행",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_Expert플레이_진단.html",
+      "title": "Expert 플레이 진단 & 개선 방향 — 관측 3종 EV vs 버그 판별",
+      "date": "2026-07-04",
+      "type": "진단",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "Expert",
+        "플레이테스트",
+        "티어정합성"
+      ],
+      "summary": "사용자의 Expert 플레이테스트 관측 3종(①Q에 봉황 낭비 ②A·K 후 싱글9 리드순서 ③엔드게임 아웃임박 팔로우 갭)을 코드·이력에 매핑해 진짜 버그와 EV 노이즈/아티팩트를 구분하는 진단서. 방금 한 Expert는 24세계·300ms 예산의 \"굶주린\" 상태(~10세계만 탐색)임을 지적한다.",
+      "outcome": "권장 순서 제시: 티어 정합성(900ms·풀24세계·caller ON) 먼저 머지→재플레이(②는 완화 기대)→남는 진짜 버그만 격리벤치로 수정. 방향 결정 대기(설계/권고).",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_자율작업_요약.html",
+      "title": "5시간 자율작업 요약 — Expert 관측 #4·#1·#2·#3 처리",
+      "date": "2026-07-04",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "라지티츄",
+        "봉황보존",
+        "격리벤치"
+      ],
+      "summary": "Expert 플레이테스트 관측 4종(#4 라지티츄 팀 사보타주, #4c 정제, #2 봉황 낭비, #3 끝내기 셰딩, #1 리드 순서)을 TDD+격리벤치로 처리한 자율작업 요약. feat/partner-tichu-support 브랜치 커밋 5개(미머지·미푸시) 기준.",
+      "outcome": "#4·#4c·#2 채택(봉황 0.00/R 중립·전 PIMC티어 ON), #3 파킹(−18.13/R 회귀·OFF), #1 EV 존중 미구현. 핵심: 라이브 EV 오버라이드는 상습 회귀. 플레이테스트 확인+머지/푸시 잔여.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_C1_교환핀_벤치결과.html",
+      "title": "C1 교환 카드 핀 — 격리벤치 결과",
+      "date": "2026-07-06",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "교환핀",
+        "결정화",
+        "격리벤치"
+      ],
+      "summary": "Phase2 로드맵 C1 레버(교환에서 넘긴 미플레이 카드를 결정화 시 수령 좌석에 고정하는 정확도 수정)의 격리벤치 결과 문서. 미러드 벤치 2배치가 부호반전(+42.92/−4.58/R)으로 노이즈 지배지만 회귀는 없어 정확도 수정으로 판단.",
+      "outcome": "채택(전 PIMC 티어 ON) — 강도 미입증·회귀 없음, main 머지 fa031a1·origin 미푸시(푸시 승인 대기)",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_세션요약_C1_D2_레버소진.html",
+      "title": "C1 교환핀·D2 ε정상화 랜딩 + 잔여 레버 소진 세션 요약",
+      "date": "2026-07-07",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "C1교환핀",
+        "D2 ε정상화",
+        "레버판정"
+      ],
+      "summary": "2026-07-07 ultracode 세션 요약. C1 교환핀과 D2 ε정상화 두 레버를 구현·격리벤치·검증 후 main에 푸시하고, 잔여 5개 레버(C3·C2·D3·A1·A3)를 적대검증으로 판정한 결과를 정리한 브리핑 문서.",
+      "outcome": "C1·D2 채택·푸시(main c8444bb, D2 +10.8/R 중립·5.80× 가속), 잔여 값싼 레버는 D2로 소진 — 나머지 5개는 defer/skip. 다음은 연구티어 또는 강도-체감 트레이드오프.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_브리핑_C1D2_다음프론티어.html",
+      "title": "티츄 AI 브리핑 — C1 교환핀·D2 ε정상화 랜딩 & 다음 프론티어",
+      "date": "2026-07-07",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "교환핀",
+        "ε정상화",
+        "레버검증"
+      ],
+      "summary": "2026-07-07 ultracode 세션(13에이전트 적대검증)의 요약 브리핑. C1 교환핀과 D2 ε정상화 두 레버를 구현·검증·푸시하고, 잔여 6레버를 두 게이트(정확도/효율/그라운드트루스 vs 라이브EV/모델근사) 기준으로 적대검증한 결과와 다음 프론티어 3갈래(연구티어·C3 벤치·통합 플레이테스트)를 정리했다.",
+      "outcome": "C1·D2 채택·main 라이브·origin 푸시(D2 +10.8/R 중립·5.80× 가속, C1 풀링 동률 회귀無). 잔여 5레버(C3·C2·D3·A1 defer / A3 skip)는 값싼 레버 소진으로 빌드 보류. 다음 방향 결정 대기.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_플레이테스트_체크리스트.html",
+      "title": "티츄 플레이테스트 체크리스트 (C1·D2 채택분 + 누적 미확인 실기 확인)",
+      "date": "2026-07-07",
+      "type": "체크리스트",
+      "phase": "Phase2",
+      "topics": [
+        "플레이테스트",
+        "AI 체감",
+        "Expert",
+        "60fps 게이트",
+        "파트너 티츄 지원"
+      ],
+      "summary": "2026-07-07 세션 랜딩(C1 교환핀·D2 ε정상화 채택, C3 파킹)과 누적 미확인 픽스(#4 파트너-티츄 지원·#4c 살리기·#2 봉황보존)를 사람이 실기로 확인하기 위한 플레이테스트 체크리스트. A 섹션은 Expert 우선 AI 체감(리드 품질·파트너 지원·봉황 낭비·위협 차단 등), B 섹션은 Phase 1 종료 조건인 안드로이드 실기기 60fps 게이트를 다룬다.",
+      "outcome": "실기 확인용 체크리스트(설계/검증 산출물). 벤치로 강도는 검증됐고 체감은 사람이 확인 — 체감 좋으면 D5.1 사운드 마감·출시 준비, 약한 수 남으면 연구티어 착수.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_플레이테스트_픽스_배치결과.html",
+      "title": "플레이테스트 픽스 배치 결과 (Expert 8관측 처리)",
+      "date": "2026-07-08",
+      "type": "플레이테스트",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "플레이테스트",
+        "엔드게임셰딩",
+        "티츄콜",
+        "연출"
+      ],
+      "summary": "Expert 플레이테스트 8관측을 9에이전트 진단으로 처리한 결과 문서. 연출 2건·AI 3건 채택, 2건 파킹, 1건 한계 문서화로 판정하고 각 픽스의 벤치 수치와 커밋을 정리했다.",
+      "outcome": "5채택(연출 ④⑤ + AI ③⑦①)·2파킹(⑧⑥)·1한계(②). 하이라이트 ① 엔드게임 셰딩 타이브레이크 뒤집기 +34.3/R·Wilson 0.557 유의개선(리드/셰딩 계열 최초 성공)",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_플레이테스트_체크리스트_2차.html",
+      "title": "플레이테스트 체크리스트 2차 — Expert AI 낭비 개선 실기 확인",
+      "date": "2026-07-08",
+      "type": "체크리스트",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "플레이테스트",
+        "콜러",
+        "엔드게임셰딩",
+        "티츄게이트"
+      ],
+      "summary": "2026-07-08 배치 6채택분(①엔드게임셰딩·⑦near-out락아웃·콜러밟기제한·③티츄게이트 + 연출④봉황표시·⑤폭탄글로우)이 실기에서 Expert AI가 고카드를 덜 낭비하고 잘 아웃하는지 확인하기 위한 플레이테스트 체크리스트.",
+      "outcome": "실기 확인용 체크리스트(검증 대기). 미수정 항목=Issue A 봉황낭비·Issue C 팀지원·② 라지티츄 응징.",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_세션정리_2026-07-08.html",
+      "title": "티츄 세션 정리 (2026-07-06~08) — Phase2 AI 강화 + 플레이테스트 픽스",
+      "date": "2026-07-08",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "잔여레버",
+        "플레이테스트",
+        "엔드게임셰딩"
+      ],
+      "summary": "2026-07-06~08 Phase2 세션 요약. 잔여 AI 레버(C1 교환핀·D2 ε정상화·C3 티츄콜제약) 판정과 사용자 3회 플레이테스트 피드백 반영을 정리한 브리핑으로, 모든 강도 변경을 격리벤치로 판정했다.",
+      "outcome": "10건 채택·5건 파킹·2건 한계 수용, 모든 채택분 origin 동기화(main b04e09c). 최고 성과=① 엔드게임 셰딩 +34.3/R(리드계열 최초 성공). 다음=실기 플레이테스트.",
+      "status": "완료"
+    },
+    {
+      "file": "티츄_플레이테스트_8관측_진단.html",
+      "title": "Expert 플레이테스트 8관측 코드 진단 + 적대적 검증",
+      "date": "2026-07-15",
+      "type": "진단",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "플레이테스트",
+        "휴리스틱",
+        "롤아웃천장"
+      ],
+      "summary": "Expert 모드 플레이테스트에서 나온 8개 관측을 16 에이전트 워크플로(진단 8 + 적대적 반증 8)로 file:line 근거와 함께 코드 진단한 문서. 각 관측을 구현/답변/파킹으로 분류하고 사용자 체감 낭비수의 뿌리를 롤아웃 천장으로 결론.",
+      "outcome": "구현 3(마작소원 UseLiveWish·개 중앙표시·스몰티츄 임계6→7 +1.4/R), 답변 2(카드기억·1:1 EV동일), 파킹/한계 3(개조율 반증·프리미엄낭비 롤아웃천장·저싱글패스). 브랜치 feat/playtest-batch-2026-07-15 4커밋 미머지, AI변경은 실기 검증 필요.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_플레이테스트_가이드_4변경.html",
+      "title": "플레이테스트 가이드 — 4개 AI 변경 실기 확인",
+      "date": "2026-07-15",
+      "type": "플레이테스트",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "플레이테스트",
+        "실기확인",
+        "AI행동",
+        "스몰티츄"
+      ],
+      "summary": "브랜치 feat/playtest-batch-2026-07-15의 4개 AI 변경(개 중앙 표시, 마작 소원 콜, 1:1 종반 탑패 리드, 스몰티츄 선언 하한 6→7)을 실기 플레이로 확인하는 가이드. 각 변경의 확인 포인트와 그림을 담고 이상 발견 시 상황 보고를 요청.",
+      "outcome": "4개 변경 실기 확인 대기(스몰티츄 격리벤치 +1.4/R 비회귀 확인, 문제 없으면 머지/푸시)",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_플레이테스트_피드백2_보고.html",
+      "title": "플레이테스트 피드백 2 처리 보고 — 용 양도 표시 + 파트너 밟기 낭비 수정",
+      "date": "2026-07-15",
+      "type": "플레이테스트",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "파트너밟기",
+        "PartnerOvertakeMove",
+        "용양도표시",
+        "격리벤치"
+      ],
+      "summary": "Expert 플레이테스트 2차 피드백 2건 처리 보고. ① 용 양도 시 받는 대상(RecipientSeat)을 우상단 로그에 표시하도록 수정, ② 파트너의 이기는 콤보를 자기가 밟는 낭비 버그를 PartnerOvertakeMove의 reducesHand 밟기 제거로 수정.",
+      "outcome": "파트너 밟기 수정 격리벤치 +1.6/R·49.5%·비회귀 채택, 용 양도 표시 구현. 실기 재확인 후 세션 전체 머지/푸시 예정.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_D3_구조보존리드_벤치결과.html",
+      "title": "D3 구조 보존형 리드 벤치 결과 — 자기팀 콤보 깨는 싱글 리드 차단",
+      "date": "2026-07-16",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "리드",
+        "롤아웃",
+        "HeuristicStrengthBench"
+      ],
+      "summary": "Phase2 D3 레버로 DecideLead(5장 초과)가 자기 스트레이트/트리플/연속페어를 저싱글로 깨던 낭비를 구조 보존 필터로 차단한 격리 벤치 결과 문서. HeuristicStrengthBench 4000R 미러드로 강도 효과를 측정했다.",
+      "outcome": "채택 (wash·무손실, +0.5/R 회귀 0) — 강도 이득은 없으나 가시적 교정이라 선례대로 채택",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_다음프론티어_지도.html",
+      "title": "티츄 AI 다음 프론티어 지도 — 5개 방향 로드맵",
+      "date": "2026-07-16",
+      "type": "로드맵/계획",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "로드맵",
+        "가치망",
+        "출시"
+      ],
+      "summary": "값싼 강도 레버가 소진된 시점에서 티츄 AI의 다음 방향을 강도 축과 제품·체감 축 두 갈래로 정리한 로드맵. D1(출시·기기게이트)~D5(고전추론) 5개 방향을 공수·기대이득으로 평가하고 외부 SOTA 조사를 종합한다.",
+      "outcome": "봇은 이미 공개 티츄 SOTA 이상(폭탄 풀룰)·통계적으로 강함. 권고=D1+D2(출시+텔레그래핑) 즉시 실행, D3는 기회형 보류, D4(학습 가치망)는 Phase3 연구베팅, D5는 wash로 폐기.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_B1_Grand콜헤드_설계.html",
+      "title": "B1 Grand Tichu 콜 헤드 설계 보고",
+      "date": "2026-07-23",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "GrandTichu",
+        "학습모델",
+        "PIMC"
+      ],
+      "summary": "crude HandPower≥10 게이트를 학습된 \"이 8장이 먼저 나갈 확률\" 모델로 교체하는 Grand Tichu 콜 헤드의 설계 보고서. 순수 C#/dotnet으로 self-play 라벨 생성→초소형 모델 학습→CallGrandTichu 한 곳에 플래그로 주입→격리 벤치(Wilson LB>0.5)로 채택/파킹 판정하는 파이프라인과 아키텍처(5유닛)·18피처·모델 사다리(로지스틱→MLP)·τ 임계값을 제시한다.",
+      "outcome": "설계만 (구현·벤치 이전 단계, 사용자 결정 3항목 대기: 모델 사다리·피처 세트·성공기준). 참고: 후속 실제 구현은 홀드아웃 +4.97/R로 채택됨.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_B1_벤치결과.html",
+      "title": "B1 Grand 콜 헤드 격리 벤치 결과 — 채택(τ=0.55)",
+      "date": "2026-07-23",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "GrandTichu",
+        "벤치",
+        "PIMC"
+      ],
+      "summary": "Phase2 B1 그랜드 티츄 콜 학습 헤드를 현행 HandPower≥10 게이트와 미러드 self-play 16,000라운드로 비교한 격리 벤치 결과 문서. 마진과 승률 지표가 갈리는 상황을 진단하고 채택 여부를 사용자에게 묻는다.",
+      "outcome": "채택(τ=0.55) 권고 — 홀드아웃 +4.97/R, 95% CI [2.25, 7.69] 유의(승률 49.8%는 고분산 레버 지표 오적용으로 설명)",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_Small_콜헤드_벤치결과.html",
+      "title": "Small Tichu 콜 헤드 — 벤치 결과 (채택 +2.91/R)",
+      "date": "2026-07-23",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "콜헤드",
+        "Small Tichu",
+        "학습헤드"
+      ],
+      "summary": "B1 Grand 콜 헤드 인프라를 재사용해 Small Tichu의 현행 강도게이트(용/봉황+HandPower≥7)를 14장 학습 로지스틱 헤드 P>τ로 교체한 벤치 결과 문서. 홀드아웃 페어드 분석으로 효과를 격리해 채택 근거를 제시한다.",
+      "outcome": "채택 (전 PIMC 티어 ON, τ=0.55): 홀드아웃 페어드 +2.91/R, CI [2.16, 3.67] 유의. 현행 33% 과공격 게이트를 18% 선별로 보정.",
+      "status": "채택"
+    },
+    {
+      "file": "티츄_D4_ForkA_벤치결과.html",
+      "title": "D4 Fork A 리프 가치망 벤치 결과 — 게이트 불통과·파킹",
+      "date": "2026-07-23",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "가치망",
+        "D4",
+        "디리스크사다리"
+      ],
+      "summary": "PIMC 롤아웃 리프를 학습 가치망 V로 교체하는 D4 Fork A ① 오프라인 A/B 실험 결과 보고서. V-리프가 정확한 롤아웃 리프를 이기지 못해 디리스크 게이트를 불통과했음을 정리한다.",
+      "outcome": "파킹 (V −31.67/R, 승률 45%, 게이트 불통과) — 전 티어 OFF·코드 보존",
+      "status": "파킹"
+    },
+    {
+      "file": "티츄_D4_학습가치망_스코핑.html",
+      "title": "D4 — 학습 가치망 스코핑 리포트 (PIMC 리프 평가기 교체)",
+      "date": "2026-07-16",
+      "type": "로드맵/계획",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "가치망",
+        "학습",
+        "D4"
+      ],
+      "summary": "PIMC의 휴리스틱 롤아웃 리프를 학습 가치망(V(world,seat))으로 교체하는 D4 방향의 코드 근거 3중 조사 스코핑 리포트. Fork A(리프 교체·안전)와 Fork B(학습 정책이 PIMC 대체·XL)를 비교하고 디리스크 사다리와 콜 예측 헤드를 제안.",
+      "outcome": "설계/권고만 — GO: ~1주 오프라인 리프 A/B(①)+오라클 천장 탐침(②)+콜 예측 헤드(직교·확실 +10점/R). DEFER: 학습 정책 넷(③)은 오라클 게이트 통과 시에만. 구현 없음.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_다음계획_로드맵.html",
+      "title": "티츄 Phase 2 — 다음 계획 로드맵 (콜헤드 이후)",
+      "date": "2026-07-23",
+      "type": "로드맵/계획",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "로드맵",
+        "플레이테스트",
+        "출시폴리시"
+      ],
+      "summary": "콜 헤드 채택·D4 파킹 시점의 Phase2 AI 진행 현황과 다음 방향을 정리한 로드맵. 값싼 강화 레버는 소진, 봇은 SOTA 이상이며 남은 강도 레버는 큰 투자이므로 지금 최고 값어치는 쌓인 채택분의 실기 플레이테스트 검증이라고 결론.",
+      "outcome": "권고: ① 실기 플레이테스트 배치로 채택분 체감 검증(이슈는 격리벤치 픽스) → ② 결과에 따라 D4 재방문/Fork B(강도) 또는 D2·D6·출시 폴리시(완성도)로 분기. 강도의 값싼 프론티어는 소진.",
+      "status": "참고"
+    },
+    {
+      "file": "티츄_이슈수정_벤치결과_2026-07-25.html",
+      "title": "이슈 수정 격리 벤치 결과 (봉황콤보·엔드게임 리드·마작 소원)",
+      "date": "2026-07-25",
+      "type": "벤치결과",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "격리벤치",
+        "강도레버",
+        "플레이테스트픽스"
+      ],
+      "summary": "Phase 0 하니스 위 HeuristicStrengthBench 4000R 페어드로 사용자 관측 강도 레버(①봉황콤보 보존·③엔드게임 리드 카브아웃·B5 마작 소원 lowest·②K봉황 헛블록·A4 티츄 성공률)를 격리 검증한 벤치 결과 문서. AI의 낭비처럼 보이는 수가 near-optimal임을 재확인한다.",
+      "outcome": "전 레버 wash 또는 회귀 — ③ −3.0/R 회귀 파킹(되돌림), B5 −1.0/R 파킹(highest 유지), ① −0.5/R wash 체감픽스 잠정 유지(사용자 결정), ②·A4 연구티어 수용/defer",
+      "status": "파킹"
+    },
+    {
+      "file": "티츄_플레이테스트_이슈진단_2026-07-25.html",
+      "title": "플레이테스트 이슈 진단·검증·실행계획 (Expert 5이슈)",
+      "date": "2026-07-25",
+      "type": "진단",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "플레이테스트",
+        "봉황",
+        "격리벤치"
+      ],
+      "summary": "Expert(24세계) 플레이테스트에서 나온 5개 이슈(봉황콤보낭비·티츄성공률·엔드게임리드·마작소원·K봉황헛블록)를 11에이전트 워크플로로 코드 근본원인까지 진단하고 적대적으로 반증한 뒤, 우선순위 실행계획으로 종합한 문서.",
+      "outcome": "①봉황콤보=즉시구현·벤치, A4=공짜계측, ③·B5=벤치게이트통과시만, ②=수정말고 수용(파킹). 대부분 진행중/게이트 대기.",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_플레이테스트_체크리스트_인터랙티브.html",
+      "title": "인터랙티브 플레이테스트 체크리스트 (2026-07-24)",
+      "date": "2026-07-24",
+      "type": "체크리스트",
+      "phase": "Phase2",
+      "topics": [
+        "플레이테스트",
+        "콜헤드",
+        "AI",
+        "체크리스트",
+        "연출"
+      ],
+      "summary": "Expert 등 실기 플레이테스트를 위한 브라우저 인터랙티브 체크리스트로, 콜 선언 빈도(콜 헤드)·AI 아웃/낭비 품질·라지티츄 팀 지원·연출 확인 항목을 좋음/이상함/미확인 버튼으로 판정하고 이상 항목만 결과 복사로 뽑아 붙여넣을 수 있게 만든 도구.",
+      "outcome": "검증 도구(항목별 판정·결과 복사) — 판정 자체는 실기 플레이테스트에서 채움",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_플레이테스트_통합체크리스트.html",
+      "title": "통합 플레이테스트 체크리스트 (콜 헤드·낭비품질·라지티츄·연출)",
+      "date": "2026-07-24",
+      "type": "체크리스트",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "플레이테스트",
+        "라지티츄",
+        "엔드게임"
+      ],
+      "summary": "여러 세션에 걸쳐 벤치로는 채택했지만 실기(인간 상대 체감)로 확인 못 한 AI 변경들을 한 판씩 돌려 검증하기 위한 통합 체크리스트. 콜 헤드(그랜드↑·스몰↓), 아웃/낭비 품질(07-08·07-15 배치), 라지티츄 팀 지원(#4), 특수카드/폭탄 연출을 항목별 관찰 포인트로 정리.",
+      "outcome": "체감 검증용 관찰 항목 정리(벤치 전부 +EV·체감 미검증). Hard/Expert로 플레이 후 좋음/이상함/확인못함 보고 요청. N/A",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_현황브리핑_2026-07-24.html",
+      "title": "티츄 Phase 2 개발 현황 브리핑 — 강도 소진 이후 실기 검증 진입",
+      "date": "2026-07-24",
+      "type": "브리핑/요약",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "콜헤드",
+        "플레이테스트",
+        "로드맵"
+      ],
+      "summary": "Phase 2 AI 개발의 현재 위치를 정리한 현황 브리핑. 값싼·확실한 강도 레버(콜 헤드)는 소진되고 봇은 공개 티츄 SOTA 이상이며, 다음 진행으로 쌓인 채택분의 실기 플레이테스트 검증을 선택했다.",
+      "outcome": "다음 단계로 실기 플레이테스트 배치 선택(콜헤드 Grand/Small +4.97·+2.91/R 채택·푸시 완료, D4 리프 가치망은 −31.67/R 파킹)",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_관리대시보드.html",
+      "title": "티츄 개발 관리 대시보드 (현황·플레이테스트·리포트 카탈로그)",
+      "date": "2026-07-26",
+      "type": "대시보드",
+      "phase": "메타",
+      "topics": [
+        "대시보드",
+        "콜헤드",
+        "플레이테스트",
+        "리포트카탈로그",
+        "출시트랙"
+      ],
+      "summary": "티츄 개발 전반을 관리하는 인터랙티브 대시보드로, 현황 스냅샷(2026-07-26)·인터랙티브 플레이테스트 체크리스트·43개 리포트 카탈로그 3개 탭으로 구성된다. 채택 레버(D5.1 사운드, Grand/Small 콜헤드)와 라이브 Expert 관측 이슈, 수렴·출시 트랙 다음 스텝을 집약한다.",
+      "outcome": "수렴·출시 트랙 진행중 — D5.1 사운드(A1~A3)·콜헤드 채택 반영, 남은 것은 AI 실기 검증·D6 60fps 게이트·D5.1 잔여 후 Phase1 종료 선언",
+      "status": "진행중"
+    },
+    {
+      "file": "티츄_R1_출시검증_계획.html",
+      "title": "R1 출시 검증 계획 — Phase 1 공식 종료 & Google Play 출시 관문",
+      "date": "2026-07-26",
+      "type": "로드맵/계획",
+      "phase": "출시/R",
+      "topics": [
+        "출시",
+        "R1검증",
+        "D6게이트",
+        "플레이테스트부채",
+        "GooglePlay"
+      ],
+      "summary": "Google Play 정식 출시로 가는 5트랙(R1~R5) 중 첫 관문인 R1 검증의 상세 설계·승인용 문서. S23 실기기 60fps 성능 게이트, 미확인 AI 부채 통합 플레이테스트 체크리스트, Phase 1 공식 종료(DoD 재판정)의 3부분으로 구성된다.",
+      "outcome": "결정 2건 확정(성능=저사양 미대응·S23 스모크 단일 게이트, 게임명=Tichu Master). 승인 시 feat/r1-release-verification 브랜치 착수 — R1 실행 완료(DoD 4/4 Pass), 결과는 티츄_R1_판정결과.html",
+      "status": "완료"
+    },
+    {
+      "file": "docs/reports/2026-06-09-part2-plan-report.html",
+      "title": "Tichu.Core Part 2 계획 검토 보고서 — 룰엔진 상태기계·정산·시뮬",
+      "date": "2026-06-09",
+      "type": "로드맵/계획",
+      "phase": "Phase0",
+      "topics": [
+        "룰엔진",
+        "상태기계FSM",
+        "정산",
+        "헤드리스시뮬",
+        "TDD"
+      ],
+      "summary": "Part 1(조합 엔진) 위에 한 판을 끝까지 굴리는 결정적 룰엔진(상태 타입·Apply FSM·합법수·정산·10만판 시뮬)을 얹는 Part 2 착수 전 검토 계획서. 8개 태스크 분해와 라운드 FSM/정산 흐름을 정리하고 승인 필요 결정 2건을 제시. 완료 시 Phase 0 종료.",
+      "outcome": "DD2(정적 클래스 유지)·DD3(in-place 변경+Clone) 권장안 승인 요청 — 확정 후 Task 1부터 TDD 착수",
+      "status": "참고"
+    },
+    {
+      "file": "docs/reports/2026-06-10-phase1-mvp-design-report.html",
+      "title": "Phase 1 MVP 설계 검토 보고서 — P1-A 헤드리스 GameFlow + 기본 AI",
+      "date": "2026-06-10",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "Phase1",
+        "P1-A",
+        "GameFlow",
+        "IAgent",
+        "용양도",
+        "적대적검증"
+      ],
+      "summary": "Phase 1 MVP를 3개 서브프로젝트(P1-A 헤드리스 GameFlow+기본AI / P1-B Presentation / P1-C App)로 분해하고, 이번 상세 대상인 P1-A(순수 .NET IAgent 계약·GameDriver/MatchRunner·Normal 휴리스틱 AI·용 양도 Core 변경)의 설계 골격과 9단계 TDD 태스크를 제시한 설계 검토 보고서. 적대적 검증이 잡은 결함(용 양도 일시정지 미작동 등)을 반영했다.",
+      "outcome": "설계 승인 게이트 — 승인 시 설계 스펙 확정 후 P1-A 구현 착수(설계만 제시)",
+      "status": "참고"
+    },
+    {
+      "file": "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+      "title": "Phase1 P1-B 프레젠테이션(Unity 2D uGUI) 설계 검토",
+      "date": "2026-06-11",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "프레젠테이션",
+        "uGUI",
+        "UniTask",
+        "R3",
+        "비동기드라이버"
+      ],
+      "summary": "Phase1 P1-B의 프레젠테이션 계층(Unity 2D uGUI) 설계 검토 문서로, 사람 1명(South) vs Normal AI 3명이 한 라운드를 수직 슬라이스로 플레이하는 구조를 다룬다. UniTask 비동기 드라이버·R3 ViewModel·얇은 뷰 레이어와 asmdef 구성, UI 중재 시퀀스, 결정 프롬프트, 테스트/DoD를 정의한다.",
+      "outcome": "설계 결정 잠금(비동기 UniTask 드라이버 A안·core 정본+동기화 S1안·UniTask+R3 도입). DoD=PlayMode 한 라운드 완주+오라클(비동기==동기 해시)+미러 드리프트 가드.",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-10-tichu-phase1-mvp-design.md",
+      "title": "Tichu Phase 1 MVP 설계 스펙 (P1-A 헤드리스 GameFlow + 기본 AI)",
+      "date": "2026-06-10",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "GameFlow",
+        "IAgent 계약",
+        "휴리스틱 AI",
+        "용 양도",
+        "결정성/테스트"
+      ],
+      "summary": "Phase 1 MVP를 3개 서브프로젝트(P1-A 헤드리스 GameFlow+기본AI / P1-B Presentation / P1-C App흐름)로 분해하고, 상세 범위인 P1-A의 아키텍처·계약·결정을 정의한 설계 스펙이다. 순수 .NET Tichu.GameFlow(드라이버+IAgent 포트+Normal 휴리스틱 AI), 유일한 Core 변경인 용 양도(Dragon-gift) 캡처-가드-재개 구현, 결정성/테스트 전략과 DoD를 담았다.",
+      "outcome": "사용자 승인 완료(2026-06-10). 설계 확정 — 잠긴 결정(3서브프로젝트·헤드리스 우선·2D uGUI 플레이스홀더·단일 Normal 휴리스틱 AI), 적대적 검증이 잡은 용 양도 CRITICAL 반영. 후속은 P1-A TDD 구현 계획서.",
+      "status": "채택"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-11-tichu-phase1b-presentation-design.md",
+      "title": "Phase 1 P1-B 프레젠테이션(Unity 2D uGUI) 설계 스펙",
+      "date": "2026-06-11",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "Presentation",
+        "uGUI",
+        "UniTask",
+        "비동기드라이버",
+        "ViewModel"
+      ],
+      "summary": "Phase1 P1-B의 아키텍처·계약·결정을 정의한 설계 스펙. 사람 1명이 placeholder 2D uGUI로 3 AI와 한 라운드를 정산까지 완주하는 수직 슬라이스로, UniTask 비동기 드라이버(AsyncGameDriver)+HumanAgent+TableViewModel과 core/ 정본 미러 동기화를 다룬다.",
+      "outcome": "사용자 승인 완료(설계 확정). 잠긴 결정: 비동기 아키텍처 A(UniTask), 소스공유 S1(core/ 정본+동기화), UniTask/R3만 추가.",
+      "status": "채택"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-17-tichu-phase1d-landscape-prefab-design.md",
+      "title": "Phase 1-D (D1+D2) 가로 셸·앵커화·CardView 프리팹 설계",
+      "date": "2026-06-17",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "가로레이아웃",
+        "앵커화",
+        "CardView프리팹",
+        "SafeArea",
+        "비주얼"
+      ],
+      "summary": "Phase 1-D 비주얼의 첫 두 묶음(D1+D2) 설계 스펙. 세로 절대좌표 placeholder 테이블을 가로 1920×1080 앵커 기반으로 전환하고, 카드 1장을 재사용 가능한 CardView 프리팹으로 추출한다. RuntimeTableView 단일 뷰를 제자리에서 리팩터하며 게임 로직·구독 계약(진실/연출 분리)은 불변 유지.",
+      "outcome": "브레인스토밍 합의로 승인됨 → 구현 계획 단계로. 설계만(구현은 후속). 핵심결정: 구조전환 중심·아트후속, 앵커 코드빌드+CardView 프리팹, 단일뷰 진화, SafeArea 적용, Resources.Load 로딩.",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-18-tichu-phase1d-d3-pooling-design.md",
+      "title": "Phase 1-D (D3) 카드 풀링 + Canvas 정적/동적 분리 설계",
+      "date": "2026-06-18",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "카드풀링",
+        "Canvas분리",
+        "D3",
+        "60fps",
+        "오라클보존"
+      ],
+      "summary": "RenderHand/Backs/Trick의 매 스냅샷 Destroy+Instantiate 핫스팟을 루트별 CardChipPool(SetActive 토글)과 정적/동적 Canvas 분리로 전환하는 P1-D 60fps 첫 걸음 설계. 게임 로직·오라클 경로는 비트동일 보존하고 동치·풀 불변식·구조를 EditMode로 검증한다.",
+      "outcome": "설계 승인(옵션 a=전체 설계), 구현 계획 단계로. 멀티에이전트 검증이 서브캔버스 GraphicRaycaster 누락·CardView 버튼 리스너 누수 2결함 사전 차단.",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-19-card-readability-and-tichu-signals-design.md",
+      "title": "가독성·손맛 개선(D4.1) 설계 스펙 — 무늬색 정리·폭탄 글로우·티츄 콜 배지",
+      "date": "2026-06-19",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "비주얼/손맛",
+        "D4.1",
+        "폭탄 글로우",
+        "티츄 콜 배지",
+        "카드 가독성"
+      ],
+      "summary": "Phase1 P1-D D4 위에 이어붙인 플레이테스트 피드백 3건(무늬색 정리+내 폭탄 카드 빨강 글로우, 결과 배너 팀 총점 합산만, 티츄 콜 좌석 배지+플래시) 해소를 위한 설계 스펙. 오라클 비트동일성·새 asmdef 0·DoTween 격리 불변식을 유지하며 BombScanner(순수 Core), CardView 글로우, TableViewModel SeatCall 투영, IPlayAnimator.TichuDeclared 훅을 정의한다.",
+      "outcome": "설계만 (구현·테스트 전략·머지 경계 명세, feat/p1d-d4에 이어붙여 함께 머지 예정)",
+      "status": "참고"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-24-tichu-phase2-ai-pimc-design.md",
+      "title": "Tichu Phase 2 AI 고도화 설계 스펙 (PIMC)",
+      "date": "2026-06-24",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "결정화",
+        "난이도티어",
+        "로드맵"
+      ],
+      "summary": "Phase 2 강 AI를 PIMC(완전정보 몬테카를로)로 구현하는 설계 스펙. 현 휴리스틱 AiAgent를 롤아웃 디폴트 정책으로 재사용하고, Determinizer(치트가드)·PolicyConfig 4티어·anytime 비동기·오라클 보존·벤치/DoD·P2-A~E 로드맵을 정의한다.",
+      "outcome": "설계 승인(탐색코어=PIMC, 완료기준=Hard가 휴리스틱봇 대비 Wilson CI 하한>0.5), 구현계획 대기",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-06-26-tichu-default-ai-strength-design.md",
+      "title": "기본 AI 강화(검증 후 승격) 설계 스펙 — 세계수 스윕과 딜레이·연산 겹치기",
+      "date": "2026-06-26",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "세계수",
+        "격리벤치",
+        "Normal티어"
+      ],
+      "summary": "기본 난이도(Normal=4세계)의 약한 수를 4세계 EV 노이즈로 진단하고, 세계수를 올리되 격리벤치로 검증 후 승격하는 3단계(P1 강도·지연 스윕 / P2 딜레이·연산 겹치기 / P3 Normal 재배선) 설계 스펙. caller-aggression(+22/R) 보존과 킬 브랜치(향상 없으면 승격 안 함)를 명시.",
+      "outcome": "설계만(승인됨, 구현계획 대기). 검증 후 승격 원칙, 향상 없으면 미승격.",
+      "status": "참고"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-03-tichu-p2g-b1-robust-backup-design.md",
+      "title": "P2-G B1 — α-μ 강건 백업(분산 페널티) 설계",
+      "date": "2026-07-03",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "전략융합",
+        "강건백업",
+        "분산페널티"
+      ],
+      "summary": "PIMC의 argmax(mean) 선택 규칙을 argmax(mean − λ·std)로 교체해 전략 융합(strategy fusion) 문제를 완화하려는 설계 스펙. 세계별 EV 분산을 페널티로 삼는 A안(분산 페널티)을 승인하고, 순수 C# 함수(RobustScore/RobustArgmax)·게이트 플래그·λ 스윕 self-play 2배치 부호안정 벤치까지 계획.",
+      "outcome": "설계만(승인, 기본 OFF·비트불변, 벤치 통과 시 Hard 티어 승격·wash/회귀 시 OFF 유지 규율 명시)",
+      "status": "참고"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-06-tichu-c1-exchange-pin-design.md",
+      "title": "C1 교환 카드 핀 — 결정화 정확도 설계",
+      "date": "2026-07-06",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "결정화",
+        "교환핀",
+        "C1"
+      ],
+      "summary": "PIMC 결정화 시 균등 셔플이 교환에서 넘긴 카드의 수령 좌석 정보를 버려 상대 손패를 잘못 재구성하는 믿음 오류를, PimcAgent 로컬 기억(A안)으로 넘긴 3장+수령 좌석을 캡처해 Determinizer.Sample에 핀으로 전달하는 설계 스펙. 변경 지점·좌석 매핑·엣지·테스트/벤치 계획 포함.",
+      "outcome": "설계만(상태 승인). UseExchangePin 플래그 기본 false·비트불변, 격리벤치 회귀 없음 시 전 PIMC 티어 ON 채택 계획.",
+      "status": "참고"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-07-tichu-d2-epsilon-normalization-design.md",
+      "title": "D2 — ε·롤아웃수 정상화 설계",
+      "date": "2026-07-07",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "롤아웃",
+        "Expert",
+        "성능최적화"
+      ],
+      "summary": "Expert 프리셋의 ε=0 롤아웃이 결정적이라 6× 동일 연산을 낭비하는 문제를, EffectiveRollouts 헬퍼로 유효 롤아웃 수를 1로 정규화(플래그 없음)하는 설계·측정 문서. 격리벤치로 강도 중립성과 가속 효과를 검증했다.",
+      "outcome": "채택: 마진 +10.83/R(노이즈 내 중립·회귀 없음) + 5.80× 가속, EditMode 50/50, main 머지·푸시",
+      "status": "채택"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-07-tichu-c3-tichu-call-constraint-design.md",
+      "title": "C3 티츄콜 강도 지지집합 제약 설계",
+      "date": "2026-07-07",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "결정화",
+        "티츄콜",
+        "C3"
+      ],
+      "summary": "PIMC 결정화가 티츄를 콜한 좌석에 약한 손을 배정하는 문제를, 콜 강도 하한 미달 세계를 하드 기각(재샘플)하는 지지집합 제약으로 보정하려는 설계·구현·벤치 문서. UseTichuCallConstraint 플래그로 게이트.",
+      "outcome": "파킹(플래그 OFF·코드 보존) — 격리벤치 풀링 +2.97/R로 부호안정 양성이나 노이즈 내 무의미, 근사라 인간 상대엔 상한 ≤0",
+      "status": "파킹"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-16-d3-structure-preserving-lead-design.md",
+      "title": "D3 구조 보존형 리드(Structure-Preserving Lead) 설계 스펙",
+      "date": "2026-07-16",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "리드정책",
+        "롤아웃",
+        "D3"
+      ],
+      "summary": "Phase 2 AI 강화의 D3 레버로, AiAgent.DecideLead가 가장 낮은 싱글을 홀로 내며 스트레이트·풀하우스 등 가치 구조를 깨는 문제를 해결하는 구조 보존형 리드 설계 문서. 그리디 커밋 판정으로 구조를 깨는 싱글을 후보에서 제외하고 남는 것 중 최저 수를 리드하며, 공유 AiAgent이라 PIMC 롤아웃·라이브 리드·Easy에 전파된다.",
+      "outcome": "설계만(승인됨·구현 대기). HeuristicStrengthBench 4000R로 회귀 없으면 채택·wash면 파킹 기준 제시",
+      "status": "진행중"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-23-grand-tichu-call-head-design.md",
+      "title": "Grand Tichu 콜 헤드(B1) 설계 스펙",
+      "date": "2026-07-23",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "GrandTichu",
+        "PIMC",
+        "로지스틱회귀"
+      ],
+      "summary": "crude 휴리스틱 게이트(HandPower>=10)를 학습된 P(이 8장 손패가 먼저 나갈 확률)>τ 로 교체하는 Grand Tichu 콜 헤드(B1)의 설계 스펙. 순수 C# 로지스틱 회귀 v0, ~18 피처, 5개 격리 유닛(인코더·CallNet·베이크가중치·AiAgent 통합·트레이너/벤치), 미러드 self-play 격리 벤치로 채택 판정.",
+      "outcome": "설계 승인·구현 착수(로지스틱 v0 먼저·§5 피처·Grand 먼저·Wilson LB>0.5·순수 C#). 채택 기준=margin/R≥0 and 승률 Wilson LB>0.5",
+      "status": "완료"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-23-small-tichu-head-design.md",
+      "title": "Small Tichu 콜 헤드 설계 스펙 (B1 미러 + Small 델타)",
+      "date": "2026-07-23",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "콜헤드",
+        "Small Tichu",
+        "PIMC",
+        "로지스틱헤드"
+      ],
+      "summary": "AiAgent.CallTichu의 강도 게이트를 14장(교환 후) 손패로 학습한 로지스틱 헤드 P(먼저 나갈 확률)>τ로 교체하는 설계 스펙. B1 Grand 콜 헤드 인프라를 재사용하되 14장 스케일 전용 SmallTichuFeatures와 스테핑 데이터 생성을 추가한다.",
+      "outcome": "설계 승인됨(brainstorming), 구현 착수. 컨텍스트 게이트·폭탄 단축 보존, 강도 게이트만 교체.",
+      "status": "진행중"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-23-d4-forkA-value-leaf-design.md",
+      "title": "D4 Fork A — 리프 가치망(오프라인 리프 A/B) 설계 스펙",
+      "date": "2026-07-23",
+      "type": "설계스펙",
+      "phase": "Phase2",
+      "topics": [
+        "AI",
+        "PIMC",
+        "가치망",
+        "리프평가",
+        "벤치"
+      ],
+      "summary": "PIMC 롤아웃 리프를 학습 가치망 V(world,seat)→EV로 교체해 탈노이즈+속도 이득을 노리는 D4 Fork A 설계 스펙. 시임(IWorldEvaluator)부터 인코더·MLP·데이터생성·학습·A/B 벤치까지 조각별 아키텍처와 DoD(Wilson LB>0.5)를 정의한 다세션 연구 문서.",
+      "outcome": "게이트 불통과·파킹(V-리프 −31.67/R·승률45%·WilsonLB0.331, ε=0 롤아웃이 근사 V를 압도). 전 티어 OFF·비트불변·코드 보존, main --no-ff 머지",
+      "status": "파킹"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-26-tichu-d5_1-sound-policy-design.md",
+      "title": "D5.1 사운드 폴리시 (A1~A3) 설계 — 버튼음·볼륨패널·백그라운드 음소거",
+      "date": "2026-07-26",
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "사운드",
+        "D5.1",
+        "볼륨패널",
+        "버튼SFX",
+        "백그라운드음소거"
+      ],
+      "summary": "Phase 1 잔여 손맛 보강 중 사운드 3종(버튼 클릭 SFX·BGM/SFX 분리 볼륨 패널·앱 백그라운드 전체 음소거)의 설계 스펙. VolumeSettings 정적 클래스, MenuShell 배선, AudioLifecycle 순수 정책 등 4개 유닛과 TDD 태스크 순서를 정의한다.",
+      "outcome": "설계만(사용자 승인된 4개 결정 사항 기반, 브랜치 feat/p1d-d5_1-sound-policy에서 TDD 구현 예정)",
+      "status": "진행중"
+    },
+    {
+      "file": "docs/superpowers/specs/2026-07-26-r1-release-verification-design.md",
+      "title": "R1 출시 검증 설계 — D6 실기기 성능 게이트 + 미확인 AI 부채 통합 플레이테스트",
+      "date": "2026-07-26",
+      "type": "설계스펙",
+      "phase": "출시/R",
+      "topics": [
+        "출시/R1",
+        "성능게이트",
+        "S23스모크",
+        "AI부채검증",
+        "Phase1종료"
+      ],
+      "summary": "Google Play 정식 출시 5트랙 로드맵(R1~R5)의 첫 관문인 R1 검증 설계 문서. S23 Dev Build 60fps 성능 스모크 게이트(R1-a), 벤치 채택했으나 실기 미확인인 AI 변경들의 통합 플레이테스트 체크리스트(R1-b), Phase 1 공식 종료(R1-c)를 정의한다.",
+      "outcome": "설계만 — R1 실행 완료(DoD 4/4 Pass), 결과는 티츄_R1_판정결과.html",
+      "status": "완료"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1b/async-architecture.html",
+      "title": "P1-B 비동기 드라이버 아키텍처 비교 (동기 코어와 사람 입력 연결)",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "P1-B",
+        "비동기드라이버",
+        "UniTask",
+        "아키텍처",
+        "오라클검증"
+      ],
+      "summary": "P1-A의 동기 GameDriver를 사람(South) 비동기 UI 입력과 연결하는 3가지 방식(A 비동기 UniTask 드라이버, B 백그라운드 스레드 재사용, C 코루틴/상태머신)을 장단점과 다이어그램으로 비교한 설계 문서다. 규칙 판단은 GameEngine/FlowQuery에 위임하고 동기 GameDriver를 오라클로 교차검증하는 것을 전제로 한다.",
+      "outcome": "A(비동기 UniTask 드라이버) 추천 — 단일 스레드로 레이스/데드락 無, 오라클 교차검증 가능",
+      "status": "참고"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1b/architecture-layers.html",
+      "title": "P1-B 섹션 A — 아키텍처 & 레이어 설계",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "아키텍처",
+        "asmdef레이어",
+        "코어미러",
+        "비동기드라이버",
+        "오라클검증"
+      ],
+      "summary": "Phase1 P1-B 한 라운드 수직 슬라이스(사람1+AI3)의 아키텍처·레이어 설계. core/ dotnet을 단일 정본으로 두고 Assets/_Project를 sync 스크립트로 단방향 미러링하며, Tichu.Core→GameFlow→Presentation asmdef 의존 스택과 EditMode 순수 C# 테스트(동기 GameDriver 오라클 교차검증), UniTask·R3 패키지 도입(DoTween·VContainer는 보류)을 규정한다.",
+      "outcome": "설계만 (드리프트 가드로 미러==core 강제, YAGNI로 UniTask·R3만 추가하고 DoTween·VContainer는 P1-C로 이월)",
+      "status": "참고"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1b/async-driver-flow.html",
+      "title": "P1-B 섹션 B — 비동기 드라이버 + 에이전트 + UI 중재 설계",
+      "date": null,
+      "type": "설계스펙",
+      "phase": "Phase1",
+      "topics": [
+        "비동기드라이버",
+        "UniTask",
+        "IDecisionAgent",
+        "UI중재",
+        "HumanAgent"
+      ],
+      "summary": "P1-A 동기 게임 드라이버를 단일 스레드 UniTask로 미러링하는 비동기 아키텍처 설계 문서. IDecisionAgent(IAgent 비동기 미러), AsyncGameDriver, AI/Human 두 에이전트, HumanAgent→InputPort→View 단방향 UI 중재 시퀀스를 정의한다.",
+      "outcome": "설계만 — 규칙은 전부 GameEngine에 위임(P1-A가 룰 권위), 에이전트 호출만 await로 전환, 단일 메인스레드라 레이스 없음",
+      "status": "참고"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1b/table-mockup.html",
+      "title": "P1-B 섹션 C — ViewModel 상태투영 + 결정 프롬프트 + 테이블 목업",
+      "date": null,
+      "type": "목업",
+      "phase": "Phase1",
+      "topics": [
+        "목업",
+        "ViewModel",
+        "UI/uGUI",
+        "결정포인트",
+        "테이블뷰"
+      ],
+      "summary": "Phase1 P1-B 섹션 C의 플레이 화면 와이어프레임 목업. 사람=South 손패 앞면·상대는 뒷면 수량만 보이는 2D uGUI 테이블, TableViewModel의 R3 상태 투영(Seats/MyHand/CurrentTrick/Phase/PendingDecision), 9개 결정포인트를 6개 프롬프트 메서드로 매핑하고 LegalMoveGenerator 로컬 합법성 게이팅을 명시.",
+      "outcome": "설계/목업만 — ViewModel 투영 구조·결정 프롬프트·합법성 게이팅 정의",
+      "status": "참고"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1d-landscape-layout.html",
+      "title": "P1-D 가로 테이블 레이아웃 목업 (1920×1080, 앵커 기반)",
+      "date": null,
+      "type": "목업",
+      "phase": "Phase1",
+      "topics": [
+        "가로레이아웃",
+        "P1-D",
+        "UI배치",
+        "앵커/SafeArea",
+        "CanvasScaler"
+      ],
+      "summary": "Phase1 P1-D 비주얼 단계의 인게임 테이블 UI를 세로에서 1920×1080 가로로 매핑한 SVG 목업. 나=하단, 파트너=상단, 좌/우 상대=양끝, 트릭=중앙 좌석 배치와 점수·로그·결정 패널·티츄/스킵 버튼을 앵커 기반으로 배치하고, CanvasScaler 전환·SafeArea·방향잠금·CardView 프리팹 등 전환 포인트를 정리했다.",
+      "outcome": "가로 레이아웃 설계안 제시(브레인스토밍용) — 좌석 매핑·결정패널 위치·SafeArea 인셋 반영 여부 3가지 확인 질문 포함, 설계만.",
+      "status": "참고"
+    },
+    {
+      "file": ".superpowers/brainstorm/p1d-landscape-layout-v2.html",
+      "title": "P1-D 가로 레이아웃 v2 — 손패 중앙정렬 + SafeArea",
+      "date": null,
+      "type": "목업",
+      "phase": "Phase1",
+      "topics": [
+        "가로레이아웃",
+        "손패중앙정렬",
+        "SafeArea",
+        "P1-D",
+        "UI"
+      ],
+      "summary": "Phase1 P1-D 인게임 가로 레이아웃 v2의 SVG 목업. 손패를 화면 정중앙 기준 가로 팬으로 정렬하고(bottom-stretch 앵커+MiddleCenter), 좌석/트릭/결정패널 배치는 v1과 동일. 노치 폰 대비 SafeArea 적용/미적용 비교를 곁들임.",
+      "outcome": "SafeArea 넣기 권장(컴포넌트 1개로 저렴, 노치 폰에서만 작동·손해 없음) — 손패 중앙정렬 채택 방향",
+      "status": "진행중"
+    }
+  ],
+  "taxonomy": {
+    "categories": [
+      {
+        "name": "기획 & 파운데이션 (메타·Phase0)",
+        "color_hint": "#1b4332",
+        "rationale": "프로젝트 방향·룰·아키텍처를 정의한 founding 문서와 Phase0 룰엔진 계획. 전 페이즈의 뿌리 참조 문서로, 나머지 실행 문서와 성격이 근본적으로 다르므로 최상위 단일 카테고리로 격리한다.",
+        "files": [
+          "티츄_프로토타입_기획서.html",
+          "docs/reports/2026-06-09-part2-plan-report.html"
+        ]
+      },
+      {
+        "name": "Phase1 설계 & 목업 (앱셸·비주얼·사운드)",
+        "color_hint": "#2d6a4f",
+        "rationale": "MVP를 만든 Phase1의 설계 스펙·검토 보고서·브레인스토밍·SVG 목업 전부. 앱셸/프레젠테이션/가로레이아웃/카드풀링/사운드 등 구현 근거 문서 묶음이며 벤치·플레이테스트 이전 단계의 '무엇을 만들지'에 해당한다.",
+        "files": [
+          "티츄_Phase1_잔여_아키텍처.html",
+          "티츄_P1D_D3_카드풀링_설계.html",
+          "티츄_P1D_D5_사운드_설계.html",
+          "docs/reports/2026-06-10-phase1-mvp-design-report.html",
+          "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+          "docs/superpowers/specs/2026-06-10-tichu-phase1-mvp-design.md",
+          "docs/superpowers/specs/2026-06-11-tichu-phase1b-presentation-design.md",
+          "docs/superpowers/specs/2026-06-17-tichu-phase1d-landscape-prefab-design.md",
+          "docs/superpowers/specs/2026-06-18-tichu-phase1d-d3-pooling-design.md",
+          "docs/superpowers/specs/2026-06-19-card-readability-and-tichu-signals-design.md",
+          "docs/superpowers/specs/2026-07-26-tichu-d5_1-sound-policy-design.md",
+          ".superpowers/brainstorm/p1b/async-architecture.html",
+          ".superpowers/brainstorm/p1b/architecture-layers.html",
+          ".superpowers/brainstorm/p1b/async-driver-flow.html",
+          ".superpowers/brainstorm/p1b/table-mockup.html",
+          ".superpowers/brainstorm/p1d-landscape-layout.html",
+          ".superpowers/brainstorm/p1d-landscape-layout-v2.html"
+        ]
+      },
+      {
+        "name": "Phase2 AI 설계 스펙 (PIMC·레버·콜헤드·가치망)",
+        "color_hint": "#40916c",
+        "rationale": "강 AI(PIMC)의 코어 설계와 개별 강화 레버(티어·교환핀·ε정상화·티츄콜제약·구조보존리드·강건백업·콜헤드·가치망·난이도UI)의 설계 스펙/브리프. 각 벤치결과의 '무엇을 왜 바꾸는가' 근거이며 실험결과와 분리해야 참조가 빠르다.",
+        "files": [
+          "티츄_Phase2_AI_PIMC_설계.html",
+          "티츄_P2G_B1_설계브리프.html",
+          "티츄_티어정합성_설계.html",
+          "티츄_난이도선택UI_설계.html",
+          "티츄_B1_Grand콜헤드_설계.html",
+          "docs/superpowers/specs/2026-06-24-tichu-phase2-ai-pimc-design.md",
+          "docs/superpowers/specs/2026-06-26-tichu-default-ai-strength-design.md",
+          "docs/superpowers/specs/2026-07-03-tichu-p2g-b1-robust-backup-design.md",
+          "docs/superpowers/specs/2026-07-06-tichu-c1-exchange-pin-design.md",
+          "docs/superpowers/specs/2026-07-07-tichu-d2-epsilon-normalization-design.md",
+          "docs/superpowers/specs/2026-07-07-tichu-c3-tichu-call-constraint-design.md",
+          "docs/superpowers/specs/2026-07-16-d3-structure-preserving-lead-design.md",
+          "docs/superpowers/specs/2026-07-23-grand-tichu-call-head-design.md",
+          "docs/superpowers/specs/2026-07-23-small-tichu-head-design.md",
+          "docs/superpowers/specs/2026-07-23-d4-forkA-value-leaf-design.md"
+        ]
+      },
+      {
+        "name": "Phase2 실험 & 격리벤치 결과",
+        "color_hint": "#2a7d8c",
+        "rationale": "각 레버의 채택/파킹 판정 근거인 정량 벤치결과·구현보고. 강도 주장은 반드시 격리벤치로 검증한다는 프로젝트 규율의 산출물이 모두 여기 모여 있어 '이 변경 실제로 효과 있었나'를 한 곳에서 조회 가능.",
+        "files": [
+          "티츄_P2C_벤치결과.html",
+          "티츄_P2D2_ReachProb결과.html",
+          "티츄_P2D_속도개선_reach16검증.html",
+          "티츄_P2G_D1_구현보고.html",
+          "티츄_P2G_B1_벤치결과.html",
+          "티츄_C1_교환핀_벤치결과.html",
+          "티츄_D3_구조보존리드_벤치결과.html",
+          "티츄_B1_벤치결과.html",
+          "티츄_Small_콜헤드_벤치결과.html",
+          "티츄_D4_ForkA_벤치결과.html",
+          "티츄_이슈수정_벤치결과_2026-07-25.html"
+        ]
+      },
+      {
+        "name": "로드맵 & 스코핑 (강화 방향)",
+        "color_hint": "#6a994e",
+        "rationale": "세계수 검증·다음 프론티어·가치망 스코핑 등 '다음에 어디로'를 다루는 미래지향 문서. 설계 스펙보다 상위의 방향 결정이라 별도 축으로 두면 세션 시작 시 현재 프론티어 파악에 유용.",
+        "files": [
+          "티츄_AI강화_검증_로드맵.html",
+          "티츄_다음프론티어_지도.html",
+          "티츄_D4_학습가치망_스코핑.html",
+          "티츄_다음계획_로드맵.html"
+        ]
+      },
+      {
+        "name": "Expert 플레이 진단 (코드 근거)",
+        "color_hint": "#8a5a44",
+        "rationale": "사용자 플레이테스트 관측을 file:line 코드 근거로 진단해 '진짜 버그 vs EV 노이즈'를 판별한 문서. 반복되는 라이브EV 오버라이드 회귀 교훈이 축적된 곳이라 벤치·설계와 분리한 warm 색으로 시각 구분.",
+        "files": [
+          "티츄_Expert플레이_진단.html",
+          "티츄_Expert진단_2차.html",
+          "티츄_플레이테스트_8관측_진단.html",
+          "티츄_플레이테스트_이슈진단_2026-07-25.html",
+          "티츄_자율작업_요약.html"
+        ]
+      },
+      {
+        "name": "플레이테스트 체크리스트 & 실기결과",
+        "color_hint": "#90a955",
+        "rationale": "벤치로 채택했으나 인간 체감 미확인인 변경을 사람이 실기로 검증하는 체크리스트·가이드·피드백 처리 보고. '무엇을 실기로 확인해야 하나'라는 반복 니즈를 한 묶음으로.",
+        "files": [
+          "티츄_플레이테스트_체크리스트.html",
+          "티츄_플레이테스트_픽스_배치결과.html",
+          "티츄_플레이테스트_체크리스트_2차.html",
+          "티츄_플레이테스트_가이드_4변경.html",
+          "티츄_플레이테스트_피드백2_보고.html",
+          "티츄_플레이테스트_체크리스트_인터랙티브.html",
+          "티츄_플레이테스트_통합체크리스트.html"
+        ]
+      },
+      {
+        "name": "세션 브리핑 & 관리 대시보드",
+        "color_hint": "#52796f",
+        "rationale": "여러 작업을 가로질러 현황을 집약한 요약·브리핑·대시보드. '지금 어디까지 왔나'를 빠르게 잡는 진입점 문서 묶음으로, 개별 실행 문서와 성격이 달라 별도 축.",
+        "files": [
+          "티츄_진행현황_2026-07-04.html",
+          "티츄_세션요약_C1_D2_레버소진.html",
+          "티츄_브리핑_C1D2_다음프론티어.html",
+          "티츄_세션정리_2026-07-08.html",
+          "티츄_현황브리핑_2026-07-24.html",
+          "티츄_관리대시보드.html"
+        ]
+      },
+      {
+        "name": "게이트 & 출시 검증 (마일스톤)",
+        "color_hint": "#b48b53",
+        "rationale": "실기기 60fps 게이트와 Google Play 출시(R1) 검증처럼 페이즈를 닫는 관문 문서. 사람 수행 대기·제품 결정이 얽힌 마일스톤이라 gold 색으로 강조해 다른 실행 문서와 구분.",
+        "files": [
+          "티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html",
+          "티츄_R1_출시검증_계획.html",
+          "docs/superpowers/specs/2026-07-26-r1-release-verification-design.md"
+        ]
+      }
+    ],
+    "work_area_index": [
+      {
+        "area": "사운드 (D5 인게임 SFX / D5.1 폴리시)",
+        "why": "IAudioService·AudioBank·볼륨패널·버튼SFX·백그라운드 음소거 작업 시 설계 맥락 전부.",
+        "files": [
+          "티츄_P1D_D5_사운드_설계.html",
+          "docs/superpowers/specs/2026-07-26-tichu-d5_1-sound-policy-design.md"
+        ]
+      },
+      {
+        "area": "카드 렌더 성능 / 60fps 게이트",
+        "why": "CardChipPool·Canvas 분리·FpsOverlay·실기기 60fps 측정을 만질 때.",
+        "files": [
+          "티츄_P1D_D3_카드풀링_설계.html",
+          "docs/superpowers/specs/2026-06-18-tichu-phase1d-d3-pooling-design.md",
+          "티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html"
+        ]
+      },
+      {
+        "area": "가로 비주얼 레이아웃 & 카드 프리팹",
+        "why": "1920×1080 앵커 레이아웃·SafeArea·CardView 프리팹·폭탄글로우/티츄배지 등 인게임 UI 비주얼.",
+        "files": [
+          "티츄_Phase1_잔여_아키텍처.html",
+          "docs/superpowers/specs/2026-06-17-tichu-phase1d-landscape-prefab-design.md",
+          "docs/superpowers/specs/2026-06-19-card-readability-and-tichu-signals-design.md",
+          ".superpowers/brainstorm/p1d-landscape-layout-v2.html"
+        ]
+      },
+      {
+        "area": "앱셸·DI·난이도 선택 UI",
+        "why": "VContainer 셸·AppFlow reducer·MatchSettings 홀더·난이도 선택 화면 배선.",
+        "files": [
+          "티츄_Phase1_잔여_아키텍처.html",
+          "티츄_난이도선택UI_설계.html"
+        ]
+      },
+      {
+        "area": "Presentation 비동기 드라이버 (P1-B)",
+        "why": "AsyncGameDriver·HumanAgent·TableViewModel(R3)·오라클 미러 동기화 구조.",
+        "files": [
+          "docs/superpowers/specs/2026-06-11-tichu-phase1b-presentation-design.md",
+          "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+          ".superpowers/brainstorm/p1b/async-driver-flow.html",
+          ".superpowers/brainstorm/p1b/architecture-layers.html"
+        ]
+      },
+      {
+        "area": "PIMC 코어 아키텍처 & 난이도 티어",
+        "why": "결정화·롤아웃·EV투표·anytime·티어별 세계수/예산/정합성의 기반 설계.",
+        "files": [
+          "티츄_Phase2_AI_PIMC_설계.html",
+          "docs/superpowers/specs/2026-06-24-tichu-phase2-ai-pimc-design.md",
+          "티츄_AI강화_검증_로드맵.html",
+          "티츄_티어정합성_설계.html",
+          "docs/superpowers/specs/2026-06-26-tichu-default-ai-strength-design.md",
+          "티츄_진행현황_2026-07-04.html"
+        ]
+      },
+      {
+        "area": "결정화 정확도 레버 (교환핀·티츄콜·reach-prob)",
+        "why": "Determinizer가 상대 손패를 재구성하는 방식(핀·지지집합·reach 가중) 관련 설계+벤치.",
+        "files": [
+          "docs/superpowers/specs/2026-07-06-tichu-c1-exchange-pin-design.md",
+          "티츄_C1_교환핀_벤치결과.html",
+          "docs/superpowers/specs/2026-07-07-tichu-c3-tichu-call-constraint-design.md",
+          "티츄_P2D2_ReachProb결과.html",
+          "티츄_P2D_속도개선_reach16검증.html"
+        ]
+      },
+      {
+        "area": "리드/셰딩·롤아웃 정책 레버 (D1/D2/D3/α-μ)",
+        "why": "AiAgent 휴리스틱(리드·블록가드·구조보존·강건백업·ε정상화) 강화 시 설계+벤치.",
+        "files": [
+          "티츄_P2G_D1_구현보고.html",
+          "docs/superpowers/specs/2026-07-16-d3-structure-preserving-lead-design.md",
+          "티츄_D3_구조보존리드_벤치결과.html",
+          "docs/superpowers/specs/2026-07-07-tichu-d2-epsilon-normalization-design.md",
+          "docs/superpowers/specs/2026-07-03-tichu-p2g-b1-robust-backup-design.md",
+          "티츄_P2G_B1_설계브리프.html",
+          "티츄_P2G_B1_벤치결과.html"
+        ]
+      },
+      {
+        "area": "콜 헤드 학습모델 (Grand / Small Tichu)",
+        "why": "HandPower 게이트를 학습 로지스틱 헤드로 교체하는 피처·트레이너·τ·홀드아웃 벤치.",
+        "files": [
+          "docs/superpowers/specs/2026-07-23-grand-tichu-call-head-design.md",
+          "티츄_B1_Grand콜헤드_설계.html",
+          "티츄_B1_벤치결과.html",
+          "docs/superpowers/specs/2026-07-23-small-tichu-head-design.md",
+          "티츄_Small_콜헤드_벤치결과.html"
+        ]
+      },
+      {
+        "area": "학습 가치망 (D4 리프 평가기)",
+        "why": "롤아웃 리프를 학습 V(world,seat)로 교체하는 시임·인코더·A/B — 파킹 상태·재방문 대비.",
+        "files": [
+          "docs/superpowers/specs/2026-07-23-d4-forkA-value-leaf-design.md",
+          "티츄_D4_ForkA_벤치결과.html",
+          "티츄_D4_학습가치망_스코핑.html"
+        ]
+      },
+      {
+        "area": "Expert 플레이테스트 진단 & 강도픽스",
+        "why": "사용자 관측을 코드 진단→격리벤치 판정하는 반복 루프. 봉황보존·파트너티츄지원·엔드게임셰딩 등.",
+        "files": [
+          "티츄_Expert진단_2차.html",
+          "티츄_플레이테스트_8관측_진단.html",
+          "티츄_플레이테스트_이슈진단_2026-07-25.html",
+          "티츄_이슈수정_벤치결과_2026-07-25.html",
+          "티츄_자율작업_요약.html"
+        ]
+      },
+      {
+        "area": "출시 검증 & 현황 관리 허브",
+        "why": "Phase1 종료·S23 성능 게이트·미확인 AI 부채 통합 플레이테스트·전체 현황 대시보드.",
+        "files": [
+          "티츄_R1_출시검증_계획.html",
+          "docs/superpowers/specs/2026-07-26-r1-release-verification-design.md",
+          "티츄_관리대시보드.html",
+          "티츄_현황브리핑_2026-07-24.html",
+          "티츄_플레이테스트_통합체크리스트.html"
+        ]
+      }
+    ],
+    "stale_or_duplicate": [
+      {
+        "file": "티츄_Expert플레이_진단.html",
+        "note": "Expert 진단 1차(07-04). 같은 날 '파트너 티츄 무시' 근본원인을 코드 근거로 확정한 티츄_Expert진단_2차.html에 밀림 — 2차가 실행 근거."
+      },
+      {
+        "file": "티츄_브리핑_C1D2_다음프론티어.html",
+        "note": "티츄_세션요약_C1_D2_레버소진.html과 같은 07-07 세션의 사실상 중복 브리핑(C1·D2 랜딩+잔여레버 판정). 하나만 유지 권장."
+      },
+      {
+        "file": "티츄_플레이테스트_체크리스트.html",
+        "note": "07-07 체크리스트. 이후 07-08 2차·07-24 통합/인터랙티브·R1 통합 플레이테스트에 항목이 흡수됨 — 과거 스냅샷."
+      },
+      {
+        "file": "티츄_플레이테스트_체크리스트_2차.html",
+        "note": "07-08 체크리스트. 07-24 통합체크리스트/인터랙티브 및 관리대시보드 인터랙티브 탭에 상위 통합됨."
+      },
+      {
+        "file": "티츄_플레이테스트_통합체크리스트.html",
+        "note": "07-24 통합 체크리스트가 티츄_플레이테스트_체크리스트_인터랙티브.html(동일 07-24, 인터랙티브 판정/복사 기능)과 목적 중복. 인터랙티브본이 상위."
+      },
+      {
+        "file": "티츄_플레이테스트_체크리스트_인터랙티브.html",
+        "note": "07-24 인터랙티브 체크리스트는 티츄_관리대시보드.html의 '플레이테스트' 탭에 편입됨. 실기 검증 부채는 다시 R1 통합 플레이테스트가 최신 상위본."
+      },
+      {
+        "file": "티츄_진행현황_2026-07-04.html",
+        "note": "07-04 현황 브리핑. 07-24 현황브리핑·07-26 관리대시보드가 최신 현황을 대체."
+      },
+      {
+        "file": "티츄_현황브리핑_2026-07-24.html",
+        "note": "07-24 현황 브리핑은 07-26 티츄_관리대시보드.html(현황 스냅샷 탭)에 사실상 흡수됨 — 대시보드가 라이브 허브."
+      },
+      {
+        "file": "티츄_AI강화_검증_로드맵.html",
+        "note": "07-03 강화 로드맵의 '다음 방향' 부분은 07-16 다음프론티어_지도·07-23 다음계획_로드맵으로 갱신됨. 세계수 수확체감 결론은 여전히 유효 참조."
+      },
+      {
+        "file": "docs/reports/2026-06-10-phase1-mvp-design-report.html",
+        "note": "P1-A 설계 '검토 보고서'. 승인된 최종본은 docs/superpowers/specs/2026-06-10-tichu-phase1-mvp-design.md(spec). 보고서는 심사 기록."
+      },
+      {
+        "file": "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+        "note": "P1-B 설계 '검토 보고서'. 최종 확정본은 docs/superpowers/specs/2026-06-11-tichu-phase1b-presentation-design.md(spec)."
+      },
+      {
+        "file": ".superpowers/brainstorm/p1d-landscape-layout.html",
+        "note": "가로 레이아웃 목업 v1. 손패 중앙정렬+SafeArea를 반영한 v2(.superpowers/brainstorm/p1d-landscape-layout-v2.html)로 대체됨."
+      },
+      {
+        "file": "티츄_P1D_D3_카드풀링_설계.html",
+        "note": "D3 풀링 설계 HTML 보고서가 docs/superpowers/specs/2026-06-18-tichu-phase1d-d3-pooling-design.md(spec)와 내용 중복 — spec이 정본."
+      },
+      {
+        "file": "티츄_P2G_B1_설계브리프.html",
+        "note": "α-μ 강건백업 브리프가 docs/superpowers/specs/2026-07-03-tichu-p2g-b1-robust-backup-design.md(승인 spec)와 중복. 결과는 보류(OFF)."
+      }
+    ],
+    "overview": "티츄(Tichu Master) 문서 70개는 순수 룰엔진(Phase0)→모바일 MVP 셸·비주얼·사운드(Phase1)→PIMC 강 AI 강화(Phase2)→Google Play 출시 검증(R)로 이어지는 개발 궤적을 기록한다. 특히 Phase2가 압도적 비중을 차지하며, 모든 강도 변경을 '설계 스펙 → 격리벤치 판정 → 진단 → 실기 플레이테스트'의 규율 있는 루프로 처리한 것이 문서 구조의 핵심 축이다. 따라서 분류는 페이즈(파운데이션·Phase1·출시)와 문서 기능(설계·벤치·진단·플레이테스트·로드맵·브리핑)을 교차한 9개 카테고리로 두고, 실기 검증 부채가 누적된 최신 상태는 관리 대시보드와 R1 출시 검증 문서가 라이브 허브로 집약한다."
+  }
+}

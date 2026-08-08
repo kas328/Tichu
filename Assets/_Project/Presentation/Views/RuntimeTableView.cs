@@ -37,6 +37,9 @@ namespace Tichu.Presentation.Views
         private static readonly Color TichuPurple = new Color(0.55f, 0.35f, 0.78f);
         private static readonly Color GrandGold   = new Color(0.85f, 0.66f, 0.22f);
 
+        /// <summary>상단 코너 HUD 만 받는 둥근 모서리 여유(dp, ≈3.3mm). 테이블 배치는 안전영역 전부 사용.</summary>
+        private const float CornerHudMarginDp = 21f;
+
         private readonly Image[] _callBadgeBg = new Image[4];
         private readonly Text[] _callBadgeText = new Text[4];
         private readonly TichuCall[] _prevCalls = new TichuCall[4]; // 초기 None
@@ -104,19 +107,28 @@ namespace Tichu.Presentation.Views
             root.AddComponent<Image>().color = Felt;
 
             // 콘텐츠 컨테이너 — SafeArea 인셋 대상(펠트 배경은 전체화면 유지, 노치 뒤까지).
+            // 테이블 배치(손패·상대·트릭)는 안전영역을 그대로 다 쓴다 — 여기에 모서리 여유를 더하면
+            // 화면 전체가 중앙으로 당겨져 손패가 올라온다(2026-08-08 실기 피드백).
             var content = NewPanel("Content", root.transform);
             var rt = content.GetComponent<RectTransform>();
             StretchFull(rt);
             content.AddComponent<SafeAreaFitter>();
 
+            // 코너 HUD 레이어 — 둥근 모서리에 실제로 잘리는 상단 양 코너 텍스트만 여기 담고
+            // 여유를 준다. content 와 형제(둘 다 전체화면 기준)라 앵커 계산이 겹치지 않는다.
+            var hud = NewPanel("CornerHud", root.transform);
+            var hrt = hud.GetComponent<RectTransform>();
+            StretchFull(hrt);
+            hud.AddComponent<SafeAreaFitter>().SetCornerMarginDp(CornerHudMarginDp);
+
             // 좌상단: 누적점수 / 페이즈 / 소원.
-            _scoreText = NewAnchoredText("Score", rt, "총점  우리 0 : 상대 0", 28, new Vector2(0, 1), new Vector2(20, -16), new Vector2(560, 38), TextAnchor.UpperLeft);
-            _phaseText = NewAnchoredText("Phase", rt, "Phase: -", 22, new Vector2(0, 1), new Vector2(20, -56), new Vector2(560, 32), TextAnchor.UpperLeft);
-            _wishText  = NewAnchoredText("Wish",  rt, "", 26, new Vector2(0, 1), new Vector2(20, -90), new Vector2(560, 34), TextAnchor.UpperLeft);
+            _scoreText = NewAnchoredText("Score", hrt, "총점  우리 0 : 상대 0", 28, new Vector2(0, 1), new Vector2(20, -16), new Vector2(560, 38), TextAnchor.UpperLeft);
+            _phaseText = NewAnchoredText("Phase", hrt, "Phase: -", 22, new Vector2(0, 1), new Vector2(20, -56), new Vector2(560, 32), TextAnchor.UpperLeft);
+            _wishText  = NewAnchoredText("Wish",  hrt, "", 26, new Vector2(0, 1), new Vector2(20, -90), new Vector2(560, 34), TextAnchor.UpperLeft);
             _wishText.color = Warn;
             // 우상단: 최근 플레이 로그(항목별로 5초 후 사라짐).
-            NewAnchoredText("PlaysHeader", rt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
-            _playsRoot = NewRow("PlaysRoot", rt, new Vector2(1, 1), new Vector2(-20, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
+            NewAnchoredText("PlaysHeader", hrt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
+            _playsRoot = NewRow("PlaysRoot", hrt, new Vector2(1, 1), new Vector2(-20, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
             // 상대 = 프로필 박스 + 이름 + 장수 + 카드(뒷면). 카드가 이름/장수와 겹치지 않게 배치.
             BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -12),  new Vector2(0, -170), false, new Vector2(700, 50)); // 파트너(상): 정보 위, 카드 아래
             BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(16, 0),   new Vector2(160, 0),  true,  new Vector2(84, 540)); // 왼쪽: 프로필 왼끝, 카드 오른쪽

@@ -20,13 +20,18 @@ namespace Tichu.Presentation.Diagnostics
 
         private void Update() => _sampler.Tick(Time.unscaledDeltaTime);
 
+        /// <summary>둥근 모서리·컷아웃 여유(px). Screen.safeArea 는 둥근 모서리를 인셋해 주지 않는다.</summary>
+        private const float Margin = 40f;
+
         private void OnGUI()
         {
             if (_style == null)
                 _style = new GUIStyle(GUI.skin.label) { fontSize = 28, fontStyle = FontStyle.Bold };
             float fps = _sampler.Fps;
             _style.normal.textColor = fps >= 55f ? Color.green : (fps >= 30f ? Color.yellow : Color.red);
-            GUI.Label(new Rect(14, 8, 320, 40), Mathf.RoundToInt(fps) + " fps", _style);
+            var p = Visuals.SafeAreaMath.GuiTopLeftInside(
+                Screen.safeArea, new Vector2(Screen.width, Screen.height), Margin);
+            GUI.Label(new Rect(p.x, p.y, 320, 40), Mathf.RoundToInt(fps) + " fps", _style);
         }
     }
 }

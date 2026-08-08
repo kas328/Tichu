@@ -140,6 +140,20 @@
     padding:8px 10px;font:13px/1.5 var(--sans);resize:vertical;min-height:50px}
   .note .hint{font-size:11px;color:var(--warn);margin-bottom:4px}
   .parked{border:1px dashed var(--line2);border-radius:10px;padding:9px 13px;margin:7px 0;font-size:12px;color:var(--muted)}
+  /* ---- checklist round selector ---- */
+  .clsel{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}
+  .cltab{font-family:inherit;text-align:left;border:1px solid var(--line2);background:var(--panel);
+    border-radius:11px;padding:9px 14px;cursor:pointer;display:flex;flex-direction:column;gap:1px;transition:.15s}
+  .cltab:hover{border-color:var(--acc)}
+  .cltab.on{border-color:var(--acc);background:var(--acc-soft);box-shadow:var(--shadow)}
+  .cltab .clnm{font-size:13.5px;font-weight:800;color:var(--ink)}
+  .cltab .cldt{font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .cltab.arch{opacity:.68}
+  .cltab.arch.on{opacity:1}
+  .roban{font-size:12px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line2);
+    border-radius:10px;padding:8px 13px;margin-bottom:6px}
+  .seg button:disabled{opacity:.45;cursor:default}
+  select:disabled,button.ghost:disabled{opacity:.45;cursor:default}
   /* ---- reports ---- */
   .rtools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
   .search{flex:1 1 240px;display:flex;align-items:center;gap:8px;padding:0 12px;border:1px solid var(--line2);
@@ -185,7 +199,7 @@
       <div class="mk">🃏</div>
       <div>
         <h1>티츄 개발 관리</h1>
-        <p class="s">수렴·출시 트랙 · D5.1 사운드 폴리시</p>
+        <p class="s">Phase 1 종료 · R1 검증 통과 → R2 빌드/서명</p>
       </div>
     </div>
     <nav class="tabs" id="tabs">
@@ -201,12 +215,12 @@
 <main>
   <!-- ============ DASHBOARD ============ -->
   <section class="view on" id="v-dash">
-    <h2 class="sec">스냅샷 · 2026-07-26</h2>
+    <h2 class="sec">스냅샷 · 2026-08-08</h2>
     <div class="tiles">
-      <div class="tile panel"><div class="k">D5.1 사운드 A1~A3</div><div class="v good">채택·머지</div><div class="sub">버튼음·볼륨패널·BG 음소거</div></div>
-      <div class="tile panel"><div class="k">Grand 콜 헤드</div><div class="v good tnum">+4.97<span style="font-size:13px">/R</span></div><div class="sub">홀드아웃 유의 · 채택</div></div>
-      <div class="tile panel"><div class="k">Small 콜 헤드</div><div class="v good tnum">+2.91<span style="font-size:13px">/R</span></div><div class="sub">페어드 유의 · 채택</div></div>
-      <div class="tile panel"><div class="k">저장소</div><div class="v" style="color:var(--acc-d)">동기화</div><div class="sub">main = origin (0/0)</div></div>
+      <div class="tile panel"><div class="k">Phase 1</div><div class="v good">CLOSED</div><div class="sub">R1 검증 통과 · 공식 종료</div></div>
+      <div class="tile panel"><div class="k">DoD 게이트</div><div class="v good tnum">4 / 4</div><div class="sub">완주·성능·부채검증·손맛</div></div>
+      <div class="tile panel"><div class="k">S23 플레이테스트</div><div class="v good tnum">20 / 25</div><div class="sub">좋음 20 · 발견 4 전부 처분 · 미확인 1 해소</div></div>
+      <div class="tile panel"><div class="k">다음 트랙</div><div class="v" style="color:var(--acc-d)">R2 빌드/서명</div><div class="sub">keystore · AAB · targetSdk · R8</div></div>
     </div>
 
     <h2 class="sec">채택 레버</h2>
@@ -214,6 +228,8 @@
       <table>
         <thead><tr><th>레버</th><th>결과</th><th>상태</th></tr></thead>
         <tbody>
+          <tr><td><b>R1 · B2 봉황 낭비 수정</b></td><td class="tnum">위협 블록이 봉황 반칸 랭크를 싸게 오판 → 자연 승수 우선. 벤치 4000R×2 회귀 없음 · 실기 재확인</td><td><span class="chip good">채택·실기확인</span></td></tr>
+          <tr><td><b>R1 · E5 코너 UI 세이프에어리어</b></td><td class="tnum">Android safeArea가 둥근 모서리 미인셋 → 코너 HUD 레이어에만 21dp(밀도 대응). 회전 양방향 확인</td><td><span class="chip good">채택·실기확인</span></td></tr>
           <tr><td><b>D5.1 사운드 폴리시 (A1~A3)</b></td><td class="tnum">버튼 클릭음(카드음과 구분)·볼륨 슬라이더 2축·백그라운드 음소거 · VContainer 주입 이슈 픽스</td><td><span class="chip good">채택·머지·푸시</span></td></tr>
           <tr><td><b>B1 Grand 콜 헤드</b></td><td class="tnum">홀드아웃 +4.97/R 유의 · 그랜드 0.47%→6.86%</td><td><span class="chip good">채택·푸시</span></td></tr>
           <tr><td><b>Small Tichu 콜 헤드</b></td><td class="tnum">페어드 +2.91/R 유의 · 작은티츄 33%→18%</td><td><span class="chip good">채택·푸시</span></td></tr>
@@ -225,37 +241,40 @@
 
     <h2 class="sec">다음 스텝</h2>
     <div class="callout">
-      <h3>① 수렴·출시 트랙 <span class="chip acc">진행중</span></h3>
-      <p>강도의 값싼 승리는 소진 → 수렴·검증·출시로 방향 전환. <b>D5.1 사운드 폴리시(A1~A3) 완료·머지.</b> 남은 것: D5.1 잔여(인게임 Pause·BGM 교체) · <b>AI 실기 검증</b>(콜헤드·07-15배치 등 에디터 PlayMode) · <b>D6 실기기 60fps 게이트</b>(Android Dev Build) → Phase 1 종료 선언.</p>
+      <h3>① Phase 1 종료 → 출시 트랙 <span class="chip good">R1 완료</span></h3>
+      <p><b>R1 출시검증 통과 — DoD 4게이트 전부 Pass, Phase 1 공식 종료.</b> S23 실기에서 25항목 전수 관찰(좋음 20), 발견 4건 전부 처분, 미확인 AI 부채 8건 회귀 없음. 다음은 <b>R2 빌드/서명</b>: keystore 생성·<b>백업</b>(분실 시 갱신 영구 불가) · AAB 전환 · <code>AndroidTargetSdkVersion</code> 명시 고정 · R8. 이후 R3 스토어자산 → R4 정책 → R5 배포. 상세는 <b>티츄_R1_판정결과.html</b>.</p>
+      <h3>② 카드 아트 트랙 <span class="chip acc">병행 가능</span></h3>
+      <p>Android 폰트 폴백에 <code>♠♣♥♦</code>가 없어 카드 무늬가 표시되지 않는다(출시 차단 아님 — 무늬는 스트레이트플러시 판독용이고 BombScanner가 이미 폭탄을 표시). <code>CardSpriteAtlas</code>가 아트 주입 이음새로 이미 설계돼 <b>코드 0줄</b>로 붙는다. Kenney CC0 후보 · 티츄는 56장이라 특수 4장은 제작 필요 · <b>공식 티츄 덱 아트 사용 금지</b>(활성 IP).</p>
     </div>
 
-    <h2 class="sec">라이브 이슈 · Expert 관측 (2026-07-24)</h2>
+    <h2 class="sec">라이브 이슈 · S23 R1 검증 (2026-08-08) — 전부 처분됨</h2>
     <div class="issues">
       <div class="issue panel">
-        <div class="n">issue ①</div>
-        <h4>6페어 위에 7페어+봉황 낭비</h4>
-        <p>봉황을 낮은 콤보에 소모. 선도 못 잡고 털림.</p>
-        <span class="tag park">Issue A · 파킹 계열</span>
+        <div class="n">E5 · 버그</div>
+        <h4>코너 UI가 둥근 모서리에 잘림</h4>
+        <p>좌우 원인이 달랐다(IMGUI 미반영 / safeArea가 모서리 미인셋). 회전 시 반대편 재발까지 해결.</p>
+        <span class="tag fix">수정 · 실기 확인</span>
       </div>
       <div class="issue panel">
-        <div class="n">issue ②</div>
-        <h4>K에 봉황 → 내 A에 막힘</h4>
-        <p>스몰티츄 헛블록에 봉황 낭비. 봉황 보존 갭.</p>
-        <span class="tag park">라이브 EV 계열</span>
+        <div class="n">B2 · 버그</div>
+        <h4>티츄 위협 블록에 봉황 낭비</h4>
+        <p>봉황 반칸 스케일 랭크(21)를 자연 J(22)보다 싸다고 오판. 자연 우선으로 교정, D1 저지력은 유지.</p>
+        <span class="tag fix">수정 · 벤치 · 실기 확인</span>
       </div>
-      <div class="issue panel bug">
-        <div class="n">issue ③</div>
-        <h4>{10, A}인데 10 먼저 → 밟혀 못 나감</h4>
-        <p>엔드게임 리드 순서(탑패부터 실패). Expert서 재현 = 진짜 갭.</p>
-        <span class="tag fix">격리벤치 픽스 후보</span>
+      <div class="issue panel">
+        <div class="n">B1 · 오관측</div>
+        <h4>{x,10,A}에서 A→10 리드</h4>
+        <p>③′ 가드 미발동, 순수 EV 선택이었고 <b>그게 최적</b>. 3싱글로 나가려면 앞 2번을 이겨야 한다.</p>
+        <span class="tag park">결함 아님 · 무수정</span>
       </div>
     </div>
-    <div class="note-box">뿌리 = 라이브 리드/팔로우는 PIMC EV 탐색이 결정, 휴리스틱은 롤아웃에만 간접. 리드/셰딩 오버라이드는 상습 회귀 → ③만 좁게 격리벤치로 검증 후 판단.</div>
+    <div class="note-box">A4(AI 티츄 성공률)는 롤아웃 천장·전략융합으로 연구티어 defer 유지 — 콜헤드는 설계상 성공률&lt;50%여도 +EV면 콜한다. 교훈: 인간 눈에 낭비로 보이는 수의 상당수는 실제로 최선이며, 강도 주장은 격리벤치로만 한다.</div>
   </section>
 
   <!-- ============ PLAYTEST ============ -->
   <section class="view" id="v-play">
     <h2 class="sec">인터랙티브 플레이테스트 체크리스트</h2>
+    <div class="clsel" id="clsel"></div>
     <div class="clbar panel">
       <div class="prog"><i id="progbar"></i></div>
       <div class="counts">
@@ -318,76 +337,143 @@ async function copy(text,msg){ try{await navigator.clipboard.writeText(text);sho
   catch(e){ const t=document.createElement("textarea");t.value=text;document.body.appendChild(t);t.select();
     try{document.execCommand("copy");showToast(msg||"복사됨");}catch(_){showToast("복사 실패 — 직접 선택");}t.remove(); } }
 
-// ---------- checklist ----------
-const CL=[
- {sec:"A",title:"콜 선언 빈도 — 콜 헤드",badge:"최우선·검증중",hl:true,items:[
-   {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86% · 사용자 '더 부름' 관측"},
-   {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
-   {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18% · 사용자 '이상한 스몰티츄 줄음' 관측"},
-   {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
- {sec:"B",title:"AI 아웃 · 낭비 품질",badge:"",hl:false,items:[
-   {id:"B1",t:"엔드게임에서 저싱글 안 남기고 아웃",d:"⚠️ 10·A에서 10 먼저 내 밟힘 관측(③)"},
-   {id:"B2",t:"콜러가 고카드·봉황·용을 안 낭비",d:"⚠️ 봉황 7페어·K블록 낭비 관측(①②)"},
-   {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
-   {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
-   {id:"B5",t:"마작 소원(콜) · 스몰티츄 하한",d:"손에 없는 최고 랭크 소원 / 한계 티츄 감소"}]},
- {sec:"C",title:"라지티츄 팀 지원 (#4 계열)",badge:"실기만 검증가능",hl:false,items:[
-   {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
- {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
-   {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
-   {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
-   {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
-   {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+// ---------- checklists (multi-round) ----------
+// 회차별 별개 체크리스트. 새 회차는 배열 맨 앞에 추가(기존 위에 얹지 않음). 이전 회차는 archived:true 로 보관(읽기 전용).
+const CHECKLISTS=[
+ { id:"r1", name:"R1 출시검증", date:"2026-07-31", key:"tichu_ck_r1", archived:false, parked:[], sections:[
+   {sec:"A",title:"콜 선언 빈도 — 콜 헤드 (재확인)",badge:"",hl:false,items:[
+     {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86%"},
+     {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
+     {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18%"},
+     {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
+   {sec:"B",title:"AI 아웃 · 낭비 품질 — 부채 검증",badge:"R1-b",hl:true,items:[
+     {id:"B1",t:"엔드게임 확실승자 리드 — {10,A}에서 A 먼저 내고 아웃 (③′)",d:"저싱글 먼저 내 밟히지 않는가"},
+     {id:"B2",t:"봉황 보존 — 싱글로 헛쓰지 않고 자연 승수로 밟기 (①)",d:"7페어·K블록 헛낭비 없는가"},
+     {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
+     {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
+     {id:"B5",t:"교환핀 — 넘긴 카드 좌석을 아는 듯 플레이 (C1)",d:"간접 관찰: 내가 준 카드를 낼 상대·타이밍을 예측하는가"},
+     {id:"B6",t:"구조보존 리드 — 족보 깨는 싱글 리드 회피 (07-15/D3)",d:"스트레이트/트리플/연속페어 깨는 헛싱글 안 내는가"}]},
+   {sec:"C",title:"라지티츄 팀 지원 (#4)",badge:"실기만 검증가능",hl:false,items:[
+     {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
+   {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
+     {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
+     {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
+     {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
+     {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+   {sec:"E",title:"일반 스모크 — 출시 품질",badge:"출시 스모크",hl:false,items:[
+     {id:"E1",t:"4난이도(쉬움/보통/어려움/전문가) 각각 시작·정상 동작",d:""},
+     {id:"E2",t:"풀매치(1000점) 크래시·멈춤 없이 완주",d:""},
+     {id:"E3",t:"모든 룰 인터랙션 정상",d:"폭탄·용·개·마작소원·티츄/큰티츄·1-2 피니시 UI"},
+     {id:"E4",t:"D5.1 사운드 — 버튼 클릭음·볼륨 슬라이더·백그라운드 음소거",d:""},
+     {id:"E5",t:"가로 세이프에어리어(노치/펀치홀 미가림)·방향 잠금",d:""}]},
+   {sec:"F",title:"S23 성능 스모크 — 실기 (R1-a)",badge:"실기 S23",hl:true,items:[
+     {id:"F1",t:"풀매치 크래시 0으로 완주",d:""},
+     {id:"F2",t:"전 구간 FpsOverlay 녹색(≥55)·적색 스파이크 없음",d:""},
+     {id:"F3",t:"DoTween 애니(플레이팝·차례펄스·결과팝) 프레임드랍 체감 없음",d:""},
+     {id:"F4",t:"입력(손패·버튼)→화면 반응 지연 체감 없음",d:""},
+     {id:"F5",t:"여러 라운드 연속 GC 스파이크 끊김 없음 (D3 풀링)",d:""}]},
+ ]},
+ { id:"v2", name:"Expert 관측", date:"2026-07-24", key:"tichu_playtest_v2", archived:true,
+   parked:["Issue A — 봉황을 낮은 콤보에 낭비 (파킹·콤보가드 −6.9/R)",
+     "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
+     "② 라지티츄 응징 (롤아웃 천장 한계·연구티어)",
+     "Issue3 — 특정 리드 순서 (엔드게임셰딩 가드와 상충)"], sections:[
+   {sec:"A",title:"콜 선언 빈도 — 콜 헤드",badge:"최우선·검증중",hl:true,items:[
+     {id:"A1",t:"그랜드를 강한 손에 실제로 선언",d:"0.47%→6.86% · 사용자 '더 부름' 관측"},
+     {id:"A2",t:"그랜드를 평범/약한 손에 남발하지 않음",d:"~7%면 적정"},
+     {id:"A3",t:"작은 티츄 남발 감소 (덜·선별적)",d:"33%→18% · 사용자 '이상한 스몰티츄 줄음' 관측"},
+     {id:"A4",t:"부른 티츄를 대체로 성공(먼저 아웃)",d:""}]},
+   {sec:"B",title:"AI 아웃 · 낭비 품질",badge:"",hl:false,items:[
+     {id:"B1",t:"엔드게임에서 저싱글 안 남기고 아웃",d:"⚠️ 10·A에서 10 먼저 내 밟힘 관측(③)"},
+     {id:"B2",t:"콜러가 고카드·봉황·용을 안 낭비",d:"⚠️ 봉황 7페어·K블록 낭비 관측(①②)"},
+     {id:"B3",t:"이미 이기는 파트너를 굳이 밟지 않음",d:"상대팀 AI끼리도 적용"},
+     {id:"B4",t:"near-out 봉쇄 · 1:1 종반 탑패부터",d:"최고 싱글로 봉쇄 / 높은 것 먼저"},
+     {id:"B5",t:"마작 소원(콜) · 스몰티츄 하한",d:"손에 없는 최고 랭크 소원 / 한계 티츄 감소"}]},
+   {sec:"C",title:"라지티츄 팀 지원 (#4 계열)",badge:"실기만 검증가능",hl:false,items:[
+     {id:"C1",t:"파트너 라지티츄를 팀이 지원",d:"교환 최고카드 / 안 밟기·안 먼저나감 / 살리기(#4c)"}]},
+   {sec:"D",title:"연출 — 눈으로 바로 확인",badge:"",hl:false,items:[
+     {id:"D1",t:"봉황 대체 랭크 위치 표시",d:"봉 10 J Q K A"},
+     {id:"D2",t:"폭탄 카드 금색 오오라",d:"색·크기 적절?"},
+     {id:"D3",t:"개 중앙 ~1.2초 에코",d:""},
+     {id:"D4",t:"용 양도 시 대상까지 표시",d:""}]},
+ ]},
 ];
-const PARKED=["Issue A — 봉황을 낮은 콤보에 낭비 (파킹·콤보가드 −6.9/R)",
- "Issue C — 팀이 콜러에게 개/저싱글 능동 지원 (미구현)",
- "② 라지티츄 응징 (롤아웃 천장 한계·연구티어)",
- "Issue3 — 특정 리드 순서 (엔드게임셰딩 가드와 상충)"];
-const CKEY="tichu_playtest_v2";
-let cs=JSON.parse(localStorage.getItem(CKEY)||"{}");
-const cllist=document.getElementById("cllist");
-CL.forEach(sec=>{
-  const h=document.createElement("div");h.className="clhead"+(sec.hl?" hl":"");
-  h.innerHTML=`<span class="n">${sec.sec}</span> ${sec.title}`+(sec.badge?` <span class="bd">${sec.badge}</span>`:"");
-  cllist.appendChild(h);
-  sec.items.forEach(it=>{
-    const cur=cs[it.id]||{v:"",note:""};
-    const el=document.createElement("div");el.className="item";el.dataset.state=cur.v;
-    el.innerHTML=`<div class="t">${it.t}</div>`+(it.d?`<div class="d">${it.d}</div>`:"")+
-      `<div class="seg">
-        <button data-v="good" class="${cur.v==='good'?'on':''}">👍 좋음</button>
-        <button data-v="bad" class="${cur.v==='bad'?'on':''}">⚠️ 이상함</button>
-        <button data-v="none" class="${cur.v==='none'?'on':''}">➖ 미확인</button></div>
-       <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
-        <textarea placeholder="구체 상황을 적어주세요">${cur.note||""}</textarea></div>`;
-    el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
-      const v=b.dataset.v; cs[it.id]=cs[it.id]||{v:"",note:""};
-      cs[it.id].v=(cs[it.id].v===v?"":v); el.dataset.state=cs[it.id].v;
-      el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===cs[it.id].v)); csave();
-    });
-    el.querySelector("textarea").oninput=e=>{cs[it.id]=cs[it.id]||{v:"",note:""};cs[it.id].note=e.target.value;csave();};
-    cllist.appendChild(el);
-  });
-});
-const ph=document.createElement("div");ph.className="clhead";
-ph.innerHTML=`<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
-cllist.appendChild(ph);
-PARKED.forEach(p=>{const d=document.createElement("div");d.className="parked";d.textContent="• "+p;cllist.appendChild(d);});
-const diffSel=document.getElementById("diff");diffSel.value=cs.__diff||"";
+const AKEY="tichu_ck_active";
+let activeId=localStorage.getItem(AKEY)||CHECKLISTS[0].id;
+function actCl(){return CHECKLISTS.find(c=>c.id===activeId)||CHECKLISTS[0];}
+let cs={};
+function loadCs(){cs=JSON.parse(localStorage.getItem(actCl().key)||"{}");}
+loadCs();
+const clsel=document.getElementById("clsel"), cllist=document.getElementById("cllist");
+const cGood=document.getElementById("cGood"),cBad=document.getElementById("cBad"),cNone=document.getElementById("cNone"),progbar=document.getElementById("progbar");
+const diffSel=document.getElementById("diff"), resetBtn=document.getElementById("resetBtn");
 diffSel.onchange=()=>{cs.__diff=diffSel.value;csave();};
-function csave(){localStorage.setItem(CKEY,JSON.stringify(cs));crender();}
+
+function renderSel(){
+  clsel.innerHTML="";
+  CHECKLISTS.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="cltab"+(c.id===activeId?" on":"")+(c.archived?" arch":"");
+    b.innerHTML=`<span class="clnm">${c.name}</span><span class="cldt">${c.date} · ${c.archived?"보관":"진행"}</span>`;
+    b.onclick=()=>{activeId=c.id;localStorage.setItem(AKEY,activeId);loadCs();renderAll();};
+    clsel.appendChild(b);
+  });
+}
+function renderList(){
+  const cl=actCl(), ro=cl.archived;
+  cllist.innerHTML="";
+  if(ro){const bn=document.createElement("div");bn.className="roban";bn.textContent="📁 보관된 체크리스트 — 읽기 전용 (기록 보존)";cllist.appendChild(bn);}
+  cl.sections.forEach(sec=>{
+    const h=document.createElement("div");h.className="clhead"+(sec.hl?" hl":"");
+    h.innerHTML=`<span class="n">${sec.sec}</span> ${sec.title}`+(sec.badge?` <span class="bd">${sec.badge}</span>`:"");
+    cllist.appendChild(h);
+    sec.items.forEach(it=>{
+      const cur=cs[it.id]||{v:"",note:""};
+      const el=document.createElement("div");el.className="item";el.dataset.state=cur.v;
+      el.innerHTML=`<div class="t">${it.t}</div>`+(it.d?`<div class="d">${it.d}</div>`:"")+
+        `<div class="seg">
+          <button data-v="good" class="${cur.v==='good'?'on':''}" ${ro?'disabled':''}>👍 좋음</button>
+          <button data-v="bad" class="${cur.v==='bad'?'on':''}" ${ro?'disabled':''}>⚠️ 이상함</button>
+          <button data-v="none" class="${cur.v==='none'?'on':''}" ${ro?'disabled':''}>➖ 미확인</button></div>
+         <div class="note"><div class="hint">무엇이 이상했나 — 손패·현재 트릭·AI가 둔 수·티츄/아웃 여부</div>
+          <textarea placeholder="구체 상황을 적어주세요" ${ro?'readonly':''}>${cur.note||""}</textarea></div>`;
+      if(!ro){
+        el.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+          const v=b.dataset.v; cs[it.id]=cs[it.id]||{v:"",note:""};
+          cs[it.id].v=(cs[it.id].v===v?"":v); el.dataset.state=cs[it.id].v;
+          el.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v===cs[it.id].v)); csave();
+        });
+        el.querySelector("textarea").oninput=e=>{cs[it.id]=cs[it.id]||{v:"",note:""};cs[it.id].note=e.target.value;csave();};
+      }
+      cllist.appendChild(el);
+    });
+  });
+  if(cl.parked&&cl.parked.length){
+    const ph=document.createElement("div");ph.className="clhead";
+    ph.innerHTML=`<span class="n" style="background:var(--muted);color:var(--bg)">✕</span> 아직 안 고친 것 (관측되면 메모만)`;
+    cllist.appendChild(ph);
+    cl.parked.forEach(p=>{const d=document.createElement("div");d.className="parked";d.textContent="• "+p;cllist.appendChild(d);});
+  }
+}
+function csave(){localStorage.setItem(actCl().key,JSON.stringify(cs));crender();}
 function crender(){let g=0,b=0,n=0,total=0;
-  CL.forEach(s=>s.items.forEach(it=>{total++;const v=(cs[it.id]||{}).v;
+  actCl().sections.forEach(s=>s.items.forEach(it=>{total++;const v=(cs[it.id]||{}).v;
     if(v==="good")g++;else if(v==="bad")b++;else if(v==="none")n++;}));
   cGood.textContent=g;cBad.textContent=b;cNone.textContent=n;
-  progbar.style.width=(100*(g+b+n)/total)+"%";}
-const cGood=document.getElementById("cGood"),cBad=document.getElementById("cBad"),cNone=document.getElementById("cNone"),progbar=document.getElementById("progbar");
-crender();
-document.getElementById("resetBtn").onclick=()=>{if(confirm("모든 판정·메모를 지울까요?")){cs={};localStorage.removeItem(CKEY);location.reload();}};
-function buildReport(){let g=0,b=0,n=0;const bad=[],good=[];
-  CL.forEach(s=>s.items.forEach(it=>{const st=cs[it.id]||{};
+  progbar.style.width=(total?100*(g+b+n)/total:0)+"%";}
+function renderAll(){
+  const ro=actCl().archived;
+  renderSel();renderList();
+  diffSel.value=cs.__diff||""; diffSel.disabled=ro; resetBtn.disabled=ro;
+  crender();
+}
+renderAll();
+resetBtn.onclick=()=>{if(actCl().archived)return;
+  if(confirm(`"${actCl().name}" 체크리스트의 판정·메모를 지울까요?`)){cs={};localStorage.removeItem(actCl().key);renderAll();}};
+function buildReport(){const cl=actCl();let g=0,b=0,n=0;const bad=[],good=[];
+  cl.sections.forEach(s=>s.items.forEach(it=>{const st=cs[it.id]||{};
     if(st.v==="good"){g++;good.push(it.id);}else if(st.v==="bad"){b++;bad.push({id:it.id,t:it.t,note:(st.note||"").trim()});}else if(st.v==="none")n++;}));
-  let o=`티츄 플레이테스트 결과 (2026-07-24)\n난이도: ${cs.__diff||"(미선택)"}\n좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
+  let o=`티츄 플레이테스트 결과 — ${cl.name} (${cl.date})\n난이도: ${cs.__diff||"(미선택)"}\n좋음 ${g} · 이상함 ${b} · 미확인 ${n}\n`;
   if(good.length)o+=`\n👍 좋음: ${good.join(", ")}\n`;
   if(bad.length){o+=`\n⚠️ 이상함:\n`;bad.forEach(x=>o+=`- [${x.id}] ${x.t}${x.note?` — ${x.note}`:" — (메모 없음)"}\n`);}else o+=`\n⚠️ 이상함: 없음\n`;
   return o;}
@@ -398,6 +484,7 @@ document.getElementById("dlgCopy").onclick=()=>copy(dlgText.value,"결과 복사
 
 // ---------- reports catalog ----------
 const REPORTS=[
+ {f:"티츄_R1_판정결과.html",t:"R1 출시검증 판정 결과 · Phase 1 종료",p:"출시",d:"08-08",s:"DoD 4/4 Pass · 발견 4건 처분 · R2 착수 조건"},
  {f:"티츄_현황브리핑_2026-07-24.html",t:"개발 현황 브리핑",p:"진단",d:"07-24",s:"현재 위치 + 다음 스텝(실기 검증 진입)"},
  {f:"티츄_다음계획_로드맵.html",t:"다음 계획 로드맵",p:"프론티어",d:"07-23",s:"강도 소진 → 실기 검증 우선, 이후 분기"},
  {f:"티츄_D4_ForkA_벤치결과.html",t:"D4 Fork A 리프 가치망 벤치",p:"프론티어",d:"07-16",s:"A/B −31.67/R 게이트 불통과·파킹"},

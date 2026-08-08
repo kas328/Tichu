@@ -67,6 +67,32 @@ namespace Tichu.Presentation.Tests
             Assert.That(min.y, Is.LessThanOrEqualTo(max.y));
         }
 
+        // ── DpToPixels: 모서리 여유를 물리 치수로 ────────────────────────────────────
+        // 모서리 반경은 물리 치수(≈3mm)라 px 고정이면 기기마다 과하거나 모자란다. 1dp = dpi/160 px.
+
+        [Test]
+        public void DpToPixels_scales_by_device_density()
+        {
+            // S23 급 425dpi → 밀도 2.656배.
+            Assert.AreEqual(55.78f, SafeAreaMath.DpToPixels(21f, 425f), 0.01f, "고밀도 폰");
+            // 640dpi(xxxhdpi) → 4배. 같은 dp 가 더 많은 px 로.
+            Assert.AreEqual(84f, SafeAreaMath.DpToPixels(21f, 640f), 0.01f, "초고밀도");
+        }
+
+        [Test]
+        public void DpToPixels_at_baseline_density_is_one_to_one()
+        {
+            Assert.AreEqual(21f, SafeAreaMath.DpToPixels(21f, 160f), 1e-4f);
+        }
+
+        [Test]
+        public void DpToPixels_falls_back_to_baseline_when_dpi_unavailable()
+        {
+            // 에디터·일부 플랫폼은 Screen.dpi 로 0 을 준다 → dp 를 그대로 px 로(폭주 방지).
+            Assert.AreEqual(21f, SafeAreaMath.DpToPixels(21f, 0f), 1e-4f);
+            Assert.AreEqual(21f, SafeAreaMath.DpToPixels(21f, -5f), 1e-4f, "음수 방어");
+        }
+
         // ── GuiTopLeftInside: IMGUI(FpsOverlay)용 좌상단 안전 지점 ────────────────────
         // Screen.safeArea 는 좌하단 원점, IMGUI 는 좌상단 원점 → y 반전이 필요하다.
         // margin 은 Android safeArea 가 인셋해 주지 않는 "둥근 모서리" 여유분.

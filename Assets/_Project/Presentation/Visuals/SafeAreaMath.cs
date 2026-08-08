@@ -19,6 +19,12 @@ namespace Tichu.Presentation.Visuals
             return (min, max);
         }
 
+        /// <summary>dp(밀도 독립 단위)를 픽셀로. 둥근 모서리 반경은 물리 치수(S23 ≈3.3mm)라 px 고정값은
+        /// 저밀도 기기에서 과하고 고밀도에서 모자란다 → dp 로 두고 기기 dpi 로 환산한다(1dp = dpi/160 px).
+        /// dpi 를 못 얻으면(에디터·일부 플랫폼이 0 반환) 기준 밀도 160 으로 폴백 = dp 를 그대로 px 로 쓴다.</summary>
+        public static float DpToPixels(float dp, float dpi)
+            => dpi > 0f ? dp * (dpi / 160f) : dp;
+
         /// <summary>IMGUI(좌상단 원점) 기준으로 safe area 안쪽 좌상단 지점. margin 은 둥근 모서리 여유.
         /// Screen.safeArea 는 좌하단 원점이라 y 를 뒤집는다(상단 미안전 높이 = screen.y - safeArea.yMax).</summary>
         public static Vector2 GuiTopLeftInside(Rect safeArea, Vector2 screen, float margin)

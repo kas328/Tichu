@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>티츄 — R1 출시검증 판정 결과 · Phase 1 종료</title>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --panel2:#1e232b; --ink:#e7ecf3; --muted:#9aa7b6;
+    --line:#2a323d; --accent:#5cc8ff; --good:#54d18c; --warn:#f2b350; --bad:#f2748a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:"Segoe UI","Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;line-height:1.7;font-size:16px}
+  .wrap{max-width:960px;margin:0 auto;padding:40px 24px 90px}
+  h1{font-size:27px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:20px;margin:38px 0 12px;padding-top:16px;border-top:1px solid var(--line)}
+  h3{font-size:16px;margin:22px 0 8px;color:#cfe0f2}
+  .sub{color:var(--muted);font-size:14px;margin-bottom:22px}
+  p{margin:10px 0}
+  code{background:#0c0f13;padding:1px 6px;border-radius:5px;font-size:12.5px;color:#cfe6ff;font-family:"Cascadia Code",Consolas,monospace}
+  .verdict{background:linear-gradient(180deg,#15201a,#141a17);border:1px solid #2c4a38;border-radius:14px;padding:18px 22px;margin:18px 0}
+  .verdict.warn{background:linear-gradient(180deg,#231d12,#1b1710);border-color:#4a3a1e}
+  .tablewrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--muted);font-weight:600}
+  tr:nth-child(even) td{background:#131820}
+  .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .mut{color:var(--muted)}
+  .good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+  .tag{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .t-pass{background:#153021;color:#7ee6a6;border:1px solid #2c5c3d}
+  .t-fix{background:#12283a;color:#8fd0f5;border:1px solid #27506e}
+  .t-hold{background:#2a2612;color:#f0cf7d;border:1px solid #574a1e}
+  .t-none{background:#22262c;color:#a9b6c4;border:1px solid #39414c}
+  ul{margin:8px 0}
+  .gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+  .gate{background:var(--panel);border:1px solid #2c4a38;border-radius:12px;padding:14px 16px}
+  .gate .g-name{font-size:13px;color:var(--muted)}
+  .gate .g-val{font-size:20px;font-weight:700;color:var(--good);margin-top:2px}
+  .gate .g-why{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>R1 출시검증 — 판정 결과 & Phase 1 종료</h1>
+  <div class="sub">2026-08-08 · Google Play 출시 5트랙 중 R1(검증) · 실기 Samsung Galaxy S23 · 브랜치 <code>feat/r1-release-verification</code></div>
+
+  <div class="verdict">
+    <strong>판정: DoD 4게이트 전부 Pass — Phase 1 공식 종료.</strong>
+    S23 Expert 플레이테스트 25항목 전수 관찰에서 <b>좋음 20 · 이상함 4 · 미확인 1</b>이 나왔고,
+    이상함 4건은 <b>실버그 2건(수정·실기 재확인)</b>과 <b>오관측/천장 2건(무수정·근거 기록)</b>으로
+    모두 처분됐다. 미확인 1건은 버그에 종속된 항목이라 함께 해소됐다.
+    <b>R2(빌드/서명) 착수 조건이 성립한다.</b>
+  </div>
+
+  <div class="gates">
+    <div class="gate"><div class="g-name">DoD#1 완주</div><div class="g-val">Pass</div>
+      <div class="g-why">풀매치 크래시 0 완주 · 폭탄/용/개/마작소원/티츄/1-2피니시 룰 인터랙션 정상 (E2·E3)</div></div>
+    <div class="gate"><div class="g-name">DoD#2 성능</div><div class="g-val">Pass</div>
+      <div class="g-why">S23 60fps 녹색 · 애니 드랍·입력 지연·GC 스파이크 체감 0 (F1·F3·F4·F5 + F2 확증)</div></div>
+    <div class="gate"><div class="g-name">R1-b 부채 검증</div><div class="g-val">Pass</div>
+      <div class="g-why">미확인 AI 부채 8건 실기 전수 관찰 · 발견 4건 전부 처리 또는 명시적 수용</div></div>
+    <div class="gate"><div class="g-name">DoD#3 손맛</div><div class="g-val">Pass</div>
+      <div class="g-why">"한 판 더" 의향 합격 (사용자 판정, 2026-08-08)</div></div>
+  </div>
+
+  <h2>1. 플레이테스트 발견과 처분</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>ID</th><th>관측</th><th>분류</th><th>처분</th><th>근거</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>E5</b></td>
+        <td>좌측 FPS·우상단 "최근 플레이"가 화면 끝에서 잘림. 자동회전 180°에서 반대편 재발</td>
+        <td>버그 (UI)</td>
+        <td><span class="tag t-fix">수정</span></td>
+        <td>원인이 좌우로 달랐다 — 좌측은 IMGUI 오버레이가 safeArea 미반영, 우측은 <b>Android safeArea가 둥근 모서리를 인셋하지 않음</b>. 4커밋에 걸쳐 수렴, 실기 재확인</td>
+      </tr>
+      <tr>
+        <td><b>B2</b></td>
+        <td>사용자 스몰 티츄 상황에서 상대 AI가 우리팀 10을 봉황 싱글로 밟음</td>
+        <td>버그 (비용 오판)</td>
+        <td><span class="tag t-fix">수정</span></td>
+        <td><code>CheapestNonStructural</code>이 봉황 싱글의 반칸 위 스케일 랭크(21)를 자연 J(22)보다 싸다고 오판. 격리벤치 회귀 없음 + 실기 재확인</td>
+      </tr>
+      <tr>
+        <td><b>F2</b></td>
+        <td>FPS 수치 판독 불가 (미확인)</td>
+        <td>E5 종속</td>
+        <td><span class="tag t-pass">해소</span></td>
+        <td>스크린샷에 <code>60 fps</code> 녹색 확인 — 실기에선 모서리에 가려 못 읽었을 뿐. E5 수정으로 판독 가능</td>
+      </tr>
+      <tr>
+        <td><b>B1</b></td>
+        <td><code>{x,10,A}</code>에서 A→10 리드 후 막혀 못 나감</td>
+        <td>결함 아님</td>
+        <td><span class="tag t-none">무수정</span></td>
+        <td>미지 카드가 봉황이 아니어서 ③′ 가드는 미발동 — 순수 EV 선택이었고 <b>그 선택이 최적</b>. 3장 싱글로 나가려면 3번 리드해 앞 2번을 이겨야 하므로 <code>A(확실승자) → 남은 것 중 최고(10) → x</code>가 최선. 10이 막힌 건 카드 운</td>
+      </tr>
+      <tr>
+        <td><b>A4</b></td>
+        <td>AI가 부른 스몰 티츄를 사용자가 전부 막음</td>
+        <td>롤아웃 천장</td>
+        <td><span class="tag t-hold">수용</span></td>
+        <td>전략융합·롤아웃 천장으로 이미 연구티어 defer된 기존 항목. 콜헤드는 <b>설계상 성공률&lt;50%여도 +EV면 콜</b>한다(승률 지표 오적용 주의). 표본 1~2매치</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>B2 — 격리벤치 (HeuristicStrengthBench 페어드 4000R × 2배치)</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>배치 (baseSeed)</th><th class="num">newAvg/R</th><th class="num">승률</th><th class="num">WilsonLB</th></tr></thead>
+    <tbody>
+      <tr><td>배치 1 <span class="mut">(1)</span></td><td class="num good">+2.1</td><td class="num">49.3%</td><td class="num">0.478</td></tr>
+      <tr><td>배치 2 <span class="mut">(987654321)</span></td><td class="num good">+1.1</td><td class="num">49.6%</td><td class="num">0.481</td></tr>
+      <tr><td><b>풀링 (8000R)</b></td><td class="num good">≈ +1.6</td><td class="num">≈ 49.5%</td><td class="num mut">—</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="mut">부호 안정(양쪽 양수)이나 승률은 사실상 동률 — <b>강도 개선 주장은 하지 않는다.</b>
+  회귀 부재 + 관측 교정이라 프로젝트 규율(≥0 채택)과 #2 봉황보존·C1 교환핀 선례대로 채택.
+  벤치 전 <code>OldAiAgent</code>가 수정 직전 HEAD와 완전 동일함을 diff로 확인해 격리를 보장했다.</p>
+
+  <h2>2. 실기로 검증된 미확인 부채</h2>
+  <p>R1-b의 목적은 "벤치만 통과하고 실기 미확인"으로 쌓여 있던 AI 부채를 한 패스에 전수 관찰하는 것이었다.
+  <b>8건 전부 관찰됐고, 회귀는 하나도 나오지 않았다.</b></p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>부채</th><th>체크</th><th>실기 결과</th></tr></thead>
+    <tbody>
+      <tr><td>콜헤드 Grand / Small</td><td>A1~A3</td><td class="good">좋음 — 회귀 없음</td></tr>
+      <tr><td>③′ 확실승자 리드</td><td>B1</td><td class="good">정상 (오관측, 위 표 참조)</td></tr>
+      <tr><td>① 봉황 콤보 보존</td><td>B2</td><td class="warn">갭 발견 → 수정 후 재확인 <span class="good">좋음</span></td></tr>
+      <tr><td>#4 라지티츄 파트너 지원</td><td>C1</td><td class="good">좋음</td></tr>
+      <tr><td>#4c 콜한 파트너 살리기</td><td>C1</td><td class="good">좋음</td></tr>
+      <tr><td>C1 교환 핀</td><td>B6</td><td class="good">좋음</td></tr>
+      <tr><td>D3 구조보존 리드</td><td>B6</td><td class="good">좋음</td></tr>
+      <tr><td>07-15 픽스 배치 (near-out 락아웃 등)</td><td>B3~B5</td><td class="good">좋음</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>3. R1 부수 성과</h2>
+  <ul>
+    <li><b>출시 식별자 확정</b> — <code>productName = Tichu Master</code>, <code>com.kas328.tichumaster</code>.
+      Play 첫 업로드 후 applicationId는 <b>영구 변경 불가</b>이므로 R2 예정이던 결정을 R1으로 앞당겼다.</li>
+    <li><b>Android 전환 산물 고정</b> — 정적 배칭 설정·URP 셰이더 프리필터 재계산을 브랜치에 반영.</li>
+    <li><b>검증 인프라</b> — Unity MCP 없이 <b>배치 모드 CLI</b>로 EditMode 테스트를 25~30초에 실행하는 경로 확보
+      (에디터를 닫아야 함 — 프로젝트 락).</li>
+  </ul>
+
+  <h2>4. 알려진 제한 (출시 차단 아님)</h2>
+  <div class="verdict warn">
+    <strong>카드 무늬 기호가 표시되지 않는다.</strong> 원인 2중 —
+    ① <code>CardFormat.SuitGlyph</code>의 <code>♠♣♥♦</code>(U+2660~2666)가 <b>Android 폰트 폴백 체인에 없다</b>
+    (한글은 렌더되므로 여태 발견되지 않았고, 에디터 Arial에는 있어 재현되지 않았다).
+    ② <code>IsRed</code>가 티츄 고유 4무늬(Jade·Sword·Pagoda·Star)를 포커식 빨강/검정 2색으로 뭉갠다.
+    <br><br>
+    <b>출시 차단은 아니다</b> — 티츄에서 무늬는 스트레이트 플러시 폭탄 판독에만 쓰이고,
+    <code>BombScanner</code>가 이미 폭탄을 빨강 테두리로 표시한다.
+    <b>카드 아트 도입 트랙으로 이월</b>(사용자 결정): <code>CardSpriteAtlas</code>가 아트 주입용 이음새로
+    이미 설계돼 있어 <b>코드 0줄</b>로 붙는다. 후보는 Kenney CC0 팩 —
+    단 티츄는 56장(52 + 특수 4장: 마작1·개·봉황·용)이라 특수 4장은 제작이 필요하고,
+    <b>공식 티츄 덱 아트는 사용할 수 없다</b>(Fata Morgana/Abacusspiele 활성 IP).
+  </div>
+  <p class="mut">그 외: 좌상단 HUD의 FpsOverlay 겹침은 디버그 빌드 전용이라 출시 빌드엔 미생성 — 수용.
+  <code>AndroidTargetSdkVersion</code>은 Automatic 상태로 R2에서 명시 고정한다.</p>
+
+  <h2>5. Phase 1 종료 선언</h2>
+  <div class="verdict">
+    <strong>Phase 1 (MVP — 앱셸·비주얼·손맛·사운드) 을 공식 종료한다.</strong>
+    P1-C 앱셸/DI, P1-D 비주얼·손맛(D0~D6), D5.1 사운드 폴리시를 거쳐 마지막 관문이던
+    <b>실기 게이트(D6)</b>가 이 R1 검증으로 통과됐다. 남은 작업은 게임 구현이 아니라 <b>출시 행정</b>이다.
+  </div>
+
+  <h3>R2 착수 조건 / 준비물</h3>
+  <ul>
+    <li><b>keystore 생성 및 백업</b> — 분실 시 앱 갱신이 영구 불가. 최우선 주의 항목.</li>
+    <li><b>AAB 전환</b> (Play는 APK 신규 업로드 불가)</li>
+    <li><b><code>AndroidTargetSdkVersion</code> 명시 고정</b> (현재 Automatic)</li>
+    <li><b>R8 / 코드 축소</b> 설정 및 릴리스 빌드 스모크</li>
+    <li>참고: <code>UnityConnectSettings</code>는 Unity 실행 시마다 최상위 플래그가 뒤집히나
+      하위 서비스(Analytics·Ads·CrashReporting·PerformanceReporting)가 전부 0이라
+      <b>R4 Data safety 신고 영향 없음</b>.</li>
+  </ul>
+
+  <h2>6. 브랜치 커밋 (11)</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>커밋</th><th>내용</th></tr></thead>
+    <tbody>
+      <tr><td><code>16a8422</code></td><td>Master 허브 + catalog 인덱스 + R1 검증 스펙</td></tr>
+      <tr><td><code>d917ea2</code></td><td>R1 출시검증 구현계획 (4 Task)</td></tr>
+      <tr><td><code>9b0e4c5</code></td><td>R1-b 부채 체크리스트 확장</td></tr>
+      <tr><td><code>dc840e3</code></td><td>플레이테스트 탭 회차별 다중 체크리스트 리팩터</td></tr>
+      <tr><td><code>e25d165</code></td><td>Android 플랫폼 전환 산물 고정</td></tr>
+      <tr><td><code>3ac44a4</code></td><td>출시 식별자 확정 — Tichu Master · com.kas328.tichumaster</td></tr>
+      <tr><td><code>f104d44</code></td><td><b>B2</b> 위협 블록 봉황 낭비 방지 — 자연 승수 우선</td></tr>
+      <tr><td><code>e6da6d1</code></td><td><b>E5</b> 코너 UI 잘림 — FpsOverlay safeArea 인지 + 우상단 여백</td></tr>
+      <tr><td><code>93cf4d0</code></td><td><b>E5-2</b> 코너 여유 일원화 — 자동회전 180° 잘림 해결</td></tr>
+      <tr><td><code>1282e6a</code></td><td><b>E5-3</b> 여백 px → dp — 기기 밀도 자동 대응</td></tr>
+      <tr><td><code>cfd6c49</code></td><td><b>E5-4</b> 코너 여유를 HUD 레이어로 한정 — 테이블 배치 원복</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>7. 검증 수치</h2>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>스위트</th><th class="num">결과</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>core <code>AiAgentTests</code> (dotnet)</td><td class="num good">64 / 64</td><td>B2 재현 테스트 포함, RED→GREEN</td></tr>
+      <tr><td>Unity EditMode <code>AiAgentTests</code></td><td class="num good">65 / 65</td><td>Assets 미러</td></tr>
+      <tr><td>Unity EditMode <code>Presentation</code></td><td class="num good">145 / 145</td><td>SafeAreaMath 신규 6종 포함</td></tr>
+      <tr><td><code>HeuristicStrengthBench</code></td><td class="num good">회귀 없음</td><td>4000R × 2배치, 부호 안정</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="mut">모든 수정은 <b>RED를 눈으로 확인한 뒤</b> 구현했다. B2는 <code>But was: Phoenix</code>,
+  E5는 <code>120 vs 40</code>·<code>90 vs 40</code>, dp 환산은 <code>21 vs 55.78</code>로 각각 실패를 확인했고,
+  나머지 케이스는 통과해 테스트가 결함만 정확히 짚는다는 것도 함께 확인했다.</p>
+
+  <h2>8. 다음</h2>
+  <ul>
+    <li><b>R2 빌드/서명</b> — keystore · AAB · targetSdk 고정 · R8</li>
+    <li><b>카드 아트 트랙</b> (병행 가능) — Kenney CC0 + 특수 4장 제작 → <code>CardSpriteAtlas</code> 주입</li>
+    <li>이후 R3 스토어 자산 → R4 정책(개인정보처리방침·Data safety·콘텐츠등급) → R5 배포</li>
+  </ul>
+
+</div>
+</body>
+</html>

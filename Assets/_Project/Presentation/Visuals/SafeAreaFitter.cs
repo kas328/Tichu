@@ -7,6 +7,11 @@ namespace Tichu.Presentation.Visuals
     [RequireComponent(typeof(RectTransform))]
     public sealed class SafeAreaFitter : MonoBehaviour
     {
+        /// <summary>기기의 둥근 모서리 여유(px). Screen.safeArea 는 컷아웃만 인셋하고 모서리 곡률은
+        /// 알려주지 않는다. 개별 UI 에 여백을 주면 자동회전 180° 때 반대편이 잘리므로 여기서 네 변을
+        /// 함께 깎는다(S23 모서리 반경 ≈20dp ≈53px 커버). 실기 확인: 2026-08-08 S23.</summary>
+        private const float CornerMargin = 56f;
+
         private RectTransform _rt;
         private Rect _lastSafe;
         private Vector2 _lastScreen;
@@ -26,7 +31,7 @@ namespace Tichu.Presentation.Visuals
             if (_rt == null) _rt = (RectTransform)transform;
             _lastSafe = Screen.safeArea;
             _lastScreen = new Vector2(Screen.width, Screen.height);
-            var (min, max) = SafeAreaMath.ComputeAnchors(_lastSafe, _lastScreen);
+            var (min, max) = SafeAreaMath.ComputeAnchors(_lastSafe, _lastScreen, CornerMargin);
             _rt.anchorMin = min;
             _rt.anchorMax = max;
             _rt.offsetMin = Vector2.zero;

@@ -5,11 +5,17 @@ namespace Tichu.Presentation.Visuals
     /// <summary>화면 내 safe area를 정규화 앵커(0..1)로 변환하는 순수 함수.</summary>
     public static class SafeAreaMath
     {
-        public static (Vector2 min, Vector2 max) ComputeAnchors(Rect safeArea, Vector2 screen)
+        /// <summary>safeArea 를 정규화 앵커로. cornerMargin(px)은 기기의 둥근 모서리 여유 — Android 의
+        /// Screen.safeArea 는 컷아웃만 인셋하고 모서리 곡률은 알려주지 않아 네 변에서 추가로 깎는다.</summary>
+        public static (Vector2 min, Vector2 max) ComputeAnchors(Rect safeArea, Vector2 screen, float cornerMargin = 0f)
         {
             if (screen.x <= 0f || screen.y <= 0f) return (Vector2.zero, Vector2.one);
-            var min = new Vector2(safeArea.xMin / screen.x, safeArea.yMin / screen.y);
-            var max = new Vector2(safeArea.xMax / screen.x, safeArea.yMax / screen.y);
+            // 안전영역보다 큰 여백이 앵커를 뒤집지 않도록 축마다 절반으로 클램프(작은 창·에디터 대비).
+            float m = Mathf.Max(0f, cornerMargin);
+            float mx = Mathf.Min(m, safeArea.width * 0.5f);
+            float my = Mathf.Min(m, safeArea.height * 0.5f);
+            var min = new Vector2((safeArea.xMin + mx) / screen.x, (safeArea.yMin + my) / screen.y);
+            var max = new Vector2((safeArea.xMax - mx) / screen.x, (safeArea.yMax - my) / screen.y);
             return (min, max);
         }
 

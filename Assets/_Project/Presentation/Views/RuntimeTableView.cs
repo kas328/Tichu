@@ -115,9 +115,9 @@ namespace Tichu.Presentation.Views
             _wishText  = NewAnchoredText("Wish",  rt, "", 26, new Vector2(0, 1), new Vector2(20, -90), new Vector2(560, 34), TextAnchor.UpperLeft);
             _wishText.color = Warn;
             // 우상단: 최근 플레이 로그(항목별로 5초 후 사라짐).
-            // x 여백 48 — Screen.safeArea 는 기기의 둥근 모서리를 인셋해 주지 않아 20 이면 곡률에 잘린다(S23 실기 확인).
-            NewAnchoredText("PlaysHeader", rt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-48, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
-            _playsRoot = NewRow("PlaysRoot", rt, new Vector2(1, 1), new Vector2(-48, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
+            // 둥근 모서리 여유는 SafeAreaFitter.CornerMargin 이 content 전체에 적용한다(방향 무관).
+            NewAnchoredText("PlaysHeader", rt, "최근 플레이", 22, new Vector2(1, 1), new Vector2(-20, -16), new Vector2(440, 30), TextAnchor.UpperRight).color = new Color(0.82f, 0.88f, 0.96f);
+            _playsRoot = NewRow("PlaysRoot", rt, new Vector2(1, 1), new Vector2(-20, -52), new Vector2(440, 300), TextAnchor.UpperRight, true);
             // 상대 = 프로필 박스 + 이름 + 장수 + 카드(뒷면). 카드가 이름/장수와 겹치지 않게 배치.
             BuildOpponent(rt, 2, new Vector2(0.5f, 1), new Vector2(0, -12),  new Vector2(0, -170), false, new Vector2(700, 50)); // 파트너(상): 정보 위, 카드 아래
             BuildOpponent(rt, 3, new Vector2(0, 0.5f), new Vector2(16, 0),   new Vector2(160, 0),  true,  new Vector2(84, 540)); // 왼쪽: 프로필 왼끝, 카드 오른쪽

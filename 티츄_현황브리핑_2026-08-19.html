@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tichu Master — 현황 브리핑 · 다음 계획 (2026-08-19)</title>
+<style>
+  :root{
+    --bg:#12181a; --panel:#18211f; --panel2:#1e2a27; --line:#2c3c38;
+    --fg:#e8efec; --dim:#9db0aa; --jade:#4ec9a0; --jade-dim:#2f7f66;
+    --warn:#e0a94b; --danger:#e06b5c; --ok:#5fd08a; --info:#6fa8dc;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6f4; --panel:#ffffff; --panel2:#eef3f1; --line:#d7e0dc;
+           --fg:#16211e; --dim:#5c6f69; --jade:#177f61; --jade-dim:#9fd9c5; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:"Pretendard","Malgun Gothic","Segoe UI",system-ui,sans-serif;
+       line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:40px 24px 80px}
+  header{border-bottom:2px solid var(--jade);padding-bottom:18px;margin-bottom:32px}
+  h1{margin:0 0 6px;font-size:28px;letter-spacing:-.5px}
+  .sub{color:var(--dim);font-size:14px}
+  h2{margin:44px 0 14px;font-size:20px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:20px;background:var(--jade);border-radius:2px;display:inline-block}
+  h3{margin:26px 0 10px;font-size:16px;color:var(--jade)}
+  p{margin:10px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:14px 0}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+  .g3{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-weight:600;font-size:13px;text-transform:none}
+  tbody tr:last-child td{border-bottom:none}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:13px;
+       font-family:"Cascadia Mono",Consolas,monospace}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+  .t-ok{background:rgba(95,208,138,.16);color:var(--ok)}
+  .t-warn{background:rgba(224,169,75,.16);color:var(--warn)}
+  .t-dan{background:rgba(224,107,92,.16);color:var(--danger)}
+  .t-info{background:rgba(111,168,220,.16);color:var(--info)}
+  .t-dim{background:var(--panel2);color:var(--dim)}
+  ul{margin:8px 0;padding-left:20px}
+  li{margin:5px 0}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .n{font-size:24px;font-weight:700;color:var(--jade);display:block;line-height:1.2}
+  .kpi .l{font-size:12px;color:var(--dim)}
+  .note{border-left:3px solid var(--warn);background:rgba(224,169,75,.07);
+        padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+  .note.dan{border-color:var(--danger);background:rgba(224,107,92,.07)}
+  .note.ok{border-color:var(--ok);background:rgba(95,208,138,.07)}
+  .muted{color:var(--dim);font-size:13px}
+  a{color:var(--jade)}
+  svg{max-width:100%;height:auto;display:block;margin:18px auto}
+  .opt{border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--panel)}
+  .opt.rec{border-color:var(--jade);box-shadow:0 0 0 1px var(--jade) inset}
+  .opt h4{margin:0 0 8px;font-size:15px}
+  .pro{color:var(--ok)} .con{color:var(--warn)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Tichu Master — 현황 브리핑 · 다음 계획</h1>
+  <div class="sub">2026-08-19 · 최종 커밋 <code>9d6b5f4</code>(2026-08-08, 11일 전) · <code>main</code> = <code>origin/main</code> 동기</div>
+</header>
+
+<h2>한 장 요약</h2>
+<div class="card">
+  <p><b>게임은 완성됐고, 남은 건 전부 "출시 실무"입니다.</b> Phase 0(룰 엔진) · Phase 1(MVP) · Phase 2(PIMC AI)가 모두 main에 머지·푸시됐고,
+  2026-08-08 R1 출시검증에서 <b>DoD 4게이트 전부 Pass</b>로 Phase 1이 공식 종료됐습니다.
+  다음 관문은 <b>R2 빌드/서명</b>이고, 그 첫 항목인 <b>keystore 생성·백업</b>이 프로젝트 전체에서 가장 되돌릴 수 없는 작업입니다.</p>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="kpi"><span class="n">3 / 3</span><span class="l">Phase 완료 (0·1·2)</span></div>
+    <div class="kpi"><span class="n">4 / 4</span><span class="l">R1 DoD 게이트 Pass</span></div>
+    <div class="kpi"><span class="n">R2</span><span class="l">현재 관문 (5트랙 중 2번째)</span></div>
+  </div>
+</div>
+
+<h2>1. 지금까지 — 무엇을 만들었나</h2>
+
+<svg viewBox="0 0 1000 210" role="img" aria-label="개발 단계 타임라인">
+  <defs>
+    <linearGradient id="gj" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2f7f66"/><stop offset="100%" stop-color="#4ec9a0"/>
+    </linearGradient>
+  </defs>
+  <line x1="40" y1="105" x2="960" y2="105" stroke="#2c3c38" stroke-width="2"/>
+  <rect x="40" y="99" width="700" height="12" rx="6" fill="url(#gj)"/>
+
+  <g font-family="sans-serif">
+    <!-- Phase 0 -->
+    <circle cx="120" cy="105" r="11" fill="#4ec9a0"/>
+    <text x="120" y="72" fill="#e8efec" font-size="15" font-weight="700" text-anchor="middle">Phase 0</text>
+    <text x="120" y="52" fill="#9db0aa" font-size="12" text-anchor="middle">6월 초</text>
+    <text x="120" y="140" fill="#9db0aa" font-size="12" text-anchor="middle">룰 엔진 Core</text>
+    <text x="120" y="157" fill="#5c6f69" font-size="11" text-anchor="middle">155 tests · 10만판 무결성</text>
+    <!-- Phase 1 -->
+    <circle cx="360" cy="105" r="11" fill="#4ec9a0"/>
+    <text x="360" y="72" fill="#e8efec" font-size="15" font-weight="700" text-anchor="middle">Phase 1 (MVP)</text>
+    <text x="360" y="52" fill="#9db0aa" font-size="12" text-anchor="middle">6월 중~7월</text>
+    <text x="360" y="140" fill="#9db0aa" font-size="12" text-anchor="middle">앱셸 · 비주얼 · 사운드 · 빌드</text>
+    <text x="360" y="157" fill="#5c6f69" font-size="11" text-anchor="middle">P1-A~D · VContainer+R3 · DoTween</text>
+    <!-- Phase 2 -->
+    <circle cx="600" cy="105" r="11" fill="#4ec9a0"/>
+    <text x="600" y="72" fill="#e8efec" font-size="15" font-weight="700" text-anchor="middle">Phase 2 (AI)</text>
+    <text x="600" y="52" fill="#9db0aa" font-size="12" text-anchor="middle">6월 말~8월 초</text>
+    <text x="600" y="140" fill="#9db0aa" font-size="12" text-anchor="middle">PIMC 탐색 · 4난이도 · 콜 헤드</text>
+    <text x="600" y="157" fill="#5c6f69" font-size="11" text-anchor="middle">P2-A~G · 격리벤치 문화</text>
+    <!-- R1 -->
+    <circle cx="740" cy="105" r="13" fill="#5fd08a" stroke="#12181a" stroke-width="3"/>
+    <text x="740" y="72" fill="#5fd08a" font-size="15" font-weight="700" text-anchor="middle">R1 ✔</text>
+    <text x="740" y="52" fill="#9db0aa" font-size="12" text-anchor="middle">8/8</text>
+    <text x="748" y="180" fill="#5fd08a" font-size="12" text-anchor="middle">Phase 1 공식 종료</text>
+    <!-- 현재 -->
+    <circle cx="860" cy="105" r="11" fill="#12181a" stroke="#e0a94b" stroke-width="3"/>
+    <text x="860" y="72" fill="#e0a94b" font-size="15" font-weight="700" text-anchor="middle">R2 ← 지금</text>
+    <text x="860" y="140" fill="#e0a94b" font-size="12" text-anchor="middle">빌드 · 서명</text>
+    <!-- 이후 -->
+    <circle cx="945" cy="105" r="8" fill="#12181a" stroke="#2c3c38" stroke-width="3"/>
+    <text x="945" y="140" fill="#5c6f69" font-size="12" text-anchor="middle">R3~R5</text>
+  </g>
+</svg>
+
+<div class="grid g2">
+  <div class="card">
+    <h3>Phase 0 — 룰 엔진</h3>
+    <p class="muted">순수 C# 코어. 조합 인식 · 상태기계 · 정산. 155 테스트 + 10만판 시뮬레이션 무결성 검증. 이 코어가 이후 모든 AI 벤치의 오라클 역할을 합니다.</p>
+  </div>
+  <div class="card">
+    <h3>Phase 1 — MVP (종료)</h3>
+    <p class="muted">헤드리스 게임플로 → 프레젠테이션 → 앱셸(VContainer DI + R3 AppFlowMachine) → 비주얼/손맛(카드뷰·풀링·DoTween·폭탄 글로우) → 사운드(SFX·BGM·볼륨) → 빌드/60fps 게이트. 진실(Core)과 연출(Presentation) 분리를 끝까지 유지.</p>
+  </div>
+  <div class="card">
+    <h3>Phase 2 — AI (PIMC)</h3>
+    <p class="muted">완전정보 다세계 몬테카를로 탐색. 4난이도 티어(쉬움/보통/어려움/전문가) + 난이도 선택 UI. 최대 성과는 <b>학습 콜 헤드</b>: 그랜드 티츄 <b>+4.97/R</b>, 스몰 티츄 <b>+2.91/R</b> (둘 다 통계적 유의) — 실기 플레이에서도 체감 확인됨.</p>
+  </div>
+  <div class="card">
+    <h3>R1 — 출시검증 (2026-08-08 종결)</h3>
+    <p class="muted">S23 실기 1패스. <b>좋음 20 · 이상함 4</b> → 발견 4건 전부 처분(봉황 낭비 버그 수정 · 세이프에어리어 4차 수정 · 리드순서는 "AI가 옳음"으로 기각 · 티츄 응징은 천장 수용). DoD 4게이트(완주·성능·부채검증·<b>손맛</b>) 전부 Pass.</p>
+  </div>
+</div>
+
+<h3>이 프로젝트가 얻은 방법론 자산</h3>
+<div class="card">
+  <ul>
+    <li><b>격리 미러드 벤치가 강도 주장의 유일한 근거</b> — 인간 직관으로 "낭비수"처럼 보이는 AI 수의 상당수가 실제로는 near-optimal. 리드/셰딩 계열 오버라이드는 <b>4~5회 연속 회귀</b>를 냈고, 성공 사례는 엔드게임 셰딩(+34.3/R) 하나뿐.</li>
+    <li><b>채택 기준 3단</b> — ①강도 유의 개선(벤치 CI) ②강도 중립이나 관측 교정(회귀 없음) ③회귀 → 파킹(코드 보존·플래그 OFF). 파킹된 레버가 여럿 남아 있어 되살릴 수 있습니다.</li>
+    <li><b>페어드 벤치가 정확</b> — 미러드 벤치의 per-round CI는 과대추정됨(콜 헤드 작업에서 교훈).</li>
+  </ul>
+</div>
+
+<h2>2. 현재 상태 — 사실 확인</h2>
+<div class="card">
+  <table>
+    <thead><tr><th style="width:30%">항목</th><th style="width:22%">실측값</th><th>비고</th></tr></thead>
+    <tbody>
+      <tr><td>브랜치</td><td><code>main</code> = <code>origin/main</code> (0/0)</td><td>미머지 브랜치 없음, 전부 정리됨</td></tr>
+      <tr><td>워킹트리</td><td><code>ProjectSettings.asset</code> 1건 · <code>.utmp/</code> 미추적</td><td><code>preloadedAssets</code>가 다시 비워진 상태 — 에디터 재직렬화 반복분(무해, R2 커밋에 흡수)</td></tr>
+      <tr><td>Unity</td><td>6000.3.17f1</td><td>번들 SDK에 <code>android-34/35/<b>36</b></code> + build-tools 36.0.0 <span class="tag t-ok">API 36 즉시 가능</span></td></tr>
+      <tr><td>식별자</td><td><code>Tichu Master</code> / <code>com.kas328.tichumaster</code></td><td>R1에서 확정 <span class="tag t-ok">완료</span> — Play 첫 업로드 후 변경 불가라 앞당겨 처리함</td></tr>
+      <tr><td>minSdk / ABI</td><td>26 / ARM64 단독</td><td><span class="tag t-ok">확인</span></td></tr>
+      <tr><td>스크립팅</td><td>IL2CPP + <code>stripEngineCode: 1</code></td><td><span class="tag t-ok">확인</span> — 단 릴리스 스트리핑 회귀는 R2에서 재검증 필요</td></tr>
+      <tr><td><b>targetSdk</b></td><td><code>AndroidTargetSdkVersion: 0</code> (Automatic)</td><td><span class="tag t-warn">R2 필수</span> 명시 고정 안 되어 있음</td></tr>
+      <tr><td><b>keystore</b></td><td><code>androidUseCustomKeystore: 0</code></td><td><span class="tag t-dan">R2 최우선</span> 아직 없음. 분실 시 앱 갱신 영구 불가</td></tr>
+      <tr><td>버전</td><td><code>0.1.0</code> / versionCode <code>1</code></td><td><span class="tag t-warn">R2</span> 출시 버전으로 확정 필요</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>3. 출시 5트랙 — 남은 경로</h2>
+<svg viewBox="0 0 1000 130" role="img" aria-label="출시 5트랙">
+  <g font-family="sans-serif">
+    <rect x="20" y="35" width="170" height="60" rx="10" fill="rgba(95,208,138,.14)" stroke="#5fd08a" stroke-width="2"/>
+    <text x="105" y="60" fill="#5fd08a" font-size="14" font-weight="700" text-anchor="middle">R1 검증 ✔</text>
+    <text x="105" y="80" fill="#9db0aa" font-size="11" text-anchor="middle">DoD 4/4 · 08-08 종결</text>
+
+    <rect x="215" y="28" width="170" height="74" rx="10" fill="rgba(224,169,75,.12)" stroke="#e0a94b" stroke-width="3"/>
+    <text x="300" y="55" fill="#e0a94b" font-size="14" font-weight="700" text-anchor="middle">R2 빌드 · 서명</text>
+    <text x="300" y="74" fill="#9db0aa" font-size="11" text-anchor="middle">keystore · AAB · API36</text>
+    <text x="300" y="90" fill="#5c6f69" font-size="10" text-anchor="middle">← 현재 관문</text>
+
+    <rect x="410" y="35" width="170" height="60" rx="10" fill="#18211f" stroke="#2c3c38" stroke-width="2"/>
+    <text x="495" y="60" fill="#e8efec" font-size="14" font-weight="700" text-anchor="middle">R3 스토어 자산</text>
+    <text x="495" y="80" fill="#9db0aa" font-size="11" text-anchor="middle">아이콘 · 스크린샷 · 문구</text>
+
+    <rect x="605" y="35" width="170" height="60" rx="10" fill="#18211f" stroke="#2c3c38" stroke-width="2"/>
+    <text x="690" y="60" fill="#e8efec" font-size="14" font-weight="700" text-anchor="middle">R4 정책</text>
+    <text x="690" y="80" fill="#9db0aa" font-size="11" text-anchor="middle">개인정보 · Data safety · 등급</text>
+
+    <rect x="800" y="35" width="170" height="60" rx="10" fill="#18211f" stroke="#2c3c38" stroke-width="2"/>
+    <text x="885" y="60" fill="#e8efec" font-size="14" font-weight="700" text-anchor="middle">R5 배포</text>
+    <text x="885" y="80" fill="#9db0aa" font-size="11" text-anchor="middle">Play Console · 내부→프로덕션</text>
+
+    <g stroke="#2c3c38" stroke-width="2" fill="none">
+      <path d="M190 65 L213 65"/><path d="M385 65 L408 65"/><path d="M580 65 L603 65"/><path d="M775 65 L798 65"/>
+    </g>
+  </g>
+</svg>
+
+<h2>4. R2 상세 계획 (제안)</h2>
+
+<div class="note dan">
+  <b>R2-1 keystore가 프로젝트 전체에서 가장 되돌릴 수 없는 작업입니다.</b>
+  Play에 한 번 업로드하면 그 서명 키로만 갱신할 수 있고, 분실하면 <b>같은 앱을 영원히 업데이트할 수 없습니다</b>(새 패키지명으로 재출시 = 리뷰·설치수 전부 소멸).
+  Play App Signing에 등록하면 구글이 배포 키를 보관해 주지만, <b>업로드 키</b>는 여전히 내 책임입니다. 생성 즉시 오프라인 2곳 + 비밀번호 별도 보관을 권합니다.
+</div>
+
+<div class="card">
+  <table>
+    <thead><tr><th style="width:14%">태스크</th><th style="width:38%">내용</th><th>검증(게이트)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>R2-1</b><br><span class="tag t-dan">최우선</span></td>
+        <td>업로드 keystore 생성 + <b>백업 절차 확립</b>. 비밀번호/별칭 기록, 저장소에 커밋 금지(<code>.gitignore</code> 확인).</td>
+        <td>다른 경로의 백업본으로 <b>실제 서명이 되는지</b> 복원 테스트까지</td>
+      </tr>
+      <tr>
+        <td><b>R2-2</b></td>
+        <td><code>AndroidTargetSdkVersion</code> = <b>36</b> 명시 고정(Automatic 금지 — 빌드 재현성). 번들 SDK에 android-36이 이미 있어 추가 설치 불필요.</td>
+        <td>빌드 산출물 매니페스트에 <code>targetSdkVersion 36</code> 확인</td>
+      </tr>
+      <tr>
+        <td><b>R2-3</b></td>
+        <td>출시 버전 확정: <code>bundleVersion</code> 1.0.0, <code>versionCode</code> 정책 결정(Play는 동일 versionCode 재업로드 불가).</td>
+        <td>내부 테스트 업로드가 거부되지 않음</td>
+      </tr>
+      <tr>
+        <td><b>R2-4</b></td>
+        <td><b>AAB</b> 릴리스 빌드(Play 신규 앱은 AAB 필수) + R8/minify + IL2CPP 릴리스 구성.</td>
+        <td>AAB 생성 성공 · 용량 기록</td>
+      </tr>
+      <tr>
+        <td><b>R2-5</b></td>
+        <td>릴리스 빌드 <b>S23 실기 스모크</b>: 개발 빌드가 아니므로 FpsOverlay 미표시 확인, 풀 매치 완주, 크래시 0.</td>
+        <td>한 판 완주 + 크래시 0 + 코너 UI 정상(E5 회귀 없음)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<h3>R2에서 터질 수 있는 것 — 미리 확인할 3가지</h3>
+<div class="grid g3">
+  <div class="card">
+    <b>스트리핑 · R8 회귀</b>
+    <p class="muted">개발 빌드는 통과했지만 릴리스는 처음입니다. VContainer(DI)·R3가 리플렉션을 쓰므로 코드 스트리핑에서 타입이 날아가면 <b>런타임에만</b> 터집니다. <code>link.xml</code> 필요 여부를 실기 스모크로 판정.</p>
+  </div>
+  <div class="card">
+    <b>16KB 페이지 크기</b>
+    <p class="muted">최근 Play 제출 요건에 네이티브 라이브러리 16KB 정렬이 포함됩니다. Unity 6.3은 기본 대응으로 알고 있으나 <b>추정으로 넘기지 않고</b> 빌드 산출물에서 확인할 항목.</p>
+  </div>
+  <div class="card">
+    <b>API 36 edge-to-edge</b>
+    <p class="muted">targetSdk를 올리면 시스템 바 뒤까지 그려집니다. R1에서 세이프에어리어를 4차까지 수정해 대비돼 있지만(<code>androidRenderOutsideSafeArea: 1</code>), targetSdk 변경 후 <b>재확인이 필요한 바로 그 영역</b>입니다.</p>
+  </div>
+</div>
+
+<div class="note">
+  <b>일정 사실(웹 확인):</b> 2026-08-31부터 Google Play 신규 앱·업데이트는 <b>API 36(Android 16) 이상</b> 타겟이 필수입니다(오늘 기준 12일 후). 다만 우리는 처음부터 36으로 고정할 것이므로 <b>이 날짜에 쫓길 이유는 없습니다</b> — 오히려 35로 타협할 이유가 사라진 것에 가깝습니다.
+</div>
+
+<h2>5. 병행 트랙 — 카드 아트</h2>
+<div class="card">
+  <p>S23 실기에서 <b>카드 무늬 기호가 안 보이는</b> 문제가 발견됐습니다(원인: <code>♠♣♥♦</code> 글리프가 Android 폰트 폴백에 없음 + 티츄 4무늬를 포커식 2색으로 뭉갬). 출시 차단 사항은 아니지만 — 무늬는 스트레이트 플러시 폭탄 판독에만 쓰이고 이미 빨강 테두리로 표시됨 — <b>스토어 스크린샷(R3)의 품질에 직결</b>됩니다.</p>
+  <ul>
+    <li><b>이음새는 이미 있음</b> — <code>CardSpriteAtlas</code>가 아트 도입용으로 설계돼 있어 <b>코드 0줄</b>로 스프라이트만 꽂으면 됩니다.</li>
+    <li><b>유일한 비확정 작업</b> — 티츄는 56장(포커 52 + 특수 4: 마작·개·봉황·용). 특수 4장은 어떤 포커 팩에도 없어 <b>제작 필요</b>.</li>
+    <li><b>제약</b> — Kenney CC0 권장. <b>공식 티츄 덱 아트 사용 금지</b>(Fata Morgana/Abacusspiele 활성 IP).</li>
+  </ul>
+  <p class="muted"><b>순서 판단:</b> R3 스크린샷을 찍은 뒤에 아트가 들어오면 스크린샷을 다시 찍어야 합니다. 따라서 <b>R2와 병행하되 R3 이전에 끝내는</b> 배치가 낭비가 없습니다.</p>
+</div>
+
+<h2>6. 결정 요청 — 다음에 무엇을 할까요</h2>
+<div class="grid g2">
+  <div class="opt rec">
+    <h4>A. R2 착수 + 카드 아트 병행 <span class="tag t-ok">권장</span></h4>
+    <p class="muted">keystore부터 즉시 확보(가장 위험한 항목을 먼저 제거)하고, 아트는 R3 스크린샷 전까지 병행 진행.</p>
+    <p><span class="pro">장점</span> 재작업 없음 · 되돌릴 수 없는 항목을 먼저 처리 · 출시 경로 직진<br>
+       <span class="con">주의</span> 두 트랙을 같은 세션에 섞으면 커밋이 지저분해짐 → 브랜치 분리 필요</p>
+  </div>
+  <div class="opt">
+    <h4>B. R2만 집중</h4>
+    <p class="muted">서명·빌드·릴리스 스모크까지 한 트랙으로 끝내고, 아트는 그 다음에.</p>
+    <p><span class="pro">장점</span> 집중도 최고 · 릴리스 빌드 리스크(스트리핑·16KB)를 빨리 노출<br>
+       <span class="con">주의</span> R3 스크린샷 시점에 아트가 없으면 스크린샷 재작업 가능성</p>
+  </div>
+  <div class="opt">
+    <h4>C. 카드 아트 먼저</h4>
+    <p class="muted">눈에 보이는 품질을 먼저 올리고 R2로.</p>
+    <p><span class="pro">장점</span> 앱 인상이 가장 크게 개선되는 작업 · 스크린샷 품질 확보<br>
+       <span class="con">주의</span> 특수 4장 제작이 비확정 작업이라 기간 예측이 어려움 · keystore 리스크가 계속 남음</p>
+  </div>
+  <div class="opt">
+    <h4>D. AI 연구 트랙 복귀</h4>
+    <p class="muted">파킹된 레버(α-μ 백업 · 가치망 ②오라클/③증류 등) 재개.</p>
+    <p><span class="pro">장점</span> 강도 천장 돌파 시도<br>
+       <span class="con">주의</span> 값싼 레버는 이미 소진 · 큰 투자 대비 불확실 · <b>출시가 늦어짐</b></p>
+  </div>
+</div>
+
+<p class="muted" style="margin-top:34px;border-top:1px solid var(--line);padding-top:14px">
+  작성 2026-08-19 · 근거: <code>git log</code>/<code>git status</code> 실측, <code>ProjectSettings.asset</code> 직접 확인, Unity 번들 SDK 디렉터리 확인, Play 타겟 API 요건 웹 확인.
+  관련 문서: <code>티츄_R1_판정결과.html</code> · <code>티츄_관리대시보드.html</code> · <code>티츄_Master_허브.html</code>
+</p>
+
+</div>
+</body>
+</html>

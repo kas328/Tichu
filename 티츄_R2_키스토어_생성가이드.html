@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2 Task 2 — 업로드 키스토어 생성 가이드</title>
+<style>
+  :root{
+    --bg:#12181a; --panel:#18211f; --panel2:#1e2a27; --line:#2c3c38;
+    --fg:#e8efec; --dim:#9db0aa; --jade:#4ec9a0; --warn:#e0a94b; --danger:#e06b5c; --ok:#5fd08a;
+    --code-bg:#0d1413;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6f4; --panel:#fff; --panel2:#eef3f1; --line:#d7e0dc;
+           --fg:#16211e; --dim:#5c6f69; --jade:#177f61; --code-bg:#12181a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);line-height:1.65;
+       font-family:"Pretendard","Malgun Gothic","Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:940px;margin:0 auto;padding:36px 22px 90px}
+  header{border-bottom:2px solid var(--jade);padding-bottom:16px;margin-bottom:10px}
+  h1{margin:0 0 6px;font-size:26px;letter-spacing:-.5px}
+  .sub{color:var(--dim);font-size:14px}
+  h2{margin:38px 0 12px;font-size:19px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:19px;background:var(--jade);border-radius:2px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .note{border-left:3px solid var(--warn);background:rgba(224,169,75,.08);padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+  .note.dan{border-color:var(--danger);background:rgba(224,107,92,.08)}
+  .note.ok{border-color:var(--ok);background:rgba(95,208,138,.08)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:13px;
+       font-family:"Cascadia Mono",Consolas,monospace}
+  .cmd{position:relative;background:var(--code-bg);border:1px solid var(--line);border-radius:10px;
+       margin:10px 0;overflow:hidden}
+  .cmd pre{margin:0;padding:14px 92px 14px 16px;overflow-x:auto;color:#d6efe6;
+           font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;line-height:1.6}
+  .cmd button{position:absolute;top:9px;right:9px;background:var(--panel2);color:var(--fg);
+              border:1px solid var(--line);border-radius:7px;padding:5px 11px;font-size:12px;
+              cursor:pointer;font-family:inherit}
+  .cmd button:hover{border-color:var(--jade);color:var(--jade)}
+  .cmd button.done{color:var(--ok);border-color:var(--ok)}
+  .step{display:flex;gap:14px;align-items:flex-start;margin:26px 0 8px}
+  .step .n{flex:0 0 30px;height:30px;border-radius:50%;background:var(--jade);color:#0d1413;
+           font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px}
+  .step h3{margin:0;font-size:17px;padding-top:3px}
+  .chk{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;background:var(--panel2);
+       border:1px solid var(--line);border-radius:9px;margin:8px 0;cursor:pointer}
+  .chk input{margin-top:4px;flex:0 0 auto;width:16px;height:16px;accent-color:var(--jade);cursor:pointer}
+  .chk.checked{border-color:var(--jade);opacity:.72}
+  .chk.checked span{text-decoration:line-through}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--dim);font-size:13px}
+  tbody tr:last-child td{border-bottom:none}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .muted{color:var(--dim);font-size:13px}
+  .prompt-tbl td:first-child{white-space:nowrap;color:var(--jade);font-family:"Cascadia Mono",Consolas,monospace;font-size:12.5px}
+  .bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;border-bottom:1px solid var(--line);
+       display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim);margin-bottom:8px}
+  .track{flex:1;height:7px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;background:var(--jade);transition:width .25s}
+  .reset{background:none;border:1px solid var(--line);color:var(--dim);border-radius:7px;
+         padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>R2 Task 2 — 업로드 키스토어 생성</h1>
+  <div class="sub">Tichu Master · Google Play 출시 · 이 단계는 <b>비밀번호를 다루므로 사용자가 직접</b> 실행합니다</div>
+</header>
+
+<div class="bar">
+  <span id="count">0 / 10</span>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <button class="reset" id="reset">초기화</button>
+</div>
+
+<div class="note ok">
+  <b>준비는 끝나 있습니다.</b> Task 1에서 <code>*.jks</code>·<code>*.keystore</code>·<code>*.p12</code>·<code>keystore.properties</code>가
+  이미 git에서 차단됐습니다(커밋 <code>cca4b8a</code>, 4개 패턴 실동작 확인 완료). 그래서 지금 키를 만들어도 실수로 커밋될 수 없습니다.
+  <br><br>
+  <b>설치할 것도 없습니다.</b> <code>keytool</code>은 Unity 번들 JDK(<b>Temurin 17.0.18</b>)에 들어 있습니다.
+</div>
+
+<div class="note dan">
+  <b>이 페이지는 안내만 합니다.</b> 키는 사용자 PC의 <code>keytool</code>이 만듭니다 — 웹에서 키를 생성하거나 비밀번호를 입력받는 순간
+  그 자체가 유출 경로가 됩니다. <b>비밀번호를 이 페이지나 대화창에 입력하지 마세요.</b>
+</div>
+
+<h2>먼저 알아둘 것 — 비밀번호는 하나입니다</h2>
+<div class="card">
+  <p>번들 JDK가 17이라 keytool의 기본 키스토어 형식이 <b>PKCS12</b>입니다. 이 형식은 <b>저장소 비밀번호와 키 비밀번호가 같아야만</b> 하고,
+  그래서 keytool이 두 번째 비밀번호를 <b>아예 묻지 않습니다.</b></p>
+  <p class="muted">계획서에는 "같게 두어도 무방"으로 적었지만, 실제로는 "같을 수밖에 없음"입니다. 나중에 환경변수
+  <code>TICHU_KEYSTORE_PASS</code>와 <code>TICHU_KEY_PASS</code>에 <b>같은 값</b>을 넣게 되는 이유가 이것입니다.</p>
+</div>
+
+<h2>단계</h2>
+
+<div class="step"><div class="n">1</div><h3>키 디렉터리 만들기</h3></div>
+<p class="muted">저장소 <b>바깥</b>에 둡니다. 프로젝트 폴더 안에 두면 언젠가 실수로 딸려 들어갑니다.</p>
+<div class="cmd"><button>복사</button><pre>New-Item -ItemType Directory -Force "$env:USERPROFILE\.keys"</pre></div>
+<label class="chk"><input type="checkbox" data-k="s1"><span>키 디렉터리를 만들었다</span></label>
+
+<div class="step"><div class="n">2</div><h3>업로드 키 생성</h3></div>
+<div class="cmd"><button>복사</button><pre>&amp; "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer\OpenJDK\bin\keytool.exe" -genkeypair -v -keystore "$env:USERPROFILE\.keys\tichumaster-upload.jks" -alias tichumaster -keyalg RSA -keysize 2048 -validity 10000</pre></div>
+
+<p class="muted"><b>별칭은 반드시 <code>tichumaster</code></b> — 나중에 등록할 환경변수와 일치해야 빌드가 서명됩니다.
+<code>-validity 10000</code>은 약 27년으로, Play가 요구하는 2033-10-22 이후 만료 조건을 넉넉히 넘깁니다.</p>
+
+<div class="card">
+  <b>keytool이 순서대로 물어보는 것</b> (한국어로 표시됩니다)
+  <table class="prompt-tbl">
+    <tr><td>키 저장소 비밀번호 입력</td><td>이게 <b>유일한 비밀번호</b>입니다. 6자 이상. 잊으면 재설정 절차를 밟아야 하니 비밀번호 관리자에 바로 저장하세요.</td></tr>
+    <tr><td>새 비밀번호 다시 입력</td><td>확인용.</td></tr>
+    <tr><td>이름과 성을 입력하십시오</td><td>본명이 아니어도 됩니다. <code>Tichu Master</code> 정도로 충분합니다.</td></tr>
+    <tr><td>조직 단위 / 조직 이름</td><td><code>kas328</code> 또는 비워도 됩니다(Enter).</td></tr>
+    <tr><td>구/군/시 / 시/도 이름</td><td>비워도 됩니다(Enter).</td></tr>
+    <tr><td>2자 국가 코드</td><td><code>KR</code></td></tr>
+    <tr><td>...이(가) 맞습니까?</td><td><code>y</code> 입력 후 Enter.</td></tr>
+  </table>
+  <p class="muted" style="margin-bottom:0">이 정보는 앱 스토어 표시에 쓰이지 않습니다. 서명 인증서의 식별 정보일 뿐이라 편하게 채우셔도 됩니다.
+  다만 <b>한 번 정하면 이 앱의 서명 인증서에 영구히 박힙니다.</b></p>
+</div>
+<label class="chk"><input type="checkbox" data-k="s2"><span>키를 생성했고, 비밀번호를 비밀번호 관리자에 저장했다</span></label>
+
+<div class="step"><div class="n">3</div><h3>생성 확인</h3></div>
+<div class="cmd"><button>복사</button><pre>&amp; "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer\OpenJDK\bin\keytool.exe" -list -keystore "$env:USERPROFILE\.keys\tichumaster-upload.jks"</pre></div>
+<p class="muted">기대 출력: <code>tichumaster, &lt;날짜&gt;, PrivateKeyEntry,</code> 와 SHA-256 지문 한 줄.</p>
+<label class="chk"><input type="checkbox" data-k="s3"><span>PrivateKeyEntry 와 지문이 보인다</span></label>
+
+<div class="step"><div class="n">4</div><h3>백업 — 3요건을 모두 만족해야 합니다</h3></div>
+<div class="note">
+  업로드 키를 잃어도 Play App Signing 덕분에 <b>재설정 요청으로 복구는 가능합니다</b>(승인 1~2 영업일).
+  영구 손실은 아닙니다. 다만 재설정은 시간과 번거로움을 물리는 일이라, 백업을 안 할 이유는 없습니다.
+</div>
+<ul>
+  <li><b>물리적으로 다른 2곳</b> — 개발 PC가 사라져도 살아남아야 하므로 최소 한 곳은 PC 외부(USB·외장하드·클라우드).</li>
+  <li><b>비밀번호는 키 파일과 분리 보관</b> — 같은 폴더에 메모로 두면 백업이 아니라 단일 실패점이 하나 더 생기는 것입니다.</li>
+  <li><b>파일명에 날짜</b> — <code>tichumaster-upload-2026-08-19.jks</code></li>
+</ul>
+<label class="chk"><input type="checkbox" data-k="s4"><span>서로 다른 2곳에 백업했다 (한 곳은 PC 외부)</span></label>
+<label class="chk"><input type="checkbox" data-k="s5"><span>비밀번호를 키 파일과 분리된 곳에 보관했다</span></label>
+
+<div class="step"><div class="n">5</div><h3>복원 테스트 — 백업본으로 실제 서명이 되는지</h3></div>
+<p class="muted"><b>열어보지 않은 백업은 백업이 아닙니다.</b> 백업본을 되가져와 진짜로 서명이 되는지 확인합니다.
+아래 <code>&lt;백업본 경로&gt;</code>만 실제 위치로 바꾸세요.</p>
+<div class="cmd"><button>복사</button><pre>$AP = "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer"
+$tmp = "$env:TEMP\r2-restore-test"
+New-Item -ItemType Directory -Force $tmp | Out-Null
+Copy-Item "&lt;백업본 경로&gt;\tichumaster-upload-2026-08-19.jks" "$tmp\restored.jks"
+"restore test" | Out-File "$tmp\payload.txt"
+Compress-Archive -Path "$tmp\payload.txt" -DestinationPath "$tmp\dummy.zip" -Force
+&amp; "$AP\OpenJDK\bin\jarsigner.exe" -keystore "$tmp\restored.jks" "$tmp\dummy.zip" tichumaster
+&amp; "$AP\OpenJDK\bin\jarsigner.exe" -verify "$tmp\dummy.zip"</pre></div>
+<p class="muted">마지막 줄이 <code>jar verified.</code> 를 출력하면 통과입니다. 서명할 때 비밀번호를 한 번 물어봅니다.</p>
+<label class="chk"><input type="checkbox" data-k="s6"><span><code>jar verified.</code> 를 확인했다</span></label>
+
+<div class="step"><div class="n">6</div><h3>임시 파일 정리</h3></div>
+<div class="cmd"><button>복사</button><pre>Remove-Item -Recurse -Force "$env:TEMP\r2-restore-test"</pre></div>
+<label class="chk"><input type="checkbox" data-k="s7"><span>임시 폴더를 지웠다</span></label>
+
+<div class="step"><div class="n">7</div><h3>환경변수 4개 등록</h3></div>
+<p class="muted">사용자 범위로 등록하면 이후 실행되는 프로세스(Unity 포함)가 값을 상속합니다.
+덕분에 빌드할 때마다 비밀번호를 다시 입력할 필요도, 대화창에 노출할 일도 없습니다.
+<b><code>TICHU_KEYSTORE_PASS</code>와 <code>TICHU_KEY_PASS</code>에는 같은 값</b>을 넣습니다(PKCS12라 비밀번호가 하나입니다).</p>
+<div class="cmd"><button>복사</button><pre>[Environment]::SetEnvironmentVariable('TICHU_KEYSTORE_PATH', "$env:USERPROFILE\.keys\tichumaster-upload.jks", 'User')
+[Environment]::SetEnvironmentVariable('TICHU_KEY_ALIAS', 'tichumaster', 'User')
+[Environment]::SetEnvironmentVariable('TICHU_KEYSTORE_PASS', '여기에_비밀번호', 'User')
+[Environment]::SetEnvironmentVariable('TICHU_KEY_PASS', '여기에_같은_비밀번호', 'User')</pre></div>
+<div class="note">
+  <b>트레이드오프를 알고 쓰세요.</b> 사용자 범위 환경변수는 레지스트리에 <b>평문</b>으로 저장됩니다.
+  1인 개발 PC에서는 통상 수용하는 수준이지만, 이 PC를 다른 사람과 공유한다면 대신 빌드 직전에
+  <code>$env:TICHU_KEYSTORE_PASS = '...'</code> 처럼 세션 변수로만 설정하고 그 창에서 빌드를 실행하세요.
+</div>
+<label class="chk"><input type="checkbox" data-k="s8"><span>환경변수 4개를 등록했다</span></label>
+
+<div class="step"><div class="n">8</div><h3>등록 확인 — 값은 출력하지 않습니다</h3></div>
+<p class="muted"><b>새 PowerShell 창을 연 뒤</b> 실행하세요. 이미 열려 있던 창은 갱신된 값을 상속하지 않습니다.</p>
+<div class="cmd"><button>복사</button><pre>'TICHU_KEYSTORE_PATH','TICHU_KEYSTORE_PASS','TICHU_KEY_ALIAS','TICHU_KEY_PASS' | ForEach-Object { "{0} = {1}" -f $_, $(if ([Environment]::GetEnvironmentVariable($_,'User')) { 'OK' } else { '미설정' }) }</pre></div>
+<p class="muted">4줄 모두 <code>OK</code>여야 합니다. 값 자체는 찍지 않으므로 화면 공유 중에도 안전합니다.</p>
+<label class="chk"><input type="checkbox" data-k="s9"><span>4줄 모두 OK 를 확인했다</span></label>
+
+<div class="step"><div class="n">9</div><h3>Unity 종료</h3></div>
+<p class="muted">다음 단계(Task 4)는 배치 모드로 릴리스 AAB를 빌드하는데, Unity 에디터가 프로젝트를 잠그고 있으면 실패합니다.
+또 <code>ProjectSettings.asset</code>을 디스크에서 편집해야 해서 에디터가 떠 있으면 덮어써집니다.</p>
+<label class="chk"><input type="checkbox" data-k="s10"><span>Unity 에디터를 종료했다</span></label>
+
+<h2>절대 하지 말 것</h2>
+<div class="card">
+  <ul>
+    <li><b>비밀번호를 대화창·이 페이지·커밋 메시지에 쓰지 않기.</b> 환경변수로만 두면 됩니다.</li>
+    <li><b>키 파일을 프로젝트 폴더 안에 두지 않기.</b> 차단 규칙이 있어도 습관이 사고를 만듭니다.</li>
+    <li><b>별칭을 <code>tichumaster</code> 말고 다른 걸로 만들지 않기.</b> 환경변수와 어긋나면 서명이 실패합니다.</li>
+    <li><b>백업 없이 다음 단계로 넘어가지 않기.</b> 지금이 가장 싸게 백업할 수 있는 시점입니다.</li>
+  </ul>
+</div>
+
+<h2>다 끝나면</h2>
+<div class="card">
+  <p>대화창에 <b>"Task 2 완료"</b>라고만 알려주세요. 비밀번호는 알려주지 않으셔도 됩니다 — 환경변수에서 알아서 읽힙니다.</p>
+  <p style="margin-bottom:0">이어서 제가 <b>Task 4</b>를 진행합니다: 릴리스 AAB 빌드 → <code>bundletool</code>로 targetSdk 36·versionCode 실측 →
+  <code>jarsigner</code>로 서명 검증 → 키 경로가 저장소에 새지 않았는지 확인 → 커밋.
+  IL2CPP 릴리스 빌드라 수십 분 걸릴 수 있어 백그라운드로 돌립니다.</p>
+</div>
+
+<p class="muted" style="margin-top:30px;border-top:1px solid var(--line);padding-top:12px">
+  근거 문서: 계획 <code>docs/superpowers/plans/2026-08-19-r2-build-signing.md</code> Task 2 ·
+  설계 <code>docs/superpowers/specs/2026-08-19-r2-build-signing-design.md</code> §6.1 · JDK Temurin 17.0.18(설치본 실측)
+</p>
+
+<script>
+(function(){
+  var KEY = 'tichu_r2_keystore_task2';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.chk input'));
+
+  function load(){
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){}
+    boxes.forEach(function(b){
+      b.checked = !!saved[b.dataset.k];
+      b.closest('.chk').classList.toggle('checked', b.checked);
+    });
+    paint();
+  }
+  function save(){
+    var o = {};
+    boxes.forEach(function(b){ o[b.dataset.k] = b.checked; });
+    try { localStorage.setItem(KEY, JSON.stringify(o)); } catch(e){}
+  }
+  function paint(){
+    var n = boxes.filter(function(b){ return b.checked; }).length;
+    document.getElementById('count').textContent = n + ' / ' + boxes.length;
+    document.getElementById('fill').style.width = (n / boxes.length * 100) + '%';
+  }
+  boxes.forEach(function(b){
+    b.addEventListener('change', function(){
+      b.closest('.chk').classList.toggle('checked', b.checked);
+      save(); paint();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function(){
+    boxes.forEach(function(b){ b.checked = false; b.closest('.chk').classList.remove('checked'); });
+    save(); paint();
+  });
+
+  document.querySelectorAll('.cmd button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.parentNode.querySelector('pre').innerText;
+      function ok(){
+        btn.textContent = '복사됨'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = '복사'; btn.classList.remove('done'); }, 1400);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(ok, fallback);
+      } else { fallback(); }
+      function fallback(){
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); ok(); } catch(e){ btn.textContent = '복사 실패'; }
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  load();
+})();
+</script>
+</div></body></html>

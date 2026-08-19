@@ -105,7 +105,7 @@ R4 정책      ─┘
 | **영구(커밋)** | `targetSdkVersion = AndroidApiLevel36` · `buildAppBundle = true` · `versionCode` | `ProjectSettings.asset`에 저장·커밋. 프로젝트의 결정이므로 이력에 남는다. |
 | **일시(커밋 금지)** | 키스토어 경로 · 비밀번호 · 별칭 | 환경변수로만 주입, 빌드 직후 `try/finally`로 **원복**. |
 
-`AndroidKeystoreName`은 `ProjectSettings.asset`에 직렬화되므로(현재 빈 값 확인), 원복하지 않으면 **로컬 절대경로가 git에 들어간다**. 비밀번호는 `.asset`에 직렬화되지 않으므로 메모리에만 머문다.
+`AndroidKeystoreName`은 `ProjectSettings.asset`에 직렬화된다(빌드 후 실측: 빈 문자열이 아니라 커스텀 키스토어 없음을 뜻하는 Unity 마커 `'{inproject}: '`로 왕복한다). 원복하지 않으면 **로컬 절대경로가 git에 들어간다**. 비밀번호는 `.asset`에는 직렬화되지 않지만, Unity가 생성하는 `Library/Bee/Android/Prj/IL2CPP/Gradle/launcher/build.gradle`의 `signingConfigs` 블록에 저장소 비밀번호·키 별칭·키 비밀번호가 **평문 리터럴로** 기록되며 빌드가 끝난 뒤에도 그대로 남는다. `Library/`는 `.gitignore`(`/[Ll]ibrary/`)로 막혀 있어 git에는 들어가지 않지만, 그렇다고 "메모리에만 머문다"는 아니다. 따라서 `Library/`는 시크릿을 담은 디렉터리로 취급해야 한다 — 프로젝트 트리를 압축해 공유하거나, 버그 리포트에 첨부하거나, 그대로 클라우드 저장소에 동기화하지 않는다.
 
 ### 5.2 시크릿 주입
 

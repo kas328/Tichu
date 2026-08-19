@@ -133,7 +133,7 @@ New-Item -ItemType Directory -Force "$env:USERPROFILE\.keys"
 
 - `-validity 10000` 약 27년. Play는 2033-10-22 이후까지 유효한 키를 요구하므로 충분하다.
 - 별칭은 `tichumaster`로 고정한다(환경변수 `TICHU_KEY_ALIAS`와 일치해야 한다).
-- 저장소 비밀번호와 키 비밀번호를 같게 두어도 무방하다(업로드 키 용도).
+- 번들 JDK 17의 `keytool` 기본 키스토어 형식은 PKCS12이며, 이 형식은 저장소 비밀번호와 키 비밀번호가 다른 것을 지원하지 않는다 — 두 값은 같을 수밖에 없다. `keytool`도 이를 알고 두 번째 비밀번호를 아예 묻지 않는다. 그 결과 환경변수 `TICHU_KEYSTORE_PASS`와 `TICHU_KEY_PASS`는 같은 값을 받게 된다.
 
 - [ ] **Step 3: 생성 확인**
 
@@ -183,7 +183,7 @@ Remove-Item -Recurse -Force "$env:TEMP\r2-restore-test"
 [Environment]::SetEnvironmentVariable('TICHU_KEY_PASS', '<키 비밀번호>', 'User')
 ```
 
-**트레이드오프:** 사용자 범위 환경변수는 레지스트리에 평문으로 저장된다. 1인 개발 PC에서는 통상 수용하는 수준이나, 이 PC를 공유한다면 대신 빌드 직전에 세션 변수(`$env:TICHU_KEYSTORE_PASS = '...'`)로만 설정하고 그 세션에서 빌드를 실행할 것.
+**트레이드오프:** 사용자 범위 환경변수는 레지스트리에 평문으로 저장된다. PC를 공유하는지와 무관하게, 이 PC에서 사용자 권한으로 실행되는 **모든 프로그램**이 그 값을 읽을 수 있다 — Unity에 국한되지 않는다. 이 노출을 원치 않는다면 대신 빌드 직전에 세션 변수(`$env:TICHU_KEYSTORE_PASS = '...'`)로만 설정하고 그 세션에서 빌드를 실행할 것.
 
 - [ ] **Step 8: 등록 확인 (값은 출력하지 않는다)**
 
@@ -393,7 +393,12 @@ Expected: `  bundleVersion: 1.0.0`
 
 - [ ] **Step 3: 릴리스 AAB 빌드**
 
+Windows 프로세스는 생성되는 시점의 환경 블록을 상속한다. Task 2에서 사용자 범위 환경변수를 등록하기 **전에** 이미 열려 있던 셸은 그 값을 보지 못하므로, Unity를 실행하기 전 같은 명령 안에서 레지스트리 값을 현재 세션에 다시 읽어들인다 — 이렇게 하면 현재 셸이 언제 열렸는지와 무관하게 동작한다. 값은 절대 화면에 출력하지 않는다.
+
 ```powershell
+'TICHU_KEYSTORE_PATH','TICHU_KEYSTORE_PASS','TICHU_KEY_ALIAS','TICHU_KEY_PASS' | ForEach-Object {
+  Set-Item -Path "env:$_" -Value ([Environment]::GetEnvironmentVariable($_,'User'))
+}
 $log = "$env:TEMP\r2-build.log"
 & "E:\6000.3.17f1\Editor\Unity.exe" -quit -batchmode -nographics -projectPath "C:\Users\user\Desktop\Project\Tichu" -buildTarget Android -executeMethod ReleaseBuild.BuildReleaseAab -logFile $log
 "exit=$LASTEXITCODE"
@@ -437,9 +442,16 @@ git diff ProjectSettings/ProjectSettings.asset | grep -nE "AndroidKeystoreName|k
 grep -n "AndroidKeystoreName" ProjectSettings/ProjectSettings.asset
 ```
 
-Expected: 첫 명령은 `AndroidKeystoreName` 변경 없음. 두 번째는 `  AndroidKeystoreName: ` (값 없음).
+판정은 **diff의 유무가 아니라 값의 내용**으로 한다.
 
-**값이 남아 있으면 즉시 중단하고 Task 3의 `finally` 블록을 점검한다.**
+- **PASS**: 값이 비어 있거나, Unity가 커스텀 키스토어 없음을 표시하는 마커 `'{inproject}: '`인 경우. 이 마커는 diff에 변경 라인으로 나타날 수 있으나 정상적인 무해 상태다.
+- **STOP**: 값에 드라이브 문자·경로 구분자·파일명·사용자명이 들어 있는 경우 — 실제 유출이다.
+
+**`finally`는 예외(exception) 발생 시의 원복만 보장한다 — 프로세스가 강제 종료되는 경우(크래시·IL2CPP OOM·배치 모드 강제 종료)에는 원복이 실행되지 않는다.** 그 경우 빌드 도중의 `PlayerSettings` 상태가 디스크의 `ProjectSettings.asset`에 그대로 남을 수 있다. 따라서 비정상 종료된 빌드 뒤에는 이 확인을 **`git add`보다 먼저** 실행해야 하며, Step 8의 `ProjectSettings.asset` 스테이징 지시를 맹목적으로 따르면 안 된다.
+
+**참고 — `preloadedAssets` 노이즈:** 이 diff에는 `preloadedAssets` 변경도 함께 잡힐 수 있다. Unity Input System이 `OnPreprocessBuild`에서 `InputSystem_Actions`를 주입하고 `OnPostprocessBuild`에서 제거하기 때문에 릴리스 빌드마다 재발하는 무해한 변경이며 런타임 영향이 없다 — 플레이어 빌드는 커밋된 값과 무관하게 항상 프리로드된 상태로 빌드된다. 매번 재조사할 필요 없다.
+
+**값이 드라이브 문자·경로·사용자명을 포함하면 즉시 중단하고 Task 3의 `finally` 블록을 점검한다.**
 
 - [ ] **Step 8: 커밋**
 

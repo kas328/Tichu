@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R2 Task 5 — S23 릴리스 스모크</title>
+<style>
+  :root{
+    --bg:#12181a; --panel:#18211f; --panel2:#1e2a27; --line:#2c3c38;
+    --fg:#e8efec; --dim:#9db0aa; --jade:#4ec9a0; --warn:#e0a94b; --danger:#e06b5c; --ok:#5fd08a;
+    --code-bg:#0d1413;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6f4; --panel:#fff; --panel2:#eef3f1; --line:#d7e0dc;
+           --fg:#16211e; --dim:#5c6f69; --jade:#177f61; --code-bg:#12181a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);line-height:1.65;
+       font-family:"Pretendard","Malgun Gothic","Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+  header{border-bottom:2px solid var(--jade);padding-bottom:15px;margin-bottom:10px}
+  h1{margin:0 0 6px;font-size:25px;letter-spacing:-.5px}
+  .sub{color:var(--dim);font-size:14px}
+  h2{margin:34px 0 12px;font-size:19px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:19px;background:var(--jade);border-radius:2px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .note{border-left:3px solid var(--warn);background:rgba(224,169,75,.08);padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+  .note.dan{border-color:var(--danger);background:rgba(224,107,92,.08)}
+  .note.ok{border-color:var(--ok);background:rgba(95,208,138,.08)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:13px;
+       font-family:"Cascadia Mono",Consolas,monospace}
+  .cmd{position:relative;background:var(--code-bg);border:1px solid var(--line);border-radius:10px;
+       margin:10px 0;overflow:hidden}
+  .cmd pre{margin:0;padding:14px 92px 14px 16px;overflow-x:auto;color:#d6efe6;
+           font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;line-height:1.6}
+  .cmd button{position:absolute;top:9px;right:9px;background:var(--panel2);color:var(--fg);
+              border:1px solid var(--line);border-radius:7px;padding:5px 11px;font-size:12px;
+              cursor:pointer;font-family:inherit}
+  .cmd button:hover{border-color:var(--jade);color:var(--jade)}
+  .cmd button.done{color:var(--ok);border-color:var(--ok)}
+  .chk{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;background:var(--panel2);
+       border:1px solid var(--line);border-radius:9px;margin:8px 0;cursor:pointer}
+  .chk input{margin-top:4px;flex:0 0 auto;width:17px;height:17px;accent-color:var(--jade);cursor:pointer}
+  .chk.checked{border-color:var(--jade);opacity:.7}
+  .chk.checked .t{text-decoration:line-through}
+  .chk .t{font-weight:600}
+  .chk .w{display:block;color:var(--dim);font-size:13px;font-weight:400;margin-top:2px}
+  .chk.key{border-left:3px solid var(--danger)}
+  .bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;border-bottom:1px solid var(--line);
+       display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim);margin-bottom:8px}
+  .track{flex:1;height:7px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;background:var(--jade);transition:width .25s}
+  .reset{background:none;border:1px solid var(--line);color:var(--dim);border-radius:7px;
+         padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--dim);font-size:13px}
+  tbody tr:last-child td{border-bottom:none}
+  ul{margin:8px 0;padding-left:20px} li{margin:5px 0}
+  .muted{color:var(--dim);font-size:13px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+  .t-ok{background:rgba(95,208,138,.16);color:var(--ok)}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>R2 Task 5 — S23 릴리스 스모크</h1>
+  <div class="sub">Tichu Master <code>1.0.0</code> (versionCode 2) · 릴리스 빌드로 실기 검증하는 마지막 관문</div>
+</header>
+
+<div class="bar">
+  <span id="count">0 / 12</span>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <button class="reset" id="reset">초기화</button>
+</div>
+
+<div class="note ok">
+  <b>설치 파일은 이미 만들어 뒀습니다.</b> <code>Build\TichuMaster-1.0.0-2.apks</code> (38.8 MB) —
+  업로드할 <b>바로 그 AAB에서 뽑아낸</b> universal APK입니다. 별도로 빌드한 게 아니라서, 여기서 통과하면 Play에 올라갈 산출물이 검증된 것입니다.
+</div>
+
+<h2>이 단계가 왜 중요한가</h2>
+<div class="card">
+  <p>지금까지의 실기 검증은 전부 <b>개발 빌드</b>였습니다. 릴리스 빌드는 이번이 처음이고, 개발 빌드와 결정적으로 다른 점이 하나 있습니다 —
+  <b>IL2CPP가 안 쓰는 코드를 잘라냅니다</b>(<code>stripEngineCode: 1</code>).</p>
+  <p>이 게임은 <b>VContainer(의존성 주입)</b>와 <b>R3</b>가 리플렉션으로 타입을 찾습니다. 리플렉션은 컴파일 시점에 "쓰인다"는 흔적을 남기지 않아서,
+  스트리퍼가 필요한 타입을 지워버릴 수 있습니다. 그러면 <b>빌드는 성공하고, 실행할 때만 터집니다.</b></p>
+  <p style="margin-bottom:0">테스트로는 잡히지 않고, 에디터에서도 재현되지 않습니다. <b>이 스모크가 유일한 그물입니다.</b>
+  특히 첫 번째 항목(앱이 켜지고 메뉴가 뜨는가)이 DI 컨테이너가 살아있는지를 보는 1차 관문입니다.</p>
+</div>
+
+<h2>설치</h2>
+
+<p class="muted"><b>1)</b> S23에서 USB 디버깅을 켜고 케이블로 연결한 뒤, 새 PowerShell 창에서 확인합니다.</p>
+<div class="cmd"><button>복사</button><pre>&amp; "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe" devices</pre></div>
+<p class="muted">기기 시리얼이 <code>device</code> 상태로 한 줄 나와야 합니다. <code>unauthorized</code>가 뜨면 폰 화면의 USB 디버깅 허용 팝업을 수락하세요.</p>
+<label class="chk"><input type="checkbox" data-k="i1"><span class="t">기기가 <code>device</code> 상태로 잡힌다</span></label>
+
+<p class="muted"><b>2)</b> 기존에 깔린 앱을 지웁니다(어느 빌드를 보고 있는지 헷갈리지 않게).</p>
+<div class="cmd"><button>복사</button><pre>&amp; "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe" uninstall com.kas328.tichumaster</pre></div>
+<p class="muted">미설치 상태면 실패 메시지가 나오는데 그냥 넘어가시면 됩니다.</p>
+<label class="chk"><input type="checkbox" data-k="i2"><span class="t">기존 앱 제거를 시도했다</span></label>
+
+<p class="muted"><b>3)</b> 릴리스 APK를 설치합니다.</p>
+<div class="cmd"><button>복사</button><pre>$AP = "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer"
+&amp; "$AP\OpenJDK\bin\java.exe" -jar "$AP\Tools\bundletool-all-1.17.2.jar" install-apks --apks="C:\Users\user\Desktop\Project\Tichu\Build\TichuMaster-1.0.0-2.apks" --adb="$AP\SDK\platform-tools\adb.exe"</pre></div>
+<label class="chk"><input type="checkbox" data-k="i3"><span class="t">설치 성공</span></label>
+
+<h2>스모크 체크리스트</h2>
+<p class="muted">한 판을 <b>끝까지</b> 진행하면서 확인하세요. 빨간 테두리 항목이 통과 필수 게이트입니다.</p>
+
+<label class="chk key"><input type="checkbox" data-k="s1"><span class="t">앱이 실행되고 메뉴가 뜬다
+  <span class="w">스트리핑 회귀 1차 관문 — DI 컨테이너가 죽으면 여기서 즉시 튕깁니다. 스플래시만 뜨고 닫히면 실패입니다.</span></span></label>
+
+<label class="chk"><input type="checkbox" data-k="s2"><span class="t">난이도 선택 화면이 뜨고 선택된다
+  <span class="w">쉬움/보통/어려움/전문가 네 개가 보이는지.</span></span></label>
+
+<label class="chk key"><input type="checkbox" data-k="s3"><span class="t">한 판을 끝까지 완주한다
+  <span class="w">딜링 → 교환 → 플레이 → 결과. 중간에 AI가 멈추거나 화면이 굳지 않는지. 2차 관문입니다.</span></span></label>
+
+<label class="chk key"><input type="checkbox" data-k="s4"><span class="t">크래시 0
+  <span class="w">한 번이라도 튕기면 실패로 기록하고 아래 로그 수집으로 가세요.</span></span></label>
+
+<label class="chk key"><input type="checkbox" data-k="s5"><span class="t">FpsOverlay가 <b>보이지 않는다</b>
+  <span class="w">개발 빌드에서만 뜨도록 <code>Debug.isDebugBuild</code>로 막아뒀습니다. 릴리스에서 보이면 게이트가 안 먹은 것입니다.</span></span></label>
+
+<label class="chk"><input type="checkbox" data-k="s6"><span class="t">코너 UI가 둥근 모서리에 안 잘린다 — 기본 방향
+  <span class="w">총점·페이즈·최근 플레이. R1에서 네 번 고친 부분이고, targetSdk를 36으로 올리면서 시스템 바 처리가 바뀌어 재확인이 필요합니다.</span></span></label>
+
+<label class="chk"><input type="checkbox" data-k="s7"><span class="t">코너 UI가 안 잘린다 — 자동회전 180°
+  <span class="w">폰을 뒤집어서 확인. 컷아웃 인셋이 반대편으로 가는 케이스입니다.</span></span></label>
+
+<label class="chk"><input type="checkbox" data-k="s8"><span class="t">사운드가 나온다
+  <span class="w">카드 내는 소리 · 버튼음 · 메뉴 BGM.</span></span></label>
+
+<label class="chk"><input type="checkbox" data-k="s9"><span class="t">체감 성능에 문제가 없다
+  <span class="w">FpsOverlay가 없으니 수치 대신 체감으로. 애니메이션이 끊기거나 입력이 늦게 먹지 않는지.</span></span></label>
+
+<h2>실패했다면</h2>
+<div class="note dan">
+  <b>즉시 종료되거나 특정 화면에서만 죽는다면 스트리핑 회귀를 의심합니다.</b> 로그를 받아 주세요.
+</div>
+<div class="cmd"><button>복사</button><pre>&amp; "E:\6000.3.17f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe" logcat -d -s Unity:V AndroidRuntime:E &gt; "$env:TEMP\r2-smoke.log"
+notepad "$env:TEMP\r2-smoke.log"</pre></div>
+<p class="muted">아래 세 가지 중 하나가 보이면 스트리핑이 원인입니다. 그러면 <code>Assets/link.xml</code>로 해당 어셈블리를 보존 대상으로 선언하고 다시 빌드합니다 — 제가 처리하겠습니다.</p>
+<ul>
+  <li><code>TypeLoadException</code></li>
+  <li><code>MissingMethodException</code></li>
+  <li><code>ExecutionEngineException</code></li>
+</ul>
+<p class="muted">로그 파일 경로만 알려주시면 제가 읽고 판단하겠습니다.</p>
+
+<h2>통과하면</h2>
+<div class="card">
+  <table>
+    <tr><th style="width:26%">다음</th><td><b>Task 6</b> — Play 개발자 계정(개인, $25) 생성 → 앱 등록 → 비공개 테스트 트랙에 <code>TichuMaster-1.0.0-2.aab</code> 업로드</td></tr>
+    <tr><th>그리고</th><td>브랜치 <code>feat/r2-build-signing</code>을 <code>main</code>에 머지 (Task 5 통과 전에는 보류합니다 — 실패 시 <code>link.xml</code> 수정이 이 브랜치에 더 들어가야 하므로)</td></tr>
+    <tr><th>병행</th><td>테스터 15~18명 명단 확보 · R3 스토어 자산 · R4 정책 — 이 셋이 다 끝나야 14일 시계를 켤 수 있습니다</td></tr>
+  </table>
+</div>
+
+<p class="muted" style="margin-top:28px;border-top:1px solid var(--line);padding-top:12px">
+  산출물 실측 완료: <code>targetSdk 36</code> · <code>minSdk 26</code> · <code>versionCode 2</code> · <code>com.kas328.tichumaster</code> ·
+  서명 검증 <code>jar verified.</code> · arm64 라이브러리 6종 전부 16KB 페이지 정렬 <span class="tag t-ok">확인</span><br>
+  계획 <code>docs/superpowers/plans/2026-08-19-r2-build-signing.md</code> Task 5
+</p>
+
+<script>
+(function(){
+  var KEY = 'tichu_r2_smoke_task5';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.chk input'));
+  function paint(){
+    var n = boxes.filter(function(b){ return b.checked; }).length;
+    document.getElementById('count').textContent = n + ' / ' + boxes.length;
+    document.getElementById('fill').style.width = (n / boxes.length * 100) + '%';
+  }
+  function save(){
+    var o = {}; boxes.forEach(function(b){ o[b.dataset.k] = b.checked; });
+    try { localStorage.setItem(KEY, JSON.stringify(o)); } catch(e){}
+  }
+  function load(){
+    var s = {};
+    try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){}
+    boxes.forEach(function(b){
+      b.checked = !!s[b.dataset.k];
+      b.closest('.chk').classList.toggle('checked', b.checked);
+    });
+    paint();
+  }
+  boxes.forEach(function(b){
+    b.addEventListener('change', function(){
+      b.closest('.chk').classList.toggle('checked', b.checked);
+      save(); paint();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function(){
+    boxes.forEach(function(b){ b.checked = false; b.closest('.chk').classList.remove('checked'); });
+    save(); paint();
+  });
+  document.querySelectorAll('.cmd button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.parentNode.querySelector('pre').innerText;
+      function ok(){
+        btn.textContent = '복사됨'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = '복사'; btn.classList.remove('done'); }, 1400);
+      }
+      function fallback(){
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); ok(); } catch(e){ btn.textContent='복사 실패'; }
+        document.body.removeChild(ta);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(ok, fallback);
+      } else { fallback(); }
+    });
+  });
+  load();
+})();
+</script>
+</div></body></html>

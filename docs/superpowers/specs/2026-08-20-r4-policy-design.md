@@ -24,7 +24,8 @@ R4의 본질은 코딩이 아니라 **정확한 사실 선언**이다. 여기서
 | 분석·광고 SDK | 같은 검색 | `Analytics`·`Firebase`·`AdMob`·`Advertisement` **0건** |
 | Unity 클라우드 서비스 | `ProjectSettings/UnityConnectSettings.asset` | Analytics `0` · Ads `0` · Purchasing `0` · Insights `0` · PerformanceReporting `0` · CloudDiagnostics(Crash) `0` — **전부 비활성** |
 | 로컬 저장 | `PlayerPrefs` 사용처 | `VolumeSettings.cs`의 BGM·효과음 볼륨 `float` 2개뿐. **기기를 벗어나지 않음** |
-| 개발 도구 유출 | MCP 패키지 asmdef·소스 | 네트워크를 여는 `MCPForUnity.Editor`는 `includePlatforms: ["Editor"]`로 **빌드 미포함**. 빌드에 들어가는 `MCPForUnity.Runtime`은 호환 shim·직렬화 헬퍼뿐으로 `RuntimeInitializeOnLoadMethod`·`MonoBehaviour`·네트워크 코드가 **전무** → 스스로 실행되지 않는 수동 코드 |
+| 개발 도구 유출 | MCP 패키지 asmdef·소스 | 네트워크를 여는 `MCPForUnity.Editor`는 `includePlatforms: ["Editor"]`로 **빌드 미포함**. 빌드에 들어가는 `MCPForUnity.Runtime`은 호환 shim·직렬화 헬퍼·`Runtime/Helpers/ScreenshotUtility.cs`(`ScreenCapture`를 호출해 PNG로 저장하는 정적 유틸리티)로 구성되며, `RuntimeInitializeOnLoadMethod`·`MonoBehaviour`·네트워크 코드가 **전무** → 무엇도 이들을 부르지 않아 스스로 실행되지 않는 수동 코드 |
+| 광고 관련 클래스명 | `classes.dex` 디컴파일 | `com/unity3d/player/AndroidAdvertisingIdHelper`·`AndroidAppSetIdHelper`·`FirebaseIdentifiersHelper`, 그리고 `com.google.android.gms.ads.identifier.AdvertisingIdClient` 문자열 참조가 **존재한다.** 모든 Unity 안드로이드 빌드에 포함되는 휴면 플레이어 플러밍이며, 이를 부르는 매니지드 코드가 없고, 매니페스트에 `AD_ID` 권한이 없어 `targetSdk 36`(API 33+)에서는 리플렉션으로 읽어도 값이 0으로 반환된다 → "광고 ID 미사용" 선언은 유지되나, 나중에 디컴파일해 이 이름들을 발견할 사람을 위해 존재 자체를 기록해 둔다 |
 
 **결론: 수집 0 · 공유 0 · 계정 없음 · 광고 ID 미사용.**
 

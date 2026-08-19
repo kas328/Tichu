@@ -72,7 +72,7 @@
 </header>
 
 <div class="bar">
-  <span id="count">0 / 19</span>
+  <span id="count">0 / 24</span>
   <div class="track"><div class="fill" id="fill"></div></div>
   <button class="reset" id="reset">초기화</button>
 </div>
@@ -155,6 +155,21 @@
 <label class="chk"><input type="checkbox" data-k="age1"><span class="t">대상 연령대 — 13세 이상
   <span class="w">가족 정책 미적용. 콘텐츠 등급(전체이용가)과 타겟 연령(13세 이상)이 다른 것은 정상이다 — 전자는 콘텐츠 수위, 후자는 대상 의도</span></span></label>
 
+<h2>그 외 필수 항목</h2>
+<p class="muted">Play의 App content는 위 표보다 항목이 더 많다. 아래는 지금까지 이 페이지가 빠뜨렸던 항목들이며,
+Google이 이 설문 화면의 문항 구성과 이름을 수시로 바꾸므로 <b>"적어도 이만큼"</b>이지 "정확히 이것뿐"이 아니다.
+Play Console에서 여기 없는 문항을 만나면 스펙 §2의 사실 검증에 대입해 판단한다.</p>
+<label class="chk"><input type="checkbox" data-k="news1"><span class="t">뉴스 앱 — 아니오
+  <span class="w">뉴스 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="gov1"><span class="t">정부 앱 — 아니오
+  <span class="w">정부 기관과 무관한 카드게임</span></span></label>
+<label class="chk key"><input type="checkbox" data-k="fin1"><span class="t">금융 기능 — 아니오
+  <span class="w">대출·투자·암호화폐·실제 도박·송금 기능 없음. 인앱 결제도 없음. ⚠️ 이 문항은 위 콘텐츠 등급의 <b>모의 도박</b>(IARC 설문) 항목과는 <b>별개</b>다 — 거기서 '아니오'를 답했다고 이 문항이 자동으로 처리되지 않는다. 여기서도 반드시 <b>아니오</b>를 고른다</span></span></label>
+<label class="chk"><input type="checkbox" data-k="health1"><span class="t">건강 앱 — 아니오
+  <span class="w">건강·의료 관련 기능 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="kids1"><span class="t">의도치 않게 아동에게 어필할 수 있는가 — 아니오
+  <span class="w">타겟 연령(13세 이상) 설문의 후속 질문. 규칙이 복잡한 전략 카드게임이며 아동향 연출·캐릭터가 없음</span></span></label>
+
 <h2>Data safety</h2>
 <label class="chk"><input type="checkbox" data-k="ds1"><span class="t">데이터 수집 · 공유 — 아니오
   <span class="w">권한 실측 <code>INTERNET</code> 하나뿐 · 네트워크 코드(<code>UnityWebRequest</code>·<code>HttpClient</code>·<code>WebClient</code>·<code>Socket</code> 등) 0건 · Unity 클라우드 서비스 6종(Analytics/Ads/Purchasing/Insights/PerformanceReporting/CloudDiagnostics) 전부 비활성</span></span></label>
@@ -166,9 +181,9 @@
   <span class="w">보관하는 데이터가 없음</span></span></label>
 
 <h2>개인정보처리방침</h2>
-<p class="muted">Play Console의 "개인정보처리방침" 입력란에 아래 URL을 그대로 붙여넣는다. Task 2에서 페이지를 만들고 Task 3에서 GitHub Pages를 켜므로,
-지금 이 URL은 <b>아직 열리지 않는다</b> — 그래도 Play Console에는 그대로 입력해도 된다. 등록 시점과 실제 활성화 시점이 다른 것은 정상이며,
-비공개 테스트 트랙을 공개하기 전까지만 열리면 된다.</p>
+<p class="muted">Play Console의 "개인정보처리방침" 입력란에 아래 URL을 그대로 붙여넣는다. 입력 전에 URL이 실제로 <b>200</b>을 반환하는지 먼저 확인한다
+(<code>curl -s -o /dev/null -w "%{http_code}\n" https://kas328.github.io/Tichu/privacy/</code>) — Task 3에서 GitHub Pages를 켜야 열리므로,
+아직 Task 3을 마치지 않았다면 그것부터 끝낸 뒤 이 값을 입력한다.</p>
 <div class="cmd"><button>복사</button><pre>https://kas328.github.io/Tichu/privacy/</pre></div>
 <label class="chk"><input type="checkbox" data-k="pp1"><span class="t">개인정보처리방침 URL 등록 — <code>https://kas328.github.io/Tichu/privacy/</code>
   <span class="w">Task 2에서 생성, Task 3에서 활성화</span></span></label>

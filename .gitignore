@@ -55,6 +55,12 @@ ExportedObj/
 # Unity3D generated file on crash reports
 sysinfo.txt
 
+# Signing secrets — 절대 커밋 금지
+*.jks
+*.keystore
+*.p12
+keystore.properties
+
 # Builds
 *.apk
 *.aab

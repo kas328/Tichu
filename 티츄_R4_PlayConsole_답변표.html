@@ -78,8 +78,9 @@
 </div>
 
 <div class="note ok">
-  <b>이 페이지의 위치.</b> 모든 답변과 근거의 <b>권위 있는 출처</b>는 설계 스펙
-  <code>docs/superpowers/specs/2026-08-20-r4-policy-design.md</code> §6(Data safety) · §7(콘텐츠 등급) · §8(타겟 연령·앱 액세스·광고)이다.
+  <b>이 페이지의 위치.</b> 답변과 근거의 <b>권위 있는 출처</b>는 설계 스펙
+  <code>docs/superpowers/specs/2026-08-20-r4-policy-design.md</code>다 — §6(Data safety) · §7(콘텐츠 등급) · §8(타겟 연령·앱 액세스·광고)이 다루는 항목은 그 절들이,
+  그 외 항목(뉴스·정부·금융·건강 앱, 아동 어필)은 §2의 사실 검증이 근거다.
   이 페이지는 그 내용을 Play Console 화면을 보며 클릭클릭 따라갈 수 있게 옮긴 것일 뿐이다.
   <b>이 페이지와 스펙이 어긋나면 스펙이 이긴다.</b>
 </div>
@@ -99,7 +100,7 @@
 </div>
 
 <h2>한눈에 보기</h2>
-<p class="muted">스펙 §6~§8을 그대로 옮긴 표. 아래 섹션별 체크리스트가 이 표를 문항 단위로 풀어놓은 버전이다.</p>
+<p class="muted">스펙 §6~§8(그 외 항목은 §2)을 그대로 옮긴 표. 아래 섹션별 체크리스트가 이 표를 문항 단위로 풀어놓은 버전이다.</p>
 <div class="card">
   <table>
     <thead>
@@ -113,6 +114,11 @@
       <tr><td>콘텐츠 등급</td><td>사용자 간 상호작용</td><td>아니오</td><td>채팅·멀티플레이·UGC 없음, 상대는 전부 AI</td></tr>
       <tr><td>콘텐츠 등급</td><td>위치 공유 / 개인정보 공유 / 디지털 구매</td><td>전부 아니오</td><td>위치 권한 없음 · 수집 없음 · 인앱 결제 없음</td></tr>
       <tr><td>타겟 연령</td><td>대상 연령대</td><td><b>13세 이상</b></td><td>가족 정책 미적용. 콘텐츠 등급(전체이용가)과 다른 것은 정상</td></tr>
+      <tr><td>그 외 필수 항목</td><td>뉴스 앱</td><td>아니오</td><td>뉴스 콘텐츠 없음</td></tr>
+      <tr><td>그 외 필수 항목</td><td>정부 앱</td><td>아니오</td><td>정부 기관과 무관한 카드게임</td></tr>
+      <tr class="rowkey"><td>그 외 필수 항목</td><td><b>금융 기능</b></td><td><b>아니오</b></td><td>대출·투자·암호화폐·실제 도박·송금 기능 없음, 인앱 결제도 없음. 콘텐츠 등급의 모의 도박(IARC) 항목과 별개로 물어보는 문항</td></tr>
+      <tr><td>그 외 필수 항목</td><td>건강 앱</td><td>아니오</td><td>건강·의료 관련 기능 없음</td></tr>
+      <tr><td>그 외 필수 항목</td><td>의도치 않게 아동에게 어필</td><td>아니오</td><td>타겟 연령 설문 후속 질문. 아동향 연출·캐릭터 없음</td></tr>
       <tr><td>Data safety</td><td>수집·공유</td><td>아니오</td><td>권한 실측 <code>INTERNET</code> 뿐 · 네트워크 코드 0건 · Unity 서비스 6종 비활성</td></tr>
       <tr class="rowkey"><td>Data safety</td><td>광고 ID 사용</td><td>아니오</td><td><code>AD_ID</code> 권한 없음</td></tr>
       <tr><td>Data safety</td><td>전송 암호화 / 삭제 요청</td><td>해당 없음</td><td>전송·보관하는 데이터가 없음</td></tr>

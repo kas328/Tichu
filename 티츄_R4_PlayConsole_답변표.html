@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>R4 Task 1 — Play Console 답변표</title>
+<style>
+  :root{
+    --bg:#12181a; --panel:#18211f; --panel2:#1e2a27; --line:#2c3c38;
+    --fg:#e8efec; --dim:#9db0aa; --jade:#4ec9a0; --warn:#e0a94b; --danger:#e06b5c; --ok:#5fd08a;
+    --code-bg:#0d1413;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f4f6f4; --panel:#fff; --panel2:#eef3f1; --line:#d7e0dc;
+           --fg:#16211e; --dim:#5c6f69; --jade:#177f61; --code-bg:#12181a; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);line-height:1.65;
+       font-family:"Pretendard","Malgun Gothic","Segoe UI",system-ui,sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:36px 22px 90px}
+  header{border-bottom:2px solid var(--jade);padding-bottom:16px;margin-bottom:10px}
+  h1{margin:0 0 6px;font-size:26px;letter-spacing:-.5px}
+  .sub{color:var(--dim);font-size:14px}
+  h2{margin:38px 0 12px;font-size:19px;display:flex;align-items:center;gap:10px}
+  h2::before{content:"";width:4px;height:19px;background:var(--jade);border-radius:2px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0}
+  .note{border-left:3px solid var(--warn);background:rgba(224,169,75,.08);padding:12px 16px;
+        border-radius:0 8px 8px 0;margin:14px 0;font-size:14px}
+  .note.dan{border-color:var(--danger);background:rgba(224,107,92,.08)}
+  .note.ok{border-color:var(--ok);background:rgba(95,208,138,.08)}
+  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:13px;
+       font-family:"Cascadia Mono",Consolas,monospace}
+  .cmd{position:relative;background:var(--code-bg);border:1px solid var(--line);border-radius:10px;
+       margin:10px 0;overflow:hidden}
+  .cmd pre{margin:0;padding:14px 92px 14px 16px;overflow-x:auto;color:#d6efe6;
+           font-family:"Cascadia Mono",Consolas,monospace;font-size:13px;line-height:1.6}
+  .cmd button{position:absolute;top:9px;right:9px;background:var(--panel2);color:var(--fg);
+              border:1px solid var(--line);border-radius:7px;padding:5px 11px;font-size:12px;
+              cursor:pointer;font-family:inherit}
+  .cmd button:hover{border-color:var(--jade);color:var(--jade)}
+  .cmd button.done{color:var(--ok);border-color:var(--ok)}
+  .chk{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;background:var(--panel2);
+       border:1px solid var(--line);border-radius:9px;margin:8px 0;cursor:pointer}
+  .chk input{margin-top:4px;flex:0 0 auto;width:17px;height:17px;accent-color:var(--jade);cursor:pointer}
+  .chk.checked{border-color:var(--jade);opacity:.7}
+  .chk.checked .t{text-decoration:line-through}
+  .chk .t{font-weight:600}
+  .chk .w{display:block;color:var(--dim);font-size:13px;font-weight:400;margin-top:2px}
+  .chk.key{border-left:3px solid var(--danger)}
+  .bar{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0 8px;border-bottom:1px solid var(--line);
+       display:flex;align-items:center;gap:12px;font-size:13px;color:var(--dim);margin-bottom:8px}
+  .track{flex:1;height:7px;background:var(--panel2);border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;background:var(--jade);transition:width .25s}
+  .reset{background:none;border:1px solid var(--line);color:var(--dim);border-radius:7px;
+         padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:10px 0}
+  th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  th{color:var(--dim);font-size:13px}
+  tbody tr:last-child td{border-bottom:none}
+  tr.rowkey td{border-left:3px solid var(--danger)}
+  ul{margin:8px 0;padding-left:20px} li{margin:6px 0}
+  .muted{color:var(--dim);font-size:13px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:600}
+  .t-ok{background:rgba(95,208,138,.16);color:var(--ok)}
+</style>
+</head>
+<body><div class="wrap">
+
+<header>
+  <h1>R4 Task 1 — Play Console 답변표</h1>
+  <div class="sub">Tichu Master · <code>com.kas328.tichumaster</code> · App content 선언을 입력할 때 옆에 펴 두는 참고 문서(Task 6용)</div>
+</header>
+
+<div class="bar">
+  <span id="count">0 / 24</span>
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <button class="reset" id="reset">초기화</button>
+</div>
+
+<div class="note ok">
+  <b>이 페이지의 위치.</b> 답변과 근거의 <b>권위 있는 출처</b>는 설계 스펙
+  <code>docs/superpowers/specs/2026-08-20-r4-policy-design.md</code>다 — §6(Data safety) · §7(콘텐츠 등급) · §8(타겟 연령·앱 액세스·광고)이 다루는 항목은 그 절들이,
+  그 외 항목(뉴스·정부·금융·건강 앱, 아동 어필)은 §2의 사실 검증이 근거다.
+  이 페이지는 그 내용을 Play Console 화면을 보며 클릭클릭 따라갈 수 있게 옮긴 것일 뿐이다.
+  <b>이 페이지와 스펙이 어긋나면 스펙이 이긴다.</b>
+</div>
+
+<div class="note dan">
+  <b>⚠️ 모의 도박 문항에 '예'라고 답하지 말 것.</b>
+  티츄는 브리지·하트 계열 <b>트릭테이킹 카드게임</b>이다. 베팅·가상화폐·카지노 연출이 전혀 없다.
+  "카드게임이니까 도박성이 있지 않을까"라는 생각으로 '예'를 고르면 콘텐츠 등급이 불필요하게 올라가고, 그만큼 스토어 노출이 줄어든다.
+  정답은 <b>아니오</b>다.
+</div>
+
+<div class="note dan">
+  <b>⚠️ 나중에 광고를 넣으면 Data safety를 반드시 다시 신고할 것.</b>
+  광고 SDK는 예외 없이 광고 ID를 수집한다. 그 순간 지금 신고하는 "수집 없음"이 거짓이 된다.
+  사용자가 향후 광고 도입 가능성을 이미 밝혔으므로, 이는 가정이 아니라 실제로 챙겨야 할 후속 작업이다.
+  광고를 넣는 업데이트에서는 <b>Data safety 재신고</b>와 개인정보처리방침 갱신을 함께 진행한다.
+</div>
+
+<h2>한눈에 보기</h2>
+<p class="muted">스펙 §6~§8(그 외 항목은 §2)을 그대로 옮긴 표. 아래 섹션별 체크리스트가 이 표를 문항 단위로 풀어놓은 버전이다.</p>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th style="width:14%">섹션</th><th style="width:24%">항목</th><th style="width:20%">답변</th><th>근거</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>앱 액세스</td><td>로그인/제한 콘텐츠</td><td>모든 기능 제한 없이 이용 가능</td><td>인증·계정 시스템 없음</td></tr>
+      <tr><td>광고</td><td>광고 포함 여부</td><td>아니오</td><td>광고 SDK 0건, <code>AD_ID</code> 권한 없음</td></tr>
+      <tr><td>콘텐츠 등급</td><td>폭력·성적·욕설·약물·공포</td><td>전부 아니오</td><td>해당 콘텐츠 없음</td></tr>
+      <tr class="rowkey"><td>콘텐츠 등급</td><td><b>모의 도박</b></td><td><b>아니오</b></td><td>트릭테이킹 카드게임. 베팅·가상화폐·카지노 연출 없음. 브리지·하트 계열</td></tr>
+      <tr><td>콘텐츠 등급</td><td>사용자 간 상호작용</td><td>아니오</td><td>채팅·멀티플레이·UGC 없음, 상대는 전부 AI</td></tr>
+      <tr><td>콘텐츠 등급</td><td>위치 공유 / 개인정보 공유 / 디지털 구매</td><td>전부 아니오</td><td>위치 권한 없음 · 수집 없음 · 인앱 결제 없음</td></tr>
+      <tr><td>타겟 연령</td><td>대상 연령대</td><td><b>13세 이상</b></td><td>가족 정책 미적용. 콘텐츠 등급(전체이용가)과 다른 것은 정상</td></tr>
+      <tr><td>그 외 필수 항목</td><td>뉴스 앱</td><td>아니오</td><td>뉴스 콘텐츠 없음</td></tr>
+      <tr><td>그 외 필수 항목</td><td>정부 앱</td><td>아니오</td><td>정부 기관과 무관한 카드게임</td></tr>
+      <tr class="rowkey"><td>그 외 필수 항목</td><td><b>금융 기능</b></td><td><b>아니오</b></td><td>대출·투자·암호화폐·실제 도박·송금 기능 없음, 인앱 결제도 없음. 콘텐츠 등급의 모의 도박(IARC) 항목과 별개로 물어보는 문항</td></tr>
+      <tr><td>그 외 필수 항목</td><td>건강 앱</td><td>아니오</td><td>건강·의료 관련 기능 없음</td></tr>
+      <tr><td>그 외 필수 항목</td><td>의도치 않게 아동에게 어필</td><td>아니오</td><td>타겟 연령 설문 후속 질문. 아동향 연출·캐릭터 없음</td></tr>
+      <tr><td>Data safety</td><td>수집·공유</td><td>아니오</td><td>권한 실측 <code>INTERNET</code> 뿐 · 네트워크 코드 0건 · Unity 서비스 6종 비활성</td></tr>
+      <tr class="rowkey"><td>Data safety</td><td>광고 ID 사용</td><td>아니오</td><td><code>AD_ID</code> 권한 없음</td></tr>
+      <tr><td>Data safety</td><td>전송 암호화 / 삭제 요청</td><td>해당 없음</td><td>전송·보관하는 데이터가 없음</td></tr>
+      <tr><td>개인정보처리방침</td><td>URL</td><td><code>https://kas328.github.io/Tichu/privacy/</code></td><td>Task 2에서 생성, Task 3에서 활성화</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2>앱 액세스</h2>
+<label class="chk"><input type="checkbox" data-k="access1"><span class="t">로그인 / 제한 콘텐츠 — 모든 기능 제한 없이 이용 가능
+  <span class="w">인증·계정 시스템 없음. 심사용 테스트 계정이 필요 없다</span></span></label>
+
+<h2>광고</h2>
+<label class="chk key"><input type="checkbox" data-k="ads1"><span class="t">광고 포함 여부 — 아니오
+  <span class="w">광고 SDK 0건, <code>AD_ID</code> 권한 없음. 위 경고대로 향후 광고를 넣으면 이 답변부터 다시 신고해야 한다</span></span></label>
+
+<h2>콘텐츠 등급</h2>
+<label class="chk"><input type="checkbox" data-k="rate1"><span class="t">폭력 — 아니오
+  <span class="w">해당 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate2"><span class="t">성적 콘텐츠 · 노출 — 아니오
+  <span class="w">해당 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate3"><span class="t">욕설 · 저속한 언어 — 아니오
+  <span class="w">해당 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate4"><span class="t">약물 · 알코올 · 담배 — 아니오
+  <span class="w">해당 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate5"><span class="t">공포 · 불쾌감 유발 — 아니오
+  <span class="w">해당 콘텐츠 없음</span></span></label>
+<label class="chk key"><input type="checkbox" data-k="rate6"><span class="t">모의 도박 — 아니오
+  <span class="w">트릭테이킹 카드게임(브리지·하트 계열). 베팅·가상화폐·카지노 연출 없음. 카드게임이라는 이유만으로 '예'를 고르지 않는다</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate7"><span class="t">사용자 간 상호작용 — 아니오
+  <span class="w">채팅·멀티플레이·사용자 생성 콘텐츠 없음. 상대는 전부 AI</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate8"><span class="t">위치 공유 — 아니오
+  <span class="w">위치 권한 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate9"><span class="t">개인정보 공유 — 아니오
+  <span class="w">수집 자체가 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="rate10"><span class="t">디지털 구매 — 아니오
+  <span class="w">인앱 결제 없음</span></span></label>
+
+<h2>타겟 연령</h2>
+<label class="chk"><input type="checkbox" data-k="age1"><span class="t">대상 연령대 — 13세 이상
+  <span class="w">가족 정책 미적용. 콘텐츠 등급(전체이용가)과 타겟 연령(13세 이상)이 다른 것은 정상이다 — 전자는 콘텐츠 수위, 후자는 대상 의도</span></span></label>
+
+<h2>그 외 필수 항목</h2>
+<p class="muted">Play의 App content는 위 표보다 항목이 더 많다. 아래는 지금까지 이 페이지가 빠뜨렸던 항목들이며,
+Google이 이 설문 화면의 문항 구성과 이름을 수시로 바꾸므로 <b>"적어도 이만큼"</b>이지 "정확히 이것뿐"이 아니다.
+Play Console에서 여기 없는 문항을 만나면 스펙 §2의 사실 검증에 대입해 판단한다.</p>
+<label class="chk"><input type="checkbox" data-k="news1"><span class="t">뉴스 앱 — 아니오
+  <span class="w">뉴스 콘텐츠 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="gov1"><span class="t">정부 앱 — 아니오
+  <span class="w">정부 기관과 무관한 카드게임</span></span></label>
+<label class="chk key"><input type="checkbox" data-k="fin1"><span class="t">금융 기능 — 아니오
+  <span class="w">대출·투자·암호화폐·실제 도박·송금 기능 없음. 인앱 결제도 없음. ⚠️ 이 문항은 위 콘텐츠 등급의 <b>모의 도박</b>(IARC 설문) 항목과는 <b>별개</b>다 — 거기서 '아니오'를 답했다고 이 문항이 자동으로 처리되지 않는다. 여기서도 반드시 <b>아니오</b>를 고른다</span></span></label>
+<label class="chk"><input type="checkbox" data-k="health1"><span class="t">건강 앱 — 아니오
+  <span class="w">건강·의료 관련 기능 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="kids1"><span class="t">의도치 않게 아동에게 어필할 수 있는가 — 아니오
+  <span class="w">타겟 연령(13세 이상) 설문의 후속 질문. 규칙이 복잡한 전략 카드게임이며 아동향 연출·캐릭터가 없음</span></span></label>
+
+<h2>Data safety</h2>
+<label class="chk"><input type="checkbox" data-k="ds1"><span class="t">데이터 수집 · 공유 — 아니오
+  <span class="w">권한 실측 <code>INTERNET</code> 하나뿐 · 네트워크 코드(<code>UnityWebRequest</code>·<code>HttpClient</code>·<code>WebClient</code>·<code>Socket</code> 등) 0건 · Unity 클라우드 서비스 6종(Analytics/Ads/Purchasing/Insights/PerformanceReporting/CloudDiagnostics) 전부 비활성</span></span></label>
+<label class="chk key"><input type="checkbox" data-k="ds2"><span class="t">광고 ID 사용 — 아니오
+  <span class="w">매니페스트에 <code>AD_ID</code> 권한 없음. 향후 광고 SDK를 넣으면 광고 ID를 수집하게 되어 이 답변이 거짓이 되므로, 그 시점에 반드시 다시 신고한다</span></span></label>
+<label class="chk"><input type="checkbox" data-k="ds3"><span class="t">데이터 전송 시 암호화 — 해당 없음
+  <span class="w">전송하는 데이터가 없음</span></span></label>
+<label class="chk"><input type="checkbox" data-k="ds4"><span class="t">사용자 데이터 삭제 요청 — 해당 없음
+  <span class="w">보관하는 데이터가 없음</span></span></label>
+
+<h2>개인정보처리방침</h2>
+<p class="muted">Play Console의 "개인정보처리방침" 입력란에 아래 URL을 그대로 붙여넣는다. 입력 전에 URL이 실제로 <b>200</b>을 반환하는지 먼저 확인한다
+(<code>curl -s -o /dev/null -w "%{http_code}\n" https://kas328.github.io/Tichu/privacy/</code>) — Task 3에서 GitHub Pages를 켜야 열리므로,
+아직 Task 3을 마치지 않았다면 그것부터 끝낸 뒤 이 값을 입력한다.</p>
+<div class="cmd"><button>복사</button><pre>https://kas328.github.io/Tichu/privacy/</pre></div>
+<label class="chk"><input type="checkbox" data-k="pp1"><span class="t">개인정보처리방침 URL 등록 — <code>https://kas328.github.io/Tichu/privacy/</code>
+  <span class="w">Task 2에서 생성, Task 3에서 활성화</span></span></label>
+
+<p class="muted">스토어 등록정보의 공개 연락처 이메일도 함께 등록한다.</p>
+<div class="cmd"><button>복사</button><pre>kas328@naver.com</pre></div>
+<label class="chk"><input type="checkbox" data-k="pp2"><span class="t">공개 연락처 이메일 등록 — <code>kas328@naver.com</code>
+  <span class="w">Play가 스토어 등록정보에 공개 연락처 이메일을 요구한다</span></span></label>
+
+<h2>통과하면</h2>
+<div class="card">
+  <table>
+    <tr><th style="width:26%">병행</th><td>R3(스토어 자산 — 아이콘·스크린샷·문구)이 끝나야 비공개 테스트 트랙을 공개할 수 있다</td></tr>
+    <tr><th>공개 시점</th><td>R3·R4가 모두 끝나야 비공개 테스트를 공개할 수 있고, 그때 14일 시계가 시작된다</td></tr>
+  </table>
+</div>
+
+<p class="muted" style="margin-top:30px;border-top:1px solid var(--line);padding-top:12px">
+  근거 문서: 설계 <code>docs/superpowers/specs/2026-08-20-r4-policy-design.md</code> §6~§8 · 사실 검증 §2(권한 실측 · 네트워크 코드 검색 · Unity 클라우드 서비스 설정 · <code>PlayerPrefs</code> 사용처)
+</p>
+
+<script>
+(function(){
+  var KEY = 'tichu_r4_playconsole_task1';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('.chk input'));
+
+  function load(){
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){}
+    boxes.forEach(function(b){
+      b.checked = !!saved[b.dataset.k];
+      b.closest('.chk').classList.toggle('checked', b.checked);
+    });
+    paint();
+  }
+  function save(){
+    var o = {};
+    boxes.forEach(function(b){ o[b.dataset.k] = b.checked; });
+    try { localStorage.setItem(KEY, JSON.stringify(o)); } catch(e){}
+  }
+  function paint(){
+    var n = boxes.filter(function(b){ return b.checked; }).length;
+    document.getElementById('count').textContent = n + ' / ' + boxes.length;
+    document.getElementById('fill').style.width = (n / boxes.length * 100) + '%';
+  }
+  boxes.forEach(function(b){
+    b.addEventListener('change', function(){
+      b.closest('.chk').classList.toggle('checked', b.checked);
+      save(); paint();
+    });
+  });
+  document.getElementById('reset').addEventListener('click', function(){
+    boxes.forEach(function(b){ b.checked = false; b.closest('.chk').classList.remove('checked'); });
+    save(); paint();
+  });
+
+  document.querySelectorAll('.cmd button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.parentNode.querySelector('pre').innerText;
+      function ok(){
+        btn.textContent = '복사됨'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent = '복사'; btn.classList.remove('done'); }, 1400);
+      }
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(ok, fallback);
+      } else { fallback(); }
+      function fallback(){
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); ok(); } catch(e){ btn.textContent = '복사 실패'; }
+        document.body.removeChild(ta);
+      }
+    });
+  });
+
+  load();
+})();
+</script>
+</div></body></html>

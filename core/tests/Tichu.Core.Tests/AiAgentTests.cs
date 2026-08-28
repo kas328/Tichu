@@ -383,6 +383,33 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False, "콜한 파트너가 반복 패스(막힘)면 나가서 살린다");
         }
 
+        // ── #2 봉황 보존 필터 (라이브 후보 필터) ──────────────────────────────────────
+
+        private static Combination PhoenixSingle() =>
+            CombinationRecognizer.Recognize(new[] { Card.Phoenix }, TrickContext.Lead);
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_drops_phoenix_when_natural_single_exists()
+        {
+            // 낮은 싱글(3) 팔로우, 후보 = 자연 싱글(9) + 봉황 단독 → 봉황 제거(자연 우선). myHand>1.
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { Single(9), PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황 단독 제거(자연 우선)");
+            Assert.That(candidates[0].Cards[0].Special, Is.EqualTo(SpecialKind.None), "자연 승수 유지");
+        }
+
+        [Test]
+        public void FilterWastefulPhoenixSingle_keeps_phoenix_when_only_winner()
+        {
+            var trick = new Trick { Top = Single(3), TopOwnerSeat = 1, LeadType = CombinationType.Single,
+                                    LeadLength = 1, AccumulatedPoints = 0 };
+            var candidates = new List<Combination> { PhoenixSingle() };
+            AiAgent.FilterWastefulPhoenixSingle(candidates, trick, myHandCount: 5);
+            Assert.That(candidates.Count, Is.EqualTo(1), "봉황이 유일 승수면 유지");
+        }
+
         [Test]
         public void DecideTurn_plays_cheapest_winning_when_opponent_owns_points_rich_top()
         {
@@ -746,7 +773,7 @@ namespace Tichu.Core.Tests
 
         // ── DecideTurn: 봉황 단독 보존(플레이테스트 버그) ─────────────────────────────
         // 봉황 단독은 팔로우 시 스케일 랭크가 반칸 위(예: 5→11)라 MoveOrder.Lowest 가 자연 6/7(12/14)
-        // 보다 값싸게 오인 → 귀한 봉황을 싼 트릭에 낭비. 자연 승수 우선 + 봉황뿐인 가치없는 트릭은 아낀다.
+        // 보다 값싸게 오인 → 귀한 봉황을 싼 트릭에 낭비. 자연 승수 우선(단 봉황뿐이면 헌납 않고 이긴다).
 
         [Test]
         public void DecideTurn_prefers_natural_single_over_phoenix()
@@ -1039,6 +1066,53 @@ namespace Tichu.Core.Tests
             Assert.That(block, Is.Null, "위협 없으면 가드 미개입");
         }
 
+        // ── Issue A: 고콤보 낭비 밟기 가드 ─────────────────────────────────────────────
+
+        // 상대(seat1) 3 풀하우스 Top, 손패 큼(7장), near-out 없음, 콜러여도 A풀하우스로만 이길 수 있음.
+        private static GameState HighComboWasteState()
+        {
+            var s = FollowState(0, FullHouse(3, 4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(14, Suit.Sword), N(14, Suit.Pagoda),
+                     N(2, Suit.Jade), N(2, Suit.Sword), N(13, Suit.Star), N(12, Suit.Star)),
+                Hand(N(6, Suit.Jade), N(7, Suit.Jade), N(8, Suit.Jade)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(6, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));
+            return s;
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_fires_even_for_caller()
+        {
+            var s = HighComboWasteState();
+            s.Seats[0].Call = TichuCall.GrandTichu;   // 콜러여도 9장 남았으면 A풀하우스 낭비 금지
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.True,
+                "콜러라도 손패 크고 near-out 아니면 A풀하우스로 낮은 콤보 밟기는 낭비");
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_does_not_fire_in_endgame()
+        {
+            var s = FollowState(0, FullHouse(3, 4), topOwner: 1, accumulatedPoints: 0,
+                Hand(N(14, Suit.Jade), N(14, Suit.Sword), N(14, Suit.Pagoda), N(2, Suit.Jade), N(2, Suit.Sword)),
+                Hand(N(6, Suit.Jade), N(7, Suit.Jade), N(8, Suit.Jade)),
+                Hand(N(2, Suit.Pagoda)),
+                Hand(N(6, Suit.Star), N(7, Suit.Star), N(9, Suit.Star)));   // 손패 5장 = 끝내기
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False,
+                "끝내기(≤5장)면 밟아 아웃 추진 → 가드 미발화");
+        }
+
+        [Test]
+        public void WastefulHighComboOvertake_does_not_fire_when_opponent_near_out()
+        {
+            var s = HighComboWasteState();
+            s.Seats[1].Hand = new List<Card> { N(2, Suit.Pagoda) };   // seat1(상대) 1장 = near-out 위협
+            var ctx = GameFlowHelpers.Context(s, 0);
+            Assert.That(AiAgent.WastefulHighComboOvertake(ctx, 0, s.CurrentTrick, NonBombWins(ctx)), Is.False,
+                "상대 near-out 위협이면 저지 우선 → 가드 미발화");
+        }
+
         // ── CallTichu ─────────────────────────────────────────────────────────────────
 
         [Test]
@@ -1109,6 +1183,7 @@ namespace Tichu.Core.Tests
         public void CallTichu_false_for_handpower_six_marginal_hand()
         {
             // #4 조임: 용+A 단둘(HandPower 6)은 막히기 쉬운 한계 선언 → 임계 7로 배제.
+            // (강패 HandPower 7+ 는 CallTichu_true_for_strong_hand 가 계속 통과함으로 보장.)
             var hand = Hand(
                 Card.Dragon, N(14, Suit.Jade),
                 N(2, Suit.Jade), N(3, Suit.Sword), N(4, Suit.Pagoda), N(5, Suit.Star),

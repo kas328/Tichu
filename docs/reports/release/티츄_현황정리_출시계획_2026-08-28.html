@@ -1,0 +1,436 @@
+<title>티츄 마스터 출시 관문</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+  :root{
+    --bg:#EFF2EE;
+    --surface:#FBFCFA;
+    --surface-2:#E7ECE6;
+    --line:#CBD5CA;
+    --line-soft:#DCE3DA;
+    --ink:#15211B;
+    --ink-2:#3A4B42;
+    --muted:#66786C;
+    --jade:#1C7A57;
+    --jade-soft:#DCEDE4;
+    --pagoda:#2B5C87;
+    --pagoda-soft:#DDE8F2;
+    --star:#AE3A31;
+    --star-soft:#F5E0DD;
+    --gold:#8A6A18;
+    --gold-soft:#F2E9CF;
+    --shadow:0 1px 2px rgba(21,33,27,.06), 0 8px 24px -18px rgba(21,33,27,.5);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0D1411;
+      --surface:#141E19;
+      --surface-2:#1B2822;
+      --line:#2C3A33;
+      --line-soft:#233029;
+      --ink:#E7EEE9;
+      --ink-2:#BCCBC2;
+      --muted:#8CA093;
+      --jade:#57C296;
+      --jade-soft:#163025;
+      --pagoda:#77AEDD;
+      --pagoda-soft:#152634;
+      --star:#E58880;
+      --star-soft:#331B18;
+      --gold:#D9B45E;
+      --gold-soft:#2E2712;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1411;
+    --surface:#141E19;
+    --surface-2:#1B2822;
+    --line:#2C3A33;
+    --line-soft:#233029;
+    --ink:#E7EEE9;
+    --ink-2:#BCCBC2;
+    --muted:#8CA093;
+    --jade:#57C296;
+    --jade-soft:#163025;
+    --pagoda:#77AEDD;
+    --pagoda-soft:#152634;
+    --star:#E58880;
+    --star-soft:#331B18;
+    --gold:#D9B45E;
+    --gold-soft:#2E2712;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -20px rgba(0,0,0,.9);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans KR","Malgun Gothic",system-ui,sans-serif;
+    font-weight:400;
+    line-height:1.72;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto;padding:56px 24px 96px;display:flex;flex-direction:column;gap:56px}
+
+  h1,h2,h3{font-family:"Gowun Batang","Batang",Georgia,serif;text-wrap:balance;margin:0;line-height:1.3}
+  h1{font-size:clamp(2.1rem,5vw,3rem);font-weight:700;letter-spacing:-.01em}
+  h2{font-size:1.6rem;font-weight:700}
+  h3{font-size:1.08rem;font-weight:700}
+  p{margin:0}
+  a{color:var(--jade)}
+  a:focus-visible,li:focus-visible{outline:2px solid var(--jade);outline-offset:3px}
+
+  .eyebrow{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:.75rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  }
+  .lede{color:var(--ink-2);font-size:1.05rem;max-width:62ch}
+  .note{color:var(--muted);font-size:.9rem;max-width:74ch}
+
+  header.hero{display:flex;flex-direction:column;gap:14px;border-bottom:1px solid var(--line);padding-bottom:36px}
+
+  section{display:flex;flex-direction:column;gap:20px}
+  .sec-head{display:flex;flex-direction:column;gap:6px}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+  .stat{background:var(--surface);border:1px solid var(--line-soft);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:4px}
+  .stat .k{font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;color:var(--muted)}
+  .stat .v{font-family:"Gowun Batang",serif;font-size:1.45rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.25}
+  .stat .s{font-size:.85rem;color:var(--muted)}
+
+  .chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;
+    padding:3px 9px;border-radius:999px;border:1px solid transparent;white-space:nowrap;
+  }
+  .chip.done{background:var(--jade-soft);color:var(--jade);border-color:var(--jade)}
+  .chip.now{background:var(--pagoda-soft);color:var(--pagoda);border-color:var(--pagoda)}
+  .chip.wait{background:var(--gold-soft);color:var(--gold);border-color:var(--gold)}
+  .chip.stop{background:var(--star-soft);color:var(--star);border-color:var(--star)}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:20px 22px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:12px}
+  .card .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .card ul{margin:0;padding-left:1.05em;display:flex;flex-direction:column;gap:6px;font-size:.94rem;color:var(--ink-2)}
+  .card li::marker{color:var(--muted)}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%;min-width:640px;font-size:.94rem}
+  th,td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  thead th{
+    font-family:"IBM Plex Mono",monospace;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase;
+    color:var(--muted);font-weight:400;background:var(--surface-2);border-bottom:1px solid var(--line)
+  }
+  tbody tr:last-child td{border-bottom:none}
+  td.id{font-family:"IBM Plex Mono",monospace;font-weight:500;color:var(--ink);white-space:nowrap}
+  code{font-family:"IBM Plex Mono",monospace;font-size:.86em;background:var(--surface-2);padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+  figure{margin:0;display:flex;flex-direction:column;gap:10px}
+  .diagram{overflow-x:auto;background:var(--surface);border:1px solid var(--line-soft);border-radius:12px;padding:22px 18px;box-shadow:var(--shadow)}
+  .diagram svg{display:block;min-width:660px;width:100%;height:auto}
+  figcaption{font-size:.86rem;color:var(--muted);max-width:74ch}
+
+  ol.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px;counter-reset:step}
+  ol.todo > li{
+    counter-increment:step;
+    background:var(--surface);border:1px solid var(--line-soft);border-left:3px solid var(--jade);
+    border-radius:10px;padding:18px 22px 18px 20px;box-shadow:var(--shadow);
+    display:grid;grid-template-columns:auto 1fr;gap:5px 16px;align-items:start;
+  }
+  ol.todo > li.blocked{border-left-color:var(--star)}
+  ol.todo > li.soon{border-left-color:var(--pagoda)}
+  ol.todo > li::before{
+    content:counter(step,decimal-leading-zero);
+    grid-row:1 / span 3;
+    font-family:"IBM Plex Mono",monospace;font-size:.82rem;color:var(--muted);
+    padding-top:.35em;font-variant-numeric:tabular-nums;
+  }
+  ol.todo .t{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-weight:600;font-size:1.02rem}
+  ol.todo .d{color:var(--ink-2);font-size:.94rem}
+  ol.todo .w{color:var(--muted);font-size:.86rem}
+
+  .split{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+
+  .callout{
+    background:var(--star-soft);border:1px solid var(--star);border-radius:12px;padding:20px 22px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .callout h3{color:var(--star)}
+  .callout ul{margin:0;padding-left:1.05em;display:flex;flex-direction:column;gap:7px;font-size:.94rem;color:var(--ink-2)}
+
+  footer{border-top:1px solid var(--line);padding-top:24px;color:var(--muted);font-size:.86rem;display:flex;flex-direction:column;gap:6px}
+
+  @media (max-width:560px){
+    .wrap{padding:40px 18px 72px;gap:44px}
+    ol.todo > li{grid-template-columns:1fr}
+    ol.todo > li::before{grid-row:auto}
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="hero">
+    <p class="eyebrow">2026-08-28 · 현황 정리</p>
+    <h1>티츄 마스터, 출시까지 남은 관문</h1>
+    <p class="lede">게임은 끝났다. Phase 0(룰 엔진) · Phase 1(MVP 앱) · Phase 2(PIMC AI)가 모두 닫혔고, 서명된 릴리스 AAB가 실기에서 통과했다. 남은 건 전부 <strong>구글 플레이 절차</strong>이고, 그중 리드타임이 긴 항목은 코드가 아니라 사람이 움직여야 한다.</p>
+  </header>
+
+  <section>
+    <div class="stats">
+      <div class="stat">
+        <span class="k">저장소</span>
+        <span class="v">동기</span>
+        <span class="s">main = origin/main · <code>831e788</code></span>
+      </div>
+      <div class="stat">
+        <span class="k">테스트</span>
+        <span class="v">465 그린</span>
+        <span class="s">core 320 · Unity EditMode 145</span>
+      </div>
+      <div class="stat">
+        <span class="k">릴리스 빌드</span>
+        <span class="v">1.0.0 (2)</span>
+        <span class="s">서명 AAB 40.5MB · S23 스모크 통과</span>
+      </div>
+      <div class="stat">
+        <span class="k">출시 트랙</span>
+        <span class="v">3 / 5</span>
+        <span class="s">R1·R2·R4 완료 · R3·R5 남음</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">지금까지 만든 것</p>
+      <h2>세 개의 페이즈, 전부 닫힘</h2>
+    </div>
+
+    <div class="cards">
+      <article class="card">
+        <div class="top"><h3>Phase 0 — 룰 엔진</h3><span class="chip done">닫힘</span></div>
+        <ul>
+          <li>순수 C# <code>Tichu.Core</code> — 유니티 의존 0</li>
+          <li>콤보 인식 · 상태기계 · 정산(티츄 콜 · 1·2등 보너스)</li>
+          <li>시뮬레이터 10만 판 무결성 검증</li>
+          <li>이때 만든 테스트 오라클을 이후 전 페이즈에서 보존</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="top"><h3>Phase 1 — MVP 앱</h3><span class="chip done">닫힘</span></div>
+        <ul>
+          <li>앱 셸: VContainer DI + R3 <code>AppFlowMachine</code> — 메뉴 → 난이도 선택 → 매치 → 결과</li>
+          <li>비주얼: 카드 뷰 · 렌더 풀링 · DoTween 연출 · 폭탄/티츄 신호 · 세이프에어리어 + 자동회전 대응</li>
+          <li>사운드: SFX 매핑 + 메뉴 BGM</li>
+          <li>R1 DoD 4게이트 Pass — 완주 · 성능(S23 60fps) · 부채 검증 · "한 판 더" 손맛</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <div class="top"><h3>Phase 2 — AI (PIMC)</h3><span class="chip done">닫힘</span></div>
+        <ul>
+          <li>다세계 결정화 + anytime 탐색, 난이도 사다리(쉬움 휴리스틱 / 보통 16 · 어려움 20 · 전문가 24세계, 예산 900ms 통일)</li>
+          <li>채택 레버: 위협 블록 · 교환 핀 · ε 정상화(5.8× 가속) · 구조보존 리드 · 엔드게임 셰딩(+34.3/R)</li>
+          <li>학습 콜 헤드: 그랜드 +4.97/R, 스몰 +2.91/R (홀드아웃 유의)</li>
+          <li>파킹: reach-prob · α-μ 백업 · 학습 가치망(−31.67/R 불통과) — 음성 결과도 그대로 기록</li>
+        </ul>
+      </article>
+    </div>
+
+    <p class="note">이 과정에서 굳어진 규칙 셋: ① 강도 주장은 <strong>격리 벤치</strong> 없이 하지 않는다. ② 사람 눈에 "낭비"로 보이던 AI 수의 상당수는 실제로 최선이었다(리드 오버라이드는 4~5회 회귀). ③ 남은 약점(인간의 라지 티츄를 응징하지 못함 등)은 롤아웃 천장이라 연구 티어로 수용했다.</p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">출시 트랙</p>
+      <h2>R1 – R5 상태</h2>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>트랙</th><th>내용</th><th>상태</th><th>결과물</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="id">R1</td>
+            <td>출시 검증 · 실기 게이트</td>
+            <td><span class="chip done">완료</span></td>
+            <td>DoD 4/4 Pass, Phase 1 공식 종료 · <code>9d6b5f4</code></td>
+          </tr>
+          <tr>
+            <td class="id">R2</td>
+            <td>빌드 / 서명</td>
+            <td><span class="chip done">완료</span></td>
+            <td>업로드 키 + 서명 AAB, targetSdk 36 · <code>b75d09c</code></td>
+          </tr>
+          <tr>
+            <td class="id">R4</td>
+            <td>정책 선언</td>
+            <td><span class="chip done">완료</span></td>
+            <td>개인정보처리방침 라이브 + App content 24항목 확정 · <code>831e788</code></td>
+          </tr>
+          <tr>
+            <td class="id">R3</td>
+            <td>스토어 자산 — 아이콘 · 피처 그래픽 · 스크린샷 · 설명</td>
+            <td><span class="chip now">미착수</span></td>
+            <td>시계를 켜기 위한 마지막 코드측 관문</td>
+          </tr>
+          <tr>
+            <td class="id">R5</td>
+            <td>배포 — 계정 · 업로드 · 비공개 테스트 · 프로덕션</td>
+            <td><span class="chip wait">대기</span></td>
+            <td>사람 리드타임이 지배하는 구간</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">R2 실행 중 드러난 정정: "R2 → R3 → R4 순차"라는 처음 가정은 틀렸다. 플레이는 <strong>비공개 트랙 게시</strong> 시점에 스토어 등록정보(R3)와 App content(R4)를 <strong>둘 다</strong> 요구한다. 셋은 14일 시계를 켜기 위한 병렬 선행조건이다.</p>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">임계 경로</p>
+      <h2>14일 시계가 전부를 결정한다</h2>
+    </div>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 900 300" role="img" aria-label="세 가지 선행조건이 모두 끝나야 14일 비공개 테스트 시계가 시작되고, 그 뒤 프로덕션 신청과 심사로 이어지는 임계 경로 다이어그램">
+          <defs>
+            <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"></path>
+            </marker>
+          </defs>
+
+          <text x="0" y="16" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="1.6" fill="var(--muted)">선행조건 · 병렬</text>
+
+          <g font-family="IBM Plex Sans KR, sans-serif">
+            <rect x="0" y="34" width="250" height="52" rx="8" fill="var(--star-soft)" stroke="var(--star)"></rect>
+            <text x="18" y="58" font-size="14" font-weight="600" fill="var(--ink)">테스터 15~18명 모집</text>
+            <text x="18" y="76" font-size="11.5" fill="var(--muted)">리드타임 최장 · 지금 시작</text>
+
+            <rect x="0" y="98" width="250" height="52" rx="8" fill="var(--pagoda-soft)" stroke="var(--pagoda)"></rect>
+            <text x="18" y="122" font-size="14" font-weight="600" fill="var(--ink)">계정 · 앱 등록 · AAB 업로드</text>
+            <text x="18" y="140" font-size="11.5" fill="var(--muted)">$25 + 신원 확인 며칠</text>
+
+            <rect x="0" y="162" width="250" height="52" rx="8" fill="var(--jade-soft)" stroke="var(--jade)"></rect>
+            <text x="18" y="186" font-size="14" font-weight="600" fill="var(--ink)">R3 스토어 자산</text>
+            <text x="18" y="204" font-size="11.5" fill="var(--muted)">아이콘 · 그래픽 · 스크린샷 · 설명</text>
+
+            <path d="M250,60 C300,60 300,124 336,124" fill="none" stroke="var(--muted)" stroke-width="1.4"></path>
+            <path d="M250,124 L336,124" fill="none" stroke="var(--muted)" stroke-width="1.4"></path>
+            <path d="M250,188 C300,188 300,124 336,124" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#arw)"></path>
+
+            <rect x="352" y="88" width="212" height="72" rx="8" fill="var(--surface-2)" stroke="var(--line)"></rect>
+            <text x="370" y="118" font-size="14" font-weight="600" fill="var(--ink)">비공개 트랙 게시</text>
+            <text x="370" y="138" font-size="11.5" fill="var(--muted)">= 시계 시작</text>
+
+            <path d="M564,124 L616,124" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#arw)"></path>
+
+            <rect x="632" y="76" width="250" height="96" rx="8" fill="var(--gold-soft)" stroke="var(--gold)"></rect>
+            <text x="650" y="104" font-size="14" font-weight="600" fill="var(--ink)">14일 연속 비공개 테스트</text>
+            <text x="650" y="124" font-size="11.5" fill="var(--muted)">테스터 12명 이상 유지</text>
+            <text x="650" y="142" font-size="11.5" fill="var(--muted)">미달되면 카운터 리셋</text>
+            <text x="650" y="160" font-size="11.5" fill="var(--muted)">내부 테스트는 카운트 안 됨</text>
+
+            <path d="M757,172 L757,210" fill="none" stroke="var(--muted)" stroke-width="1.4" marker-end="url(#arw)"></path>
+            <rect x="632" y="226" width="250" height="52" rx="8" fill="var(--surface-2)" stroke="var(--line)"></rect>
+            <text x="650" y="250" font-size="14" font-weight="600" fill="var(--ink)">프로덕션 신청 → 심사</text>
+            <text x="650" y="268" font-size="11.5" fill="var(--muted)">구글은 설치가 아니라 실행을 본다</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>개인 계정은 프로덕션 승격 전 <strong>테스터 12명 × 연속 14일</strong>의 비공개 테스트가 필수다(조직 계정은 면제되지만 D-U-N-S 발급이 2~4주라 오히려 느려 기각했다). 세 선행조건 중 <em>가장 늦게 끝나는 하나</em>가 출시일을 정한다 — 지금은 그게 테스터 모집이다.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">사람이 해야 하는 일</p>
+      <h2>당신의 다음 여섯 걸음</h2>
+      <p class="lede">순서는 중요도가 아니라 <strong>리드타임</strong> 기준이다. 오래 걸리는 것부터 건드린다.</p>
+    </div>
+
+    <ol class="todo">
+      <li class="blocked">
+        <span class="t">테스터 모집 시작 <span class="chip stop">최우선 · 리드타임 최장</span></span>
+        <span class="d">구글 계정 이메일 15~18개를 모은다(요건은 12명, 이탈 대비 여유). 지인 · 커뮤니티 · 디스코드 어디든. 이들이 14일 동안 <strong>실제로 앱을 실행</strong>해 줘야 한다 — 설치만으로는 부족하다.</span>
+        <span class="w">다른 모든 작업과 100% 병렬이다. 이것만 늦으면 나머지가 다 끝나도 출시가 밀린다.</span>
+      </li>
+      <li class="soon">
+        <span class="t">플레이 콘솔 개인 계정 개설 <span class="chip now">$25 · 며칠</span></span>
+        <span class="d">등록비 결제 + 신원 확인(주소 · 신분증). 승인에 며칠 걸리니 테스터 모집과 같이 시작한다. 승인 뒤 앱 등록 → 플레이 앱 서명 기본값 수용 → 비공개 트랙에 <code>Build/TichuMaster-1.0.0-2.aab</code> 업로드.</span>
+        <span class="w">⚠️ 첫 업로드 순간 패키지명 <code>com.kas328.tichumaster</code>이 영구 고정된다. 이름을 바꿀 생각이면 업로드 전에.</span>
+      </li>
+      <li>
+        <span class="t">키스토어 백업 확인 <span class="chip stop">10분 · 되돌릴 수 없음</span></span>
+        <span class="d"><code>C:\Users\user\.keys\tichumaster-upload.jks</code>와 비밀번호를 이 PC 밖(암호 관리자 + 오프라인 사본)에 둔다. 잃어버리면 앱 업데이트가 <strong>영구 불가</strong>다.</span>
+        <span class="w">⚠️ 덧붙여 <code>Library/</code>에 빌드 시 비밀번호가 평문으로 남는다. 프로젝트 트리를 통째로 클라우드 동기화하거나 압축해 공유하지 말 것.</span>
+      </li>
+      <li>
+        <span class="t">앱 이름 최종 결정 <span class="chip wait">결정 필요</span></span>
+        <span class="d">"Tichu"는 Fata Morgana / Abacusspiele의 활성 상표다. R2에서 "발견성을 위해 유지"로 정했지만, 리뷰어 판단상 여섯 개의 정책 선언 어느 것보다 테이크다운 확률이 높은 벡터다. 트랙 공개 전에 의식적으로 확정해야 한다.</span>
+        <span class="w">선택지: ① Tichu Master 유지 — 검색 발견성 ↑, 리스크 수용 ② 중립 이름 + 설명문에 "티츄 룰" 언급 — 리스크 ↓, 유입 ↓.</span>
+      </li>
+      <li>
+        <span class="t">실기 스크린샷 촬영 <span class="chip now">R3 진행 중</span></span>
+        <span class="d">S23에서 폰 스크린샷 최소 2장(권장 4~8장). 어떤 장면을 어느 순간에 찍을지 목록과 프레이밍 가이드를 내가 먼저 만들어 준다.</span>
+        <span class="w">기존 결정: 지금은 텍스트 카드 상태로 찍어 시계를 먼저 켜고, 14일 대기 중에 카드 아트를 완성해 교체한다.</span>
+      </li>
+      <li>
+        <span class="t">카드 아트 소스 선택 <span class="chip wait">병행 가능</span></span>
+        <span class="d">Kenney CC0 팩(퍼블릭 도메인)을 받거나 에셋스토어 팩을 고른다. 임포트는 <code>CardSpriteAtlas</code> 이음새라 코드 0줄이고, 특수 4장(마작1 · 개 · 봉황 · 용)만 제작이 필요하다.</span>
+        <span class="w">⚠️ 공식 티츄 덱 아트는 금지(활성 IP). 지금 안드로이드에서 무늬 기호가 안 보이는 문제도 이 트랙에서 함께 해소된다.</span>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow">병렬로 준비할 수 있는 것</p>
+      <h2>내가 맡을 몫</h2>
+    </div>
+    <div class="split">
+      <article class="card">
+        <div class="top"><h3>R3 스토어 자산</h3><span class="chip now">바로 착수 가능</span></div>
+        <ul>
+          <li>R3 설계 스펙 + 태스크 계획(R1 · R2 · R4와 같은 형식)</li>
+          <li>앱 이름(30자) · 짧은 설명(80자) · 자세한 설명(4000자) 초안</li>
+          <li>아이콘 512×512 · 피처 그래픽 1024×500 코드 생성</li>
+          <li>스크린샷 촬영 목록 + 프레이밍 가이드</li>
+        </ul>
+      </article>
+      <article class="card">
+        <div class="top"><h3>테스트 운영 · 잔여 부채</h3><span class="chip wait">선택</span></div>
+        <ul>
+          <li>테스터 모집 안내문 · 참여 방법 온보딩 문서</li>
+          <li>카드 아트 임포트 에디터 스크립트 + 특수 4장 제작</li>
+          <li>D5.1 잔여: 버튼 SFX · 볼륨 패널 · 일시정지</li>
+          <li>AI 연구 티어(라지 티츄 응징 등) — 출시와 무관, 언제든</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="callout">
+      <h3>건드리면 안 되는 것</h3>
+      <ul>
+        <li><strong>gh-pages 브랜치</strong> — <a href="https://kas328.github.io/Tichu/privacy/">개인정보처리방침</a>이 여기서 서빙된다. 브랜치 삭제 · 저장소 이름 변경 · 비공개 전환 셋 다 URL을 죽이고, 방침 URL이 죽으면 앱이 내려갈 수 있다.</li>
+        <li><strong>업로드 키스토어</strong> — 분실 = 업데이트 영구 불가.</li>
+        <li><strong>패키지명</strong> — 첫 업로드 이후 변경 불가.</li>
+        <li><strong>"데이터 수집 없음" 선언</strong> — 나중에 광고를 넣으면 Data safety 재신고가 필수다. 광고 SDK가 광고 ID를 수집해 선언이 거짓이 된다.</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>기준 시점 2026-08-28 · main <code>831e788</code> · origin 동기</p>
+    <p>선행조건 셋이 9월 초에 정리되면 시계는 9월 중순에 끝나고, 심사를 더해 9월 말~10월 초 출시가 현실적인 그림이다. 밀린다면 거의 확실히 테스터 수급 때문이다.</p>
+  </footer>
+
+</div>

@@ -2,7 +2,7 @@
   "count": 72,
   "entries": [
     {
-      "file": "티츄_R1_판정결과.html",
+      "file": "docs/reports/release/티츄_R1_판정결과.html",
       "title": "R1 출시검증 판정 결과 — DoD 4게이트 Pass · Phase 1 공식 종료",
       "date": "2026-08-08",
       "type": "플레이테스트",
@@ -36,7 +36,7 @@
       "status": "완료"
     },
     {
-      "file": "티츄_프로토타입_기획서.html",
+      "file": "docs/reports/design/티츄_프로토타입_기획서.html",
       "title": "티츄 프로토타입 상세 기획서 (v0.1)",
       "date": "2026-06-08",
       "type": "기획",
@@ -53,7 +53,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_Phase1_잔여_아키텍처.html",
+      "file": "docs/reports/design/티츄_Phase1_잔여_아키텍처.html",
       "title": "Phase 1 잔여 아키텍처 — P1-C 앱셸·DI + P1-D 비주얼·손맛",
       "date": "2026-06-15",
       "type": "설계스펙",
@@ -70,7 +70,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_P1D_D3_카드풀링_설계.html",
+      "file": "docs/reports/design/티츄_P1D_D3_카드풀링_설계.html",
       "title": "P1-D / D3 — 카드 풀링 + Canvas 정적·동적 분리 설계",
       "date": "2026-06-18",
       "type": "설계스펙",
@@ -87,7 +87,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_P1D_D5_사운드_설계.html",
+      "file": "docs/reports/design/티츄_P1D_D5_사운드_설계.html",
       "title": "Phase1-D D5 사운드 설계·구현계획 (IAudioService + AudioBank + SFX 훅)",
       "date": null,
       "type": "설계스펙",
@@ -104,7 +104,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html",
+      "file": "docs/reports/release/티츄_P1D_D6_빌드_60fps_게이트_체크리스트.html",
       "title": "P1-D D6 — Android 빌드·60fps·가독성 게이트 체크리스트",
       "type": "체크리스트",
       "phase": "Phase1",
@@ -121,7 +121,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_Phase2_AI_PIMC_설계.html",
+      "file": "docs/reports/design/티츄_Phase2_AI_PIMC_설계.html",
       "title": "Phase 2 — PIMC 강 AI 설계 스펙",
       "date": null,
       "type": "설계스펙",
@@ -138,7 +138,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_P2C_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_P2C_벤치결과.html",
       "title": "P2-C 벤치 결과 — Normal PIMC vs 휴리스틱 (DoD 통과)",
       "date": "2026-06-25",
       "type": "벤치결과",
@@ -155,7 +155,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_P2D2_ReachProb결과.html",
+      "file": "docs/reports/ai-bench/티츄_P2D2_ReachProb결과.html",
       "title": "P2-D2 reach-probability 격리 벤치 결과",
       "date": "2026-06-25",
       "type": "벤치결과",
@@ -172,7 +172,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_P2D_속도개선_reach16검증.html",
+      "file": "docs/reports/ai-bench/티츄_P2D_속도개선_reach16검증.html",
       "title": "P2-D 엔진 속도개선 + reach-prob 16세계 검증",
       "date": "2026-06-25",
       "type": "벤치결과",
@@ -189,7 +189,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_AI강화_검증_로드맵.html",
+      "file": "docs/reports/design/티츄_AI강화_검증_로드맵.html",
       "title": "티츄 AI — 세계수 무차별 검증 & 강화 로드맵",
       "date": "2026-07-03",
       "type": "로드맵/계획",
@@ -206,7 +206,7 @@
       "status": "완료"
     },
     {
-      "file": "티츄_P2G_D1_구현보고.html",
+      "file": "docs/reports/ai-bench/티츄_P2G_D1_구현보고.html",
       "title": "P2-G D1 상대-위협 블록 가드 구현 보고",
       "date": "2026-07-03",
       "type": "벤치결과",
@@ -223,7 +223,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_P2G_B1_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_P2G_B1_벤치결과.html",
       "title": "P2-G B1 α-μ 강건 백업 벤치 결과 (보류)",
       "date": "2026-07-03",
       "type": "벤치결과",
@@ -240,7 +240,7 @@
       "status": "파킹"
     },
     {
-      "file": "티츄_P2G_B1_설계브리프.html",
+      "file": "docs/reports/design/티츄_P2G_B1_설계브리프.html",
       "title": "P2-G B1 α-μ 강건 백업 설계 브리프",
       "date": null,
       "type": "설계스펙",
@@ -257,7 +257,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_진행현황_2026-07-04.html",
+      "file": "docs/reports/status/티츄_진행현황_2026-07-04.html",
       "title": "티츄 진행 현황 & 다음 로드맵 (2026-07-04)",
       "date": "2026-07-04",
       "type": "브리핑/요약",
@@ -274,7 +274,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_티어정합성_설계.html",
+      "file": "docs/reports/design/티츄_티어정합성_설계.html",
       "title": "예산 역전 수정 & 티어 정합성 설계 제안",
       "date": "2026-07-04",
       "type": "설계스펙",
@@ -291,7 +291,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_난이도선택UI_설계.html",
+      "file": "docs/reports/design/티츄_난이도선택UI_설계.html",
       "title": "난이도 선택 UI 설계 제안 (배치 3안·A안 추천)",
       "date": "2026-07-04",
       "type": "설계스펙",
@@ -308,7 +308,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_Expert진단_2차.html",
+      "file": "docs/reports/playtest/티츄_Expert진단_2차.html",
       "title": "Expert 플레이 진단 2차 — 파트너 티츄 무시 버그 (코드 근거)",
       "date": "2026-07-04",
       "type": "진단",
@@ -325,7 +325,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_Expert플레이_진단.html",
+      "file": "docs/reports/playtest/티츄_Expert플레이_진단.html",
       "title": "Expert 플레이 진단 & 개선 방향 — 관측 3종 EV vs 버그 판별",
       "date": "2026-07-04",
       "type": "진단",
@@ -342,7 +342,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_자율작업_요약.html",
+      "file": "docs/reports/status/티츄_자율작업_요약.html",
       "title": "5시간 자율작업 요약 — Expert 관측 #4·#1·#2·#3 처리",
       "date": "2026-07-04",
       "type": "브리핑/요약",
@@ -359,7 +359,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_C1_교환핀_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_C1_교환핀_벤치결과.html",
       "title": "C1 교환 카드 핀 — 격리벤치 결과",
       "date": "2026-07-06",
       "type": "벤치결과",
@@ -376,7 +376,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_세션요약_C1_D2_레버소진.html",
+      "file": "docs/reports/status/티츄_세션요약_C1_D2_레버소진.html",
       "title": "C1 교환핀·D2 ε정상화 랜딩 + 잔여 레버 소진 세션 요약",
       "date": "2026-07-07",
       "type": "브리핑/요약",
@@ -393,7 +393,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_브리핑_C1D2_다음프론티어.html",
+      "file": "docs/reports/status/티츄_브리핑_C1D2_다음프론티어.html",
       "title": "티츄 AI 브리핑 — C1 교환핀·D2 ε정상화 랜딩 & 다음 프론티어",
       "date": "2026-07-07",
       "type": "브리핑/요약",
@@ -410,7 +410,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_플레이테스트_체크리스트.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트.html",
       "title": "티츄 플레이테스트 체크리스트 (C1·D2 채택분 + 누적 미확인 실기 확인)",
       "date": "2026-07-07",
       "type": "체크리스트",
@@ -427,7 +427,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_플레이테스트_픽스_배치결과.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_픽스_배치결과.html",
       "title": "플레이테스트 픽스 배치 결과 (Expert 8관측 처리)",
       "date": "2026-07-08",
       "type": "플레이테스트",
@@ -444,7 +444,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_플레이테스트_체크리스트_2차.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트_2차.html",
       "title": "플레이테스트 체크리스트 2차 — Expert AI 낭비 개선 실기 확인",
       "date": "2026-07-08",
       "type": "체크리스트",
@@ -461,7 +461,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_세션정리_2026-07-08.html",
+      "file": "docs/reports/status/티츄_세션정리_2026-07-08.html",
       "title": "티츄 세션 정리 (2026-07-06~08) — Phase2 AI 강화 + 플레이테스트 픽스",
       "date": "2026-07-08",
       "type": "브리핑/요약",
@@ -478,7 +478,7 @@
       "status": "완료"
     },
     {
-      "file": "티츄_플레이테스트_8관측_진단.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_8관측_진단.html",
       "title": "Expert 플레이테스트 8관측 코드 진단 + 적대적 검증",
       "date": "2026-07-15",
       "type": "진단",
@@ -495,7 +495,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_플레이테스트_가이드_4변경.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_가이드_4변경.html",
       "title": "플레이테스트 가이드 — 4개 AI 변경 실기 확인",
       "date": "2026-07-15",
       "type": "플레이테스트",
@@ -512,7 +512,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_플레이테스트_피드백2_보고.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_피드백2_보고.html",
       "title": "플레이테스트 피드백 2 처리 보고 — 용 양도 표시 + 파트너 밟기 낭비 수정",
       "date": "2026-07-15",
       "type": "플레이테스트",
@@ -529,7 +529,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_D3_구조보존리드_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_D3_구조보존리드_벤치결과.html",
       "title": "D3 구조 보존형 리드 벤치 결과 — 자기팀 콤보 깨는 싱글 리드 차단",
       "date": "2026-07-16",
       "type": "벤치결과",
@@ -546,7 +546,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_다음프론티어_지도.html",
+      "file": "docs/reports/design/티츄_다음프론티어_지도.html",
       "title": "티츄 AI 다음 프론티어 지도 — 5개 방향 로드맵",
       "date": "2026-07-16",
       "type": "로드맵/계획",
@@ -563,7 +563,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_B1_Grand콜헤드_설계.html",
+      "file": "docs/reports/design/티츄_B1_Grand콜헤드_설계.html",
       "title": "B1 Grand Tichu 콜 헤드 설계 보고",
       "date": "2026-07-23",
       "type": "설계스펙",
@@ -580,7 +580,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_B1_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_B1_벤치결과.html",
       "title": "B1 Grand 콜 헤드 격리 벤치 결과 — 채택(τ=0.55)",
       "date": "2026-07-23",
       "type": "벤치결과",
@@ -597,7 +597,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_Small_콜헤드_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_Small_콜헤드_벤치결과.html",
       "title": "Small Tichu 콜 헤드 — 벤치 결과 (채택 +2.91/R)",
       "date": "2026-07-23",
       "type": "벤치결과",
@@ -614,7 +614,7 @@
       "status": "채택"
     },
     {
-      "file": "티츄_D4_ForkA_벤치결과.html",
+      "file": "docs/reports/ai-bench/티츄_D4_ForkA_벤치결과.html",
       "title": "D4 Fork A 리프 가치망 벤치 결과 — 게이트 불통과·파킹",
       "date": "2026-07-23",
       "type": "벤치결과",
@@ -631,7 +631,7 @@
       "status": "파킹"
     },
     {
-      "file": "티츄_D4_학습가치망_스코핑.html",
+      "file": "docs/reports/design/티츄_D4_학습가치망_스코핑.html",
       "title": "D4 — 학습 가치망 스코핑 리포트 (PIMC 리프 평가기 교체)",
       "date": "2026-07-16",
       "type": "로드맵/계획",
@@ -648,7 +648,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_다음계획_로드맵.html",
+      "file": "docs/reports/design/티츄_다음계획_로드맵.html",
       "title": "티츄 Phase 2 — 다음 계획 로드맵 (콜헤드 이후)",
       "date": "2026-07-23",
       "type": "로드맵/계획",
@@ -665,7 +665,7 @@
       "status": "참고"
     },
     {
-      "file": "티츄_이슈수정_벤치결과_2026-07-25.html",
+      "file": "docs/reports/ai-bench/티츄_이슈수정_벤치결과_2026-07-25.html",
       "title": "이슈 수정 격리 벤치 결과 (봉황콤보·엔드게임 리드·마작 소원)",
       "date": "2026-07-25",
       "type": "벤치결과",
@@ -682,7 +682,7 @@
       "status": "파킹"
     },
     {
-      "file": "티츄_플레이테스트_이슈진단_2026-07-25.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_이슈진단_2026-07-25.html",
       "title": "플레이테스트 이슈 진단·검증·실행계획 (Expert 5이슈)",
       "date": "2026-07-25",
       "type": "진단",
@@ -699,7 +699,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_플레이테스트_체크리스트_인터랙티브.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트_인터랙티브.html",
       "title": "인터랙티브 플레이테스트 체크리스트 (2026-07-24)",
       "date": "2026-07-24",
       "type": "체크리스트",
@@ -716,7 +716,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_플레이테스트_통합체크리스트.html",
+      "file": "docs/reports/playtest/티츄_플레이테스트_통합체크리스트.html",
       "title": "통합 플레이테스트 체크리스트 (콜 헤드·낭비품질·라지티츄·연출)",
       "date": "2026-07-24",
       "type": "체크리스트",
@@ -733,7 +733,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_현황브리핑_2026-07-24.html",
+      "file": "docs/reports/status/티츄_현황브리핑_2026-07-24.html",
       "title": "티츄 Phase 2 개발 현황 브리핑 — 강도 소진 이후 실기 검증 진입",
       "date": "2026-07-24",
       "type": "브리핑/요약",
@@ -750,7 +750,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_관리대시보드.html",
+      "file": "docs/reports/status/티츄_관리대시보드.html",
       "title": "티츄 개발 관리 대시보드 (현황·플레이테스트·리포트 카탈로그)",
       "date": "2026-07-26",
       "type": "대시보드",
@@ -767,7 +767,7 @@
       "status": "진행중"
     },
     {
-      "file": "티츄_R1_출시검증_계획.html",
+      "file": "docs/reports/release/티츄_R1_출시검증_계획.html",
       "title": "R1 출시 검증 계획 — Phase 1 공식 종료 & Google Play 출시 관문",
       "date": "2026-07-26",
       "type": "로드맵/계획",
@@ -784,7 +784,7 @@
       "status": "완료"
     },
     {
-      "file": "docs/reports/2026-06-09-part2-plan-report.html",
+      "file": "docs/reports/design/2026-06-09-part2-plan-report.html",
       "title": "Tichu.Core Part 2 계획 검토 보고서 — 룰엔진 상태기계·정산·시뮬",
       "date": "2026-06-09",
       "type": "로드맵/계획",
@@ -801,7 +801,7 @@
       "status": "참고"
     },
     {
-      "file": "docs/reports/2026-06-10-phase1-mvp-design-report.html",
+      "file": "docs/reports/design/2026-06-10-phase1-mvp-design-report.html",
       "title": "Phase 1 MVP 설계 검토 보고서 — P1-A 헤드리스 GameFlow + 기본 AI",
       "date": "2026-06-10",
       "type": "설계스펙",
@@ -819,7 +819,7 @@
       "status": "참고"
     },
     {
-      "file": "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+      "file": "docs/reports/design/2026-06-11-phase1b-presentation-design-report.html",
       "title": "Phase1 P1-B 프레젠테이션(Unity 2D uGUI) 설계 검토",
       "date": "2026-06-11",
       "type": "설계스펙",
@@ -1490,47 +1490,47 @@
     ],
     "stale_or_duplicate": [
       {
-        "file": "티츄_Expert플레이_진단.html",
+        "file": "docs/reports/playtest/티츄_Expert플레이_진단.html",
         "note": "Expert 진단 1차(07-04). 같은 날 '파트너 티츄 무시' 근본원인을 코드 근거로 확정한 티츄_Expert진단_2차.html에 밀림 — 2차가 실행 근거."
       },
       {
-        "file": "티츄_브리핑_C1D2_다음프론티어.html",
+        "file": "docs/reports/status/티츄_브리핑_C1D2_다음프론티어.html",
         "note": "티츄_세션요약_C1_D2_레버소진.html과 같은 07-07 세션의 사실상 중복 브리핑(C1·D2 랜딩+잔여레버 판정). 하나만 유지 권장."
       },
       {
-        "file": "티츄_플레이테스트_체크리스트.html",
+        "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트.html",
         "note": "07-07 체크리스트. 이후 07-08 2차·07-24 통합/인터랙티브·R1 통합 플레이테스트에 항목이 흡수됨 — 과거 스냅샷."
       },
       {
-        "file": "티츄_플레이테스트_체크리스트_2차.html",
+        "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트_2차.html",
         "note": "07-08 체크리스트. 07-24 통합체크리스트/인터랙티브 및 관리대시보드 인터랙티브 탭에 상위 통합됨."
       },
       {
-        "file": "티츄_플레이테스트_통합체크리스트.html",
+        "file": "docs/reports/playtest/티츄_플레이테스트_통합체크리스트.html",
         "note": "07-24 통합 체크리스트가 티츄_플레이테스트_체크리스트_인터랙티브.html(동일 07-24, 인터랙티브 판정/복사 기능)과 목적 중복. 인터랙티브본이 상위."
       },
       {
-        "file": "티츄_플레이테스트_체크리스트_인터랙티브.html",
+        "file": "docs/reports/playtest/티츄_플레이테스트_체크리스트_인터랙티브.html",
         "note": "07-24 인터랙티브 체크리스트는 티츄_관리대시보드.html의 '플레이테스트' 탭에 편입됨. 실기 검증 부채는 다시 R1 통합 플레이테스트가 최신 상위본."
       },
       {
-        "file": "티츄_진행현황_2026-07-04.html",
+        "file": "docs/reports/status/티츄_진행현황_2026-07-04.html",
         "note": "07-04 현황 브리핑. 07-24 현황브리핑·07-26 관리대시보드가 최신 현황을 대체."
       },
       {
-        "file": "티츄_현황브리핑_2026-07-24.html",
+        "file": "docs/reports/status/티츄_현황브리핑_2026-07-24.html",
         "note": "07-24 현황 브리핑은 07-26 티츄_관리대시보드.html(현황 스냅샷 탭)에 사실상 흡수됨 — 대시보드가 라이브 허브."
       },
       {
-        "file": "티츄_AI강화_검증_로드맵.html",
+        "file": "docs/reports/design/티츄_AI강화_검증_로드맵.html",
         "note": "07-03 강화 로드맵의 '다음 방향' 부분은 07-16 다음프론티어_지도·07-23 다음계획_로드맵으로 갱신됨. 세계수 수확체감 결론은 여전히 유효 참조."
       },
       {
-        "file": "docs/reports/2026-06-10-phase1-mvp-design-report.html",
+        "file": "docs/reports/design/2026-06-10-phase1-mvp-design-report.html",
         "note": "P1-A 설계 '검토 보고서'. 승인된 최종본은 docs/superpowers/specs/2026-06-10-tichu-phase1-mvp-design.md(spec). 보고서는 심사 기록."
       },
       {
-        "file": "docs/reports/2026-06-11-phase1b-presentation-design-report.html",
+        "file": "docs/reports/design/2026-06-11-phase1b-presentation-design-report.html",
         "note": "P1-B 설계 '검토 보고서'. 최종 확정본은 docs/superpowers/specs/2026-06-11-tichu-phase1b-presentation-design.md(spec)."
       },
       {
@@ -1538,11 +1538,11 @@
         "note": "가로 레이아웃 목업 v1. 손패 중앙정렬+SafeArea를 반영한 v2(.superpowers/brainstorm/p1d-landscape-layout-v2.html)로 대체됨."
       },
       {
-        "file": "티츄_P1D_D3_카드풀링_설계.html",
+        "file": "docs/reports/design/티츄_P1D_D3_카드풀링_설계.html",
         "note": "D3 풀링 설계 HTML 보고서가 docs/superpowers/specs/2026-06-18-tichu-phase1d-d3-pooling-design.md(spec)와 내용 중복 — spec이 정본."
       },
       {
-        "file": "티츄_P2G_B1_설계브리프.html",
+        "file": "docs/reports/design/티츄_P2G_B1_설계브리프.html",
         "note": "α-μ 강건백업 브리프가 docs/superpowers/specs/2026-07-03-tichu-p2g-b1-robust-backup-design.md(승인 spec)와 중복. 결과는 보류(OFF)."
       }
     ],

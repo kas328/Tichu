@@ -1,0 +1,46 @@
+name: core-tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tichu.Core (dotnet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      # 룰엔진과 AI 는 유니티 의존이 없는 순수 C# 이라 에디터 없이 그대로 돈다.
+      # 10만 판 시뮬레이터와 벤치 하니스는 [Explicit] 이라 자동 실행에서 제외된다.
+      - name: dotnet test
+        run: dotnet test core/Tichu.sln -c Release --nologo
+
+  mirror:
+    name: 코어 → 유니티 미러 동기 확인
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # core/src 가 정본, Assets/_Project 는 유니티가 컴파일하는 사본이다.
+      # 둘이 어긋난 채 커밋되면 에디터와 CI 가 다른 코드를 검증하게 되므로 여기서 막는다.
+      # (테스트/벤치 하니스는 dotnet 전용이라 의도적으로 미러하지 않는다 — src 만 비교한다.)
+      - name: 정본과 사본 비교
+        run: |
+          drift=0
+          for pair in "core/src/Tichu.Core:Assets/_Project/Core" "core/src/Tichu.GameFlow:Assets/_Project/GameFlow"; do
+            src="${pair%%:*}"; dst="${pair##*:}"
+            while IFS= read -r f; do
+              rel="${f#$src/}"
+              if [ ! -f "$dst/$rel" ]; then echo "[MISSING] $dst/$rel"; drift=1
+              elif ! cmp -s "$f" "$dst/$rel"; then echo "[DRIFT]   $dst/$rel"; drift=1; fi
+            done < <(find "$src" -name "*.cs" -not -path "*/obj/*" -not -path "*/bin/*")
+          done
+          if [ $drift -ne 0 ]; then echo "미러가 어긋났다. tools/sync-core-to-unity.ps1 을 실행할 것."; exit 1; fi
+          echo "미러 동기 확인됨."
+        shell: bash

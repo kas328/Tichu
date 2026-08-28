@@ -5,10 +5,10 @@
 [![core-tests](https://github.com/kas328/Tichu/actions/workflows/core-tests.yml/badge.svg)](https://github.com/kas328/Tichu/actions/workflows/core-tests.yml)
 ![Unity](https://img.shields.io/badge/Unity-6000.3.17f1%20LTS-000?logo=unity)
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)
-![tests](https://img.shields.io/badge/tests-465%20green-2ea44f)
+![tests](https://img.shields.io/badge/tests-470%20green-2ea44f)
 ![platform](https://img.shields.io/badge/platform-Android%20(arm64)-3DDC84?logo=android)
 
-게임 규칙과 AI는 **유니티 타입을 단 하나도 참조하지 않는 순수 C#** 으로 작성돼 있다. 그래서 에디터 없이 `dotnet test` 로 320개 테스트가 4초에 돌고, CI가 푸시마다 이를 검증한다. 유니티는 그 위에서 표시와 연출만 맡는다.
+게임 규칙과 AI는 **유니티 타입을 단 하나도 참조하지 않는 순수 C#** 으로 작성돼 있다. 그래서 에디터 없이 `dotnet test` 로 325개 테스트가 5초에 돌고, CI가 푸시마다 이를 검증한다. 유니티는 그 위에서 표시와 연출만 맡는다.
 
 ---
 
@@ -48,7 +48,7 @@ flowchart LR
 ```
 
 - **정본은 `core/`**, 유니티 쪽은 사본이다. 한 방향으로만 동기화하고, CI가 매 푸시마다 정본과 사본의 해시를 비교해 어긋남을 막는다.
-- PIMC 탐색은 유니티 쪽 `GameFlow` 에만 있다(스레드풀 예산 제어가 런타임에 묶여 있어서). 규칙과 휴리스틱은 양쪽이 같은 코드다.
+- PIMC 탐색기(결정화 · 세계별 탐색 · 난이도 정책)는 **아직** 유니티 쪽 `GameFlow` 에만 있다. 코드 자체는 엔진 의존이 0이고(`Tichu.GameFlow.asmdef` 의 `noEngineReferences: true`), 런타임에 묶인 것은 예산과 취소를 감싸는 어댑터 `PimcDecisionAgent` 한 겹뿐이다 — 코어로 승격 가능한 남은 정리 대상이다. 그래서 PIMC 테스트 80개는 CI가 아니라 에디터 테스트에서만 돈다. 규칙과 휴리스틱은 양쪽이 같은 코드다.
 - 앱 흐름은 **R3(Reactive Extensions) + 순수 reducer** 로 만든 상태기계다. 메뉴 → 난이도 선택 → 매치 → 결과가 전부 하나의 전이 함수로 표현되고, 씬은 Additive로 얹힌다.
 
 ---
@@ -99,9 +99,10 @@ flowchart LR
 
 | 게이트 | 범위 | 실행 |
 |---|---|---|
-| CI — 룰엔진/AI | 320 테스트 | 푸시마다 자동 (`dotnet test`, 4초) |
-| CI — 미러 동기 | `core/src` ↔ `Assets/_Project` 해시 비교 | 푸시마다 자동 |
-| 에디터 테스트 | Presentation 145 테스트 | Unity Test Runner (EditMode) |
+| CI — 룰엔진 · 휴리스틱 AI · 콜 헤드 | 325 테스트 | 푸시마다 자동 (`dotnet test`, 5초) |
+| CI — 미러 동기 | 정본 ↔ 유니티 사본 해시 비교 | 푸시마다 자동 |
+| 에디터 테스트 — PIMC · 결정화 · 난이도 정책 | 80 테스트 | Unity Test Runner — **CI 밖** |
+| 에디터 테스트 — Presentation | 145 테스트 | Unity Test Runner (EditMode) |
 | 벤치 하니스 | 수천~수만 라운드 | `[Explicit]` — 수동 실행 (자동 실행에서 제외) |
 | 실기 게이트 | Galaxy S23 · 60fps · 풀매치 완주 | 수동 플레이테스트 |
 

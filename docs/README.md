@@ -73,6 +73,7 @@
 
 | 날짜 | 문서 |
 |---|---|
+| 2026-08-28 | [README 심사 리포트](reports/status/%ED%8B%B0%EC%B8%84_README_%EC%8B%AC%EC%82%AC%EB%A6%AC%ED%8F%AC%ED%8A%B8_2026-08-28.html) |
 | 2026-08-19 | [Tichu Master — 현황 브리핑 · 다음 계획 (2026-08-19)](reports/status/%ED%8B%B0%EC%B8%84_%ED%98%84%ED%99%A9%EB%B8%8C%EB%A6%AC%ED%95%91_2026-08-19.html) |
 | 2026-07-31 | [Tichu Master · 개발 아카이브 & 관리 허브](reports/status/%ED%8B%B0%EC%B8%84_Master_%ED%97%88%EB%B8%8C.html) |
 | 2026-07-26 | [티츄 개발 관리 대시보드 (현황·플레이테스트·리포트 카탈로그)](reports/status/%ED%8B%B0%EC%B8%84_%EA%B4%80%EB%A6%AC%EB%8C%80%EC%8B%9C%EB%B3%B4%EB%93%9C.html) |

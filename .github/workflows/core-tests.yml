@@ -10,9 +10,9 @@ jobs:
     name: Tichu.Core (dotnet)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "9.0.x"
 
@@ -25,7 +25,7 @@ jobs:
     name: 코어 → 유니티 미러 동기 확인
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # core/src 가 정본, Assets/_Project 는 유니티가 컴파일하는 사본이다.
       # 둘이 어긋난 채 커밋되면 에디터와 CI 가 다른 코드를 검증하게 되므로 여기서 막는다.

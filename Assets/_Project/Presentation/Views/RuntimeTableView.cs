@@ -253,7 +253,7 @@ namespace Tichu.Presentation.Views
             {
                 bool grand = call == TichuCall.GrandTichu;
                 bg.color = grand ? GrandGold : TichuPurple;
-                _callBadgeText[seat].text = grand ? "大 티츄" : "티츄";
+                _callBadgeText[seat].text = grand ? "라지 티츄" : "티츄";
             }
             if (call != TichuCall.None && call != prev)
             {
@@ -272,6 +272,8 @@ namespace Tichu.Presentation.Views
             _callBadgeBg[seat] = go.GetComponent<Image>();
             var t = NewText($"CallBadgeTxt{seat}", go.transform, "", 22);
             t.alignment = TextAnchor.MiddleCenter; t.color = Ink;
+            // 배지 폭(96)이 고정이라 "라지 티츄"는 22pt 로 넘친다 — 폭에 맞춰 자동 축소.
+            t.resizeTextForBestFit = true; t.resizeTextMinSize = 14; t.resizeTextMaxSize = 22;
             StretchFull(t.rectTransform);
             _callBadgeText[seat] = t;
             go.SetActive(false);

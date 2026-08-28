@@ -103,3 +103,6 @@ core/**/[Oo]bj/
 
 # --- Visual Studio 컴포넌트 설정 ---
 .vsconfig
+
+# --- 유니티 안드로이드 네이티브 빌드 중간산물(CMake/Gradle) — 추적 제외 ---
+/.utmp/

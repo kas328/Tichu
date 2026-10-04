@@ -1,0 +1,17 @@
+{
+    "name": "Tichu.Net",
+    "rootNamespace": "Tichu.Net",
+    "references": [
+        "Tichu.Core",
+        "Tichu.GameFlow"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

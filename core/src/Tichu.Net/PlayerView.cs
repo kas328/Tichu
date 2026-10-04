@@ -1,0 +1,77 @@
+using System.Collections.Generic;
+using Tichu.Core.Cards;
+using Tichu.Core.Combinations;
+using Tichu.Core.Game;
+
+namespace Tichu.Net
+{
+    /// <summary>회수된 트릭의 공개 요약. 카드 데이터는 WonCards 로 이미 공개된다.</summary>
+    public sealed class TrickSummary
+    {
+        public int TopOwnerSeat { get; set; }
+        public int AccumulatedPoints { get; set; }
+        public bool WonByDragon { get; set; }
+        public int? DragonGiftRecipient { get; set; }
+    }
+
+    /// <summary>트릭 내 한 번의 제출. IsPass 면 Cards 는 비어 있다.</summary>
+    public sealed class PlayView
+    {
+        public int Seat { get; set; }
+        public bool IsPass { get; set; }
+        public bool IsBombInterrupt { get; set; }
+        public List<Card> Cards { get; set; } = new List<Card>();
+    }
+
+    /// <summary>진행 중 트릭의 공개 상태. 전원에게 동일하다.</summary>
+    public sealed class TrickView
+    {
+        public CombinationType LeadType { get; set; }
+        public int LeadLength { get; set; }
+        public CombinationType TopType { get; set; }
+        public int TopRank { get; set; }
+        public int TopLength { get; set; }
+        public List<Card> TopCards { get; set; } = new List<Card>();
+        public int TopOwnerSeat { get; set; }
+        public int AccumulatedPoints { get; set; }
+        public List<PlayView> History { get; set; } = new List<PlayView>();
+    }
+
+    /// <summary>
+    /// 한 좌석에게 보내는 게임 상태. 기획서 7.5 시야 마스킹 표에 1:1 대응한다.
+    /// 자기 손패만 전체 공개하고 상대는 장수만 싣는다 — 타 좌석 카드 데이터는
+    /// 가린 형태로도 포함하지 않는다. GameState 를 참조로 들고 있지 않은 값 스냅샷이다.
+    /// </summary>
+    public sealed class PlayerView
+    {
+        /// <summary>이 뷰의 주인 좌석.</summary>
+        public int Viewer { get; set; }
+
+        public RoundPhase Phase { get; set; }
+        public int Turn { get; set; }
+        public int? Wish { get; set; }
+
+        /// <summary>용 양도를 지정해야 하는 좌석. 대기 중이 아니면 null.</summary>
+        public int? DragonGiftWinner { get; set; }
+
+        /// <summary>자기 손패 — 전체.</summary>
+        public List<Card> MyHand { get; set; } = new List<Card>();
+
+        /// <summary>전 좌석 손패 장수. 상대에 대해 공개되는 유일한 손패 정보다.</summary>
+        public int[] HandCounts { get; set; } = new int[4];
+
+        public TichuCall[] Calls { get; set; } = new TichuCall[4];
+        public bool[] IsOut { get; set; } = new bool[4];
+        public int[] FinishOrder { get; set; } = new int[4];
+
+        /// <summary>전 좌석 획득 더미 — 이미 공개된 카드라 전체를 싣는다(카드 카운팅 근거).</summary>
+        public List<Card>[] WonCards { get; set; } = new List<Card>[4];
+
+        public TrickView? CurrentTrick { get; set; }
+        public List<TrickSummary> CompletedTricks { get; set; } = new List<TrickSummary>();
+
+        public int TeamAScore { get; set; }
+        public int TeamBScore { get; set; }
+        public int TargetScore { get; set; }
+    }
+}

@@ -20,7 +20,7 @@ namespace Tichu.Core.Tests
             new IAgent[] { new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() };
 
         [Test]
-        public void Explicit_null_hooks_match_the_default_overload()
+        public void Round_is_deterministic_across_fresh_drivers()
         {
             var a = new GameDriver(FourDefaults()).RunRound(GameEngine.NewRound(42UL));
             var b = new GameDriver(FourDefaults()).RunRound(GameEngine.NewRound(42UL), null, null, null);

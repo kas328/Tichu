@@ -234,5 +234,48 @@ namespace Tichu.Core.Tests
 
             Assert.Throws<OperationCanceledException>(() => agent.DecideTurn(ctx));
         }
+
+        [Test]
+        public void Buffered_wrong_kind_action_does_not_answer_a_question()
+        {
+            // 질문 전에 도착한 Pass 는 선행 큐에 들어간다. 큰 티츄 질문의 답이 되어선 안 된다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(300));
+
+            agent.Submit(ClientAction.Pass(0, 1L));
+
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+            Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(ctx),
+                "종류가 다른 버퍼 액션이 큰 티츄 결정에 쓰였다");
+        }
+
+        [Test]
+        public void Leftover_matched_action_does_not_answer_a_different_question()
+        {
+            // 한 질문에 매칭 액션 2건이 도착해 첫 건이 수락되면 두 번째가 _matched 에 남는다.
+            // 그 잔여물이 다음 질문(다른 StepKind)의 답으로 쓰이면 서버가 플레이어가 하지 않은
+            // 결정을 조작한다 — 큰 티츄 자동 패스, 용 점수 무단 헌납.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = LeadContext(out _);
+
+            var submitter = new Thread(() =>
+            {
+                Thread.Sleep(120);                  // DecideTurn 이 대기에 들어간 뒤
+                agent.Submit(ClientAction.Play(0, 1L,
+                    new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null));
+                agent.Submit(ClientAction.Pass(0, 2L));   // 같은 질문에 온 두 번째 액션
+            }) { IsBackground = true };
+            submitter.Start();
+
+            var d = agent.DecideTurn(ctx);
+            Assert.That(submitter.Join(TimeSpan.FromSeconds(5)), Is.True, "제출 스레드가 끝나지 않았다");
+            Assert.That(d.IsPass, Is.False, "첫 번째 액션이 답이어야 한다");
+
+            // 다음 질문은 종류가 다르다. 잔여 Pass 가 답이 되면 큰 티츄가 조작된다.
+            var grandCtx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+            Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(grandCtx),
+                "잔여 매칭 액션이 다른 종류의 질문에 답으로 쓰였다");
+        }
     }
 }

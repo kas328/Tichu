@@ -86,7 +86,7 @@ namespace Tichu.Core.Tests
                 {
                     if (other == viewer) continue;
                     foreach (var card in s.Seats[other].Hand)
-                        Assert.That(visible, Does.Not.Contain(card),
+                        Assert.That(visible.Contains(card), Is.False,
                             $"viewer {viewer} 가 seat {other} 의 손패 {card} 를 볼 수 있다");
                 }
             }

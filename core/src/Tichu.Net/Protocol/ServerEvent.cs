@@ -38,9 +38,6 @@ namespace Tichu.Net
         public int TeamA { get; set; }
         public int TeamB { get; set; }
 
-        public static ServerEvent StateUpdate(PlayerView view) =>
-            new ServerEvent { Kind = ServerEventKind.StateUpdate, View = view };
-
         public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting)
         {
             view.Awaiting = awaiting;

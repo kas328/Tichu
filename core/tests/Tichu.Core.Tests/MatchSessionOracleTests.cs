@@ -96,7 +96,7 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void Masking_holds_in_every_broadcast_state_update()
+        public void Broadcast_views_are_routed_to_their_own_seat()
         {
             var transport = new LoopbackTransport();
             using var done = new ManualResetEventSlim(false);
@@ -167,6 +167,12 @@ namespace Tichu.Core.Tests
                     if (ev.Kind == ServerEventKind.SessionFaulted) any = true;
                 Assert.That(any, Is.True, $"seat {seat} 이 실패 통보를 받지 못했다");
             }
+
+            for (int seat = 0; seat < 4; seat++)
+                foreach (var ev in transport.Inbox(seat))
+                    if (ev.Kind == ServerEventKind.StateUpdate && ev.View!.Awaiting?.LegalMoves != null)
+                        Assert.That(ev.View.Awaiting!.Seat, Is.EqualTo(ev.View.Viewer),
+                            "대기 좌석이 아닌 곳에 합법수가 실려 갔다 — 은닉 정보 누출");
         }
 
         [Test]

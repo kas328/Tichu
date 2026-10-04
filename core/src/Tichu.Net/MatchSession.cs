@@ -179,6 +179,12 @@ namespace Tichu.Net
 
         private int TakePendingTichu(GameState s)
         {
+            // 용 양도 대기 중엔 엔진이 GiveDragon 외 모든 액션을 거부한다(GameEngine.Apply 의
+            // 전역 가드). 일시적 차단이므로 예약을 소비하지 않고 유지한다 — 소비해 버리면
+            // 합법적인 콜이 통보도 없이 사라진다. 영구 불법(이미 콜·아웃·카드 냈음)인 경우는
+            // 드라이버가 적용을 시도해 거부되고 버려지며, 그것이 의도된 정책이다.
+            if (s.TryGetPendingDragonGift(out _)) return -1;
+
             for (int seat = 0; seat < SeatCount; seat++)
                 if (_remote[seat] != null && _remote[seat]!.TakeReservedTichu())
                     return seat;

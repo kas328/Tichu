@@ -60,9 +60,13 @@ namespace Tichu.Net
         }
 
         // 단일 슬롯이 아니라 큐인 이유: 클라이언트가 기다리지 않고 Play 를 두 번 연달아
-        // 보내면 둘 다 제출 순서대로 검증돼야 한다. 슬롯이면 먼저 온 것이 조용히 덮어써져
-        // 거부 통보 없이 사라지는데, 그건 Task 4 에서 티츄 훅에서 걷어낸 '통보 없는 유실'
-        // 과 같은 부류다 — 이 클래스가 검증 관문이라는 전제와 정면으로 어긋난다.
+        // 보내면 제출된 모든 액션이 각자 검증돼야 한다. 슬롯이면 먼저 온 것이 조용히
+        // 덮어써져 거부 통보 없이 사라지는데, 그건 Task 4 에서 티츄 훅에서 걷어낸
+        // '통보 없는 유실' 과 같은 부류다 — 이 클래스가 검증 관문이라는 전제와 정면으로
+        // 어긋난다. 단, 순서는 이 큐 **안에서만** 보장된다 — 종류별로 다른 우편함으로
+        // 갈라지므로(오프턴 Pass 는 _early, Play 는 여기) 전역 FIFO 는 아니다. Await 가
+        // _early 를 먼저 스캔하므로 나중에 제출된 Pass 가 먼저 제출된 Play 보다 먼저
+        // 서빙될 수 있다.
         private readonly Queue<OffTurnPlay> _offTurnPlays = new Queue<OffTurnPlay>();
 
         public RemoteAgent(
@@ -234,6 +238,17 @@ namespace Tichu.Net
 
             lock (_gate)
             {
+                // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다. 선행 큐로 되돌리고
+                // 그 항목의 퍼밋을 함께 소각해 (퍼밋 수 == _matched.Count) 불변식을 복원한다.
+                // 배수를 _early 스캔보다 **먼저** 두어야 같은 종류의 잔여물이 스캔 대상에 들어온다.
+                // 이 배수 덕분에 대기 시작 시 _matched 가 비고, _awaiting 이 설정된 동안
+                // Submit 은 매칭 종류만 넣으므로 대기 후 Dequeue 에는 종류 필터가 필요 없다.
+                while (_matched.Count > 0)
+                {
+                    _early.Add(_matched.Dequeue());
+                    _signal.Wait(0);
+                }
+
                 for (int i = 0; i < _early.Count; i++)
                 {
                     if (!Matches(kind, _early[i].Kind)) continue;
@@ -248,16 +263,23 @@ namespace Tichu.Net
                 _awaiting = kind;
             }
 
-            bool got = _signal.Wait(_timeout, _ct);
-
-            lock (_gate)
+            bool got = false;
+            try
             {
-                _awaiting = null;
-                if (!got) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
-                // 남은 항목이 다음 결정으로 넘어갈 수 있지만, 꺼낸 액션은 항상 현재 상태로
-                // 재검증되므로(ResolveMove / CanPass / IsLegalExchange) 안전하다.
-                return _matched.Dequeue();
+                got = _signal.Wait(_timeout, _ct);
             }
+            finally
+            {
+                // 취소는 두 lock 블록 사이에서 throw 되므로 여기서 정리해야 _awaiting 이 남지 않는다.
+                lock (_gate) _awaiting = null;
+            }
+
+            if (!got) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
+
+            // _matched 는 이 대기가 시작되기 전에 이미 비워졌고(위의 배수), _awaiting 이
+            // 설정된 동안 Submit 은 매칭하는 종류의 액션만 여기에 넣는다. 그래서 종류
+            // 필터 없이 그대로 꺼내도 안전하다.
+            lock (_gate) return _matched.Dequeue();
         }
 
         private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat)
@@ -267,7 +289,7 @@ namespace Tichu.Net
             // 핵심 불변식이라 배선 오류를 조용히 넘기지 않고 크게 터뜨린다(클라이언트 입력이
             // 아니라 프로그래머 오류이므로 세션을 죽이는 쪽이 맞다).
             if (seat != _seat)
-                throw new System.InvalidOperationException(
+                throw new InvalidOperationException(
                     $"seat {_seat} 에이전트가 seat {seat} 으로 질의됐다 — 배선 오류");
 
             var aw = new Awaiting { Kind = kind, Seat = _seat };

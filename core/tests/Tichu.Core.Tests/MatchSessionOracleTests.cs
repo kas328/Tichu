@@ -193,5 +193,22 @@ namespace Tichu.Core.Tests
                     Assert.That(ev.Kind, Is.Not.EqualTo(ServerEventKind.SessionFaulted),
                         $"정상 취소인데 seat {seat} 에 실패 통보가 갔다");
         }
+
+        [Test]
+        public void Out_of_range_seat_submission_is_discarded_silently()
+        {
+            // ActionRejected 는 발신자에게만 가야 하는데 좌석 번호가 범위 밖이면 발신자를
+            // 식별할 수 없다 → 아무에게도 보내지 않는다. 무고한 좌석 0 으로 돌려보내던
+            // 결함의 회귀 가드이며, 범위 검사를 지워 색인 예외가 나는 회귀도 함께 잡는다.
+            var transport = new LoopbackTransport();
+            var session = new MatchSession(FourScripted(), transport, 42UL, targetScore: 1);
+
+            Assert.DoesNotThrow(() => session.Submit(ClientAction.Pass(seat: 7, actionSeq: 1L)));
+            Assert.DoesNotThrow(() => session.Submit(ClientAction.Pass(seat: -1, actionSeq: 2L)));
+
+            for (int seat = 0; seat < 4; seat++)
+                Assert.That(transport.Inbox(seat).Count, Is.EqualTo(0),
+                    $"범위 밖 제출에 대해 seat {seat} 이 이벤트를 받았다");
+        }
     }
 }

@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Net;
@@ -70,6 +72,46 @@ namespace Tichu.Core.Tests
             Assert.That(a.Cards, Is.EquivalentTo(cards));
             Assert.That(a.Rank, Is.EqualTo(10));
             Assert.That(a.Wish, Is.Null);
+        }
+
+        [Test]
+        public void Concurrent_sends_and_drains_lose_no_events()
+        {
+            // SendTo 는 세션 스레드에서, Drain 은 클라이언트 스레드에서 온다 —
+            // _gate 가 보호해야 하는 바로 그 조합이다. 유실도 중복도 없어야 한다.
+            const int total = 2000;
+            var transport = new LoopbackTransport();
+            var received = new List<ServerEvent>();
+            Exception? producerFailure = null;
+
+            var producer = new Thread(() =>
+            {
+                try
+                {
+                    for (int i = 0; i < total; i++)
+                        transport.SendTo(0, ServerEvent.ActionRejected(i, "probe"));
+                }
+                catch (Exception e) { producerFailure = e; }
+            }) { IsBackground = true };
+
+            producer.Start();
+
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (received.Count < total && DateTime.UtcNow < deadline)
+                received.AddRange(transport.Drain(0));
+
+            producer.Join(TimeSpan.FromSeconds(10));
+            received.AddRange(transport.Drain(0));
+
+            Assert.That(producerFailure, Is.Null, "SendTo 가 예외를 던졌다");
+            Assert.That(received.Count, Is.EqualTo(total), "이벤트가 유실되거나 중복됐다");
+
+            var seen = new HashSet<long>();
+            foreach (var ev in received)
+                Assert.That(seen.Add(ev.ActionSeq), Is.True, $"ActionSeq {ev.ActionSeq} 가 중복 전달됐다");
+
+            for (int i = 0; i < total; i++)
+                Assert.That(seen.Contains(i), Is.True, $"ActionSeq {i} 가 유실됐다");
         }
     }
 }

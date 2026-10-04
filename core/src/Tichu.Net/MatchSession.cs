@@ -30,6 +30,7 @@ namespace Tichu.Net
         private readonly RemoteAgent?[] _remote = new RemoteAgent?[SeatCount];
 
         private Thread? _thread;
+        private int _started;
         private long _arrival;
         private int _teamA;
         private int _teamB;
@@ -72,9 +73,12 @@ namespace Tichu.Net
             _transport.OnClientAction(Submit);
         }
 
-        /// <summary>세션 스레드를 띄운다.</summary>
+        /// <summary>세션 스레드를 띄운다. 두 번 호출하면 두 스레드가 같은 상태를 경합하므로 거부한다.</summary>
         public void Start()
         {
+            if (Interlocked.Exchange(ref _started, 1) == 1)
+                throw new InvalidOperationException("session already started");
+
             _thread = new Thread(Run) { IsBackground = true, Name = "TichuMatchSession" };
             _thread.Start();
         }
@@ -82,15 +86,18 @@ namespace Tichu.Net
         /// <summary>세션을 중단한다. 대기 중인 원격 좌석의 블로킹도 풀린다.</summary>
         public void Stop() => _cts.Cancel();
 
-        /// <summary>세션 스레드가 끝날 때까지 기다린다(테스트·종료 처리용).</summary>
-        public void Join(TimeSpan timeout) => _thread?.Join(timeout);
+        /// <summary>세션 스레드가 끝날 때까지 기다린다. 끝났으면 true(테스트·종료 처리용).</summary>
+        public bool Join(TimeSpan timeout) => _thread?.Join(timeout) ?? true;
 
         /// <summary>클라이언트 액션을 해당 좌석의 원격 에이전트로 보낸다.</summary>
         public void Submit(ClientAction a)
         {
             if (a.Seat < 0 || a.Seat >= SeatCount)
             {
-                _transport.SendTo(0, ServerEvent.ActionRejected(a.ActionSeq, "seat out of range"));
+                // 보낼 곳이 없다. ActionRejected 는 발신자에게만 가야 하는데(기획서 7.7) 이
+                // 분기에서는 발신자를 식별할 수 없다 — 식별 가능하면 범위 검사가 걸리지 않았다.
+                // 무고한 좌석에 "누군가 잘못된 액션을 보냈다" 를 알리는 대신 버린다.
+                // 신뢰 못 할 좌석 번호를 거르는 것은 실제 전송이 붙는 M2 의 몫이다.
                 return;
             }
 

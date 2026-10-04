@@ -133,5 +133,65 @@ namespace Tichu.Core.Tests
             Assert.That(inbox.Count, Is.EqualTo(1));
             Assert.That(inbox[0].Kind, Is.EqualTo(ServerEventKind.ActionRejected));
         }
+
+        [Test]
+        public void Remote_seat_timeout_faults_the_session_and_ends_the_thread()
+        {
+            // 요구2 일반 핸들러 경로: 아무도 제출하지 않으면 RemoteAgent 가 TimeoutException 을
+            // 던지고 세션은 SessionFaulted 를 방송한 뒤 스레드를 끝내야 한다. 라운드 재시도 금지.
+            var transport = new LoopbackTransport();
+            var seats = new IAgent?[] { null, new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() };
+
+            var session = new MatchSession(
+                seats, transport, masterSeed: 42UL,
+                targetScore: 1000,
+                turnTimeout: TimeSpan.FromMilliseconds(200));
+
+            session.Start();
+            Assert.That(session.Join(TimeSpan.FromSeconds(10)), Is.True, "세션 스레드가 끝나지 않았다");
+
+            bool faulted = false, askedSeat0 = false;
+            foreach (var ev in transport.Inbox(0))
+            {
+                if (ev.Kind == ServerEventKind.SessionFaulted) faulted = true;
+                if (ev.Kind == ServerEventKind.StateUpdate && ev.View!.Awaiting?.Seat == 0) askedSeat0 = true;
+            }
+
+            Assert.That(askedSeat0, Is.True, "원격 좌석에 질의 공지가 가지 않았다 — OnAwait 배선 미동작");
+            Assert.That(faulted, Is.True, "타임아웃이 SessionFaulted 로 보고되지 않았다");
+
+            for (int seat = 1; seat < 4; seat++)
+            {
+                bool any = false;
+                foreach (var ev in transport.Inbox(seat))
+                    if (ev.Kind == ServerEventKind.SessionFaulted) any = true;
+                Assert.That(any, Is.True, $"seat {seat} 이 실패 통보를 받지 못했다");
+            }
+        }
+
+        [Test]
+        public void Stop_ends_the_thread_without_faulting()
+        {
+            // 요구2 OperationCanceledException 경로: 취소는 정상 종료이므로 SessionFaulted 가
+            // 나가면 안 된다. 세션 스레드가 대기에 들어갔든 아니든 같은 결론이어야 한다.
+            var transport = new LoopbackTransport();
+            var seats = new IAgent?[] { null, new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() };
+
+            var session = new MatchSession(
+                seats, transport, masterSeed: 7UL,
+                targetScore: 1000,
+                turnTimeout: TimeSpan.FromSeconds(30));
+
+            session.Start();
+            Thread.Sleep(150);   // 원격 좌석이 대기에 들어갈 시간을 준다
+            session.Stop();
+
+            Assert.That(session.Join(TimeSpan.FromSeconds(10)), Is.True, "취소 후 스레드가 끝나지 않았다");
+
+            for (int seat = 0; seat < 4; seat++)
+                foreach (var ev in transport.Inbox(seat))
+                    Assert.That(ev.Kind, Is.Not.EqualTo(ServerEventKind.SessionFaulted),
+                        $"정상 취소인데 seat {seat} 에 실패 통보가 갔다");
+        }
     }
 }

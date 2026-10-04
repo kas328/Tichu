@@ -985,10 +985,18 @@ namespace Tichu.Core.Tests
         [Test]
         public void Pending_tichu_is_applied_as_a_call_before_the_in_turn_action()
         {
+            // 작은 티츄는 손패 14장 + 아직 한 장도 내지 않았을 때만 합법이다
+            // (GameEngine.ApplyCallTichu: Hand.Count != FullHandCount → reject).
+            // 예약을 받을 seat2 에만 14장을 준다.
+            var fourteen = new List<Card>();
+            for (int rank = 7; rank <= 14; rank++) fourteen.Add(Card.Normal(rank, Suit.Jade));   // 8장
+            for (int rank = 7; rank <= 12; rank++) fourteen.Add(Card.Normal(rank, Suit.Sword));  // 6장
+            Assert.That(fourteen.Count, Is.EqualTo(14), "테스트 전제: seat2 손패가 14장이어야 함");
+
             var s = GameFlowHelpers.PlayState(0,
                 Hand(Card.Normal(3, Suit.Jade)),
                 Hand(Card.Normal(4, Suit.Jade)),
-                Hand(Card.Normal(5, Suit.Jade)),
+                fourteen,
                 Hand(Card.Normal(6, Suit.Jade)));
 
             bool handed = false;

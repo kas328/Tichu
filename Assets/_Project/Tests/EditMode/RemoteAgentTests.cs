@@ -285,5 +285,26 @@ namespace Tichu.Core.Tests
             Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(grandCtx),
                 "잔여 매칭 액션이 다른 종류의 질문에 답으로 쓰였다");
         }
+
+        [Test]
+        public void ResetForNewRound_discards_early_buffered_action_and_rejects_it()
+        {
+            // 라운드 경계 폐기 — 아직 아무것도 묻지 않은 시점에 도착한 액션은 선행 큐에
+            // 보관된다. ResetForNewRound 가 그걸 비우면, 다음 라운드에 같은 종류를 다시
+            // 물어도 아무도 답하지 않은 것이므로 타임아웃해야 한다(조용히 답으로 쓰이면 안
+            // 된다). 그리고 폐기된 액션은 발신자에게 거부 통보가 가야 한다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(100));
+
+            agent.Submit(ClientAction.DeclineGrandTichu(0, 1L));   // 선행 큐에 들어간다
+
+            agent.ResetForNewRound();
+
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+            Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(ctx),
+                "라운드 경계에서 폐기됐어야 할 잔여 액션이 여전히 답으로 쓰였다");
+
+            Assert.That(h.RejectCount, Is.EqualTo(1), "폐기된 잔여 액션에 거부 통보가 가야 한다");
+        }
     }
 }

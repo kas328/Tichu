@@ -120,8 +120,18 @@ namespace Tichu.Net
 
             try
             {
+                int roundIndex = 0;
                 while (!_cts.IsCancellationRequested)
                 {
+                    // 첫 라운드(roundIndex == 0)는 기존 선행 버퍼링을 그대로 둬야 한다 — 그래야
+                    // 아직 아무도 묻지 않은 시점에 네 클라이언트가 동시에 교환을 제출해도 받아
+                    // 진다. 둘째 라운드부터는 각 원격 좌석의 미소비 우편함을 비운다 — 거기 남은
+                    // 액션은 라운드당 한 번뿐인 질문(큰 티츄·교환·용 양도)을 향한 것이라, 비우지
+                    // 않으면 다음 라운드의 같은 질문에 조용히 답으로 쓰인다.
+                    if (roundIndex > 0)
+                        for (int seat = 0; seat < SeatCount; seat++)
+                            _remote[seat]?.ResetForNewRound();
+
                     ulong roundSeed = master.NextULong();
                     var state = GameEngine.NewRound(roundSeed);
 
@@ -137,7 +147,7 @@ namespace Tichu.Net
                     _onRoundCompleted?.Invoke(outcome);
 
                     var decision = MatchRunner.Decide(_teamA, _teamB, _targetScore);
-                    if (decision == MatchDecision.Continue) continue;
+                    if (decision == MatchDecision.Continue) { roundIndex++; continue; }
 
                     int winner = decision == MatchDecision.TeamAWins ? 0 : 1;
                     for (int seat = 0; seat < SeatCount; seat++)

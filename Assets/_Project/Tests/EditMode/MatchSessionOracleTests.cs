@@ -176,6 +176,83 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Broadcast_to_other_seats_never_carries_legal_moves_for_a_play_await()
+        {
+            // Finding 1 재현 — Awaiting.LegalMoves 는 대기 좌석의 손패에서 계산되므로 다른
+            // 좌석에 그대로 보내면 그 손패가 거의 복원된다. MatchSession.OnAwait 의 유일한
+            // 가드는 `i == seat ? awaiting : redacted` 삼항식이다. 이걸 검증하려면 Play 종류
+            // 대기에 실제로 도달해야 한다 — 큰 티츄·교환 대기는 RemoteAgent.BuildAwaiting 이
+            // LegalMoves 를 채우지 않아(StepKind.Play 일 때만 채운다) 가드가 애초에 빈 값을
+            // 가리는 셈이고, 그래서는 가드를 지워도 테스트가 실패하지 않는다(공허한 통과).
+            //
+            // 그래서 이 테스트는 좌석 0 만 담당하는 인라인 클라이언트로 큰 티츄 패스 ·
+            // 교환(앞 3장)을 응답해 라운드를 Play 단계로 밀어넣는다. 좌석 0 에 대한 Play 종류
+            // Awaiting(LegalMoves 포함)을 **처음** 보는 순간 그 사실만 기록하고 더는 응답하지
+            // 않는다 — 그러면 좌석 0 이 타임아웃해 세션이 fault 하며 스레드가 끝나고, 좌석
+            // 1~3 은 그 사이 쌓인 방송을 그대로 들고 있다. 그게 검증 대상이다.
+            var transport = new LoopbackTransport();
+            var seats = new IAgent?[] { null, new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() };
+
+            var turnTimeout = TimeSpan.FromSeconds(2);
+            var session = new MatchSession(
+                seats, transport, masterSeed: 42UL,
+                targetScore: 1000,
+                turnTimeout: turnTimeout);
+
+            session.Start();
+
+            bool reachedPlayAwaitWithLegalMoves = false;
+            long seq = 0;
+
+            // 이 루프 자체의 안전장치 — 라운드가 끝내 Play 단계에 도달하지 않으면 걸려
+            // 있지 말고 실패해야 한다. 큰 티츄·교환은 이 루프가 즉시 응답하므로 turnTimeout
+            // 2초보다 훨씬 짧게 끝난다 — 10초면 그 두 질문과 폴링 지연을 넉넉히 덮는다.
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (DateTime.UtcNow < deadline && !reachedPlayAwaitWithLegalMoves)
+            {
+                foreach (var ev in transport.Drain(0))
+                {
+                    if (reachedPlayAwaitWithLegalMoves) break;
+                    if (ev.Kind != ServerEventKind.StateUpdate) continue;
+
+                    var awaiting = ev.View!.Awaiting;
+                    if (awaiting == null || awaiting.Seat != 0) continue;
+
+                    if (awaiting.Kind == StepKind.Play)
+                    {
+                        if (awaiting.LegalMoves != null) reachedPlayAwaitWithLegalMoves = true;
+                        continue; // 응답하지 않는다 — 여기서 멈춰야 타임아웃이 걸린다.
+                    }
+
+                    if (awaiting.Kind == StepKind.GrandTichu)
+                    {
+                        transport.Submit(ClientAction.DeclineGrandTichu(0, ++seq));
+                    }
+                    else if (awaiting.Kind == StepKind.Exchange)
+                    {
+                        var h = ev.View.MyHand;
+                        transport.Submit(ClientAction.Exchange(0, ++seq, h[0], h[1], h[2]));
+                    }
+                }
+                if (!reachedPlayAwaitWithLegalMoves) Thread.Sleep(2);
+            }
+
+            Assert.That(reachedPlayAwaitWithLegalMoves, Is.True,
+                "라운드가 Play 종류 Awaiting(합법수 포함)에 도달하지 못했다 — 이 테스트가 공허해졌다");
+
+            Assert.That(session.Join(turnTimeout + TimeSpan.FromSeconds(10)), Is.True,
+                "좌석 0 타임아웃 뒤에도 세션 스레드가 끝나지 않았다");
+
+            for (int seat = 1; seat < 4; seat++)
+                foreach (var ev in transport.Inbox(seat))
+                {
+                    if (ev.Kind != ServerEventKind.StateUpdate || ev.View!.Awaiting == null) continue;
+                    Assert.That(ev.View.Awaiting.LegalMoves, Is.Null,
+                        $"seat {seat} 이 다른 좌석(Play 대기)의 합법수를 받았다 — 은닉 정보 누출");
+                }
+        }
+
+        [Test]
         public void Stop_ends_the_thread_without_faulting()
         {
             // 요구2 OperationCanceledException 경로: 취소는 정상 종료이므로 SessionFaulted 가

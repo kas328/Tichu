@@ -161,6 +161,28 @@ namespace Tichu.Net
             }
         }
 
+        /// <summary>
+        /// 라운드 경계에서 호출한다. 소비되지 않은 액션은 모두 지난 라운드의 질문을 향한 것이라
+        /// 새 라운드의 답이 될 수 없다 — 남겨 두면 라운드당 한 번뿐인 질문(큰 티츄·교환·용 양도)의
+        /// 답으로 조용히 쓰인다. 버리면서 발신자에게 거부를 통보한다(조용한 유실 금지).
+        /// ActionSeq 는 매치 전체에서 단조 증가해야 하므로 초기화하지 않는다(리플레이 방지).
+        /// </summary>
+        public void ResetForNewRound()
+        {
+            var discarded = new List<ClientAction>();
+            lock (_gate)
+            {
+                while (_matched.Count > 0) discarded.Add(_matched.Dequeue());
+                discarded.AddRange(_early);
+                _early.Clear();
+                while (_offTurnPlays.Count > 0) discarded.Add(_offTurnPlays.Dequeue().Action);
+                _tichuReserved = false;
+                _awaiting = null;
+                while (_signal.Wait(0)) { }   // 남은 퍼밋 소각 — 퍼밋 수와 큐 길이를 함께 0으로
+            }
+            foreach (var a in discarded) Reject(a, "stale action from a previous round");
+        }
+
         // ── IAgent 구현 ─────────────────────────────────────────────────────────
 
         /// <inheritdoc/>

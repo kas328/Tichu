@@ -33,6 +33,29 @@ namespace Tichu.Core.Tests
             return s;
         }
 
+        /// <summary>Play 진입 후 합법수를 적용해 트릭·획득 더미에 실제 카드가 쌓이게 전진시킨다.</summary>
+        private static GameState AdvancePlay(GameState s, int actions)
+        {
+            for (int i = 0; i < actions && s.Phase == RoundPhase.Play; i++)
+            {
+                if (s.TryGetPendingDragonGift(out int w))
+                {
+                    Assert.That(GameEngine.Apply(s, GameAction.GiveDragon(w, (w + 1) % 4)).Ok, Is.True,
+                        $"테스트 전제: step {i} 용 양도 적용");
+                    continue;
+                }
+
+                int seat = s.Turn;
+                var moves = LegalMoveGenerator.LegalMoves(s, seat);
+                var action = moves.Count > 0
+                    ? GameAction.Play(seat, moves[0].Cards)
+                    : GameAction.Pass(seat);
+                Assert.That(GameEngine.Apply(s, action).Ok, Is.True,
+                    $"테스트 전제: step {i} seat {seat} 액션 적용");
+            }
+            return s;
+        }
+
         /// <summary>뷰에 등장하는 모든 카드를 모은다.</summary>
         private static List<Card> AllCardsIn(PlayerView v)
         {
@@ -49,11 +72,16 @@ namespace Tichu.Core.Tests
         [Test]
         public void No_other_seat_hand_card_appears_anywhere_in_the_view()
         {
-            var s = PlayPhaseState(42UL);
+            var s = AdvancePlay(PlayPhaseState(42UL), 12);
+            Assert.That(s.CurrentTrick != null || s.CompletedTricks.Count > 0, Is.True,
+                "테스트 전제: 전진 후 트릭이 존재해야 함");
 
             for (int viewer = 0; viewer < 4; viewer++)
             {
-                var visible = AllCardsIn(ViewProjector.ProjectFor(s, viewer));
+                var v = ViewProjector.ProjectFor(s, viewer);
+                var visible = AllCardsIn(v);
+                Assert.That(visible.Count, Is.GreaterThan(v.MyHand.Count),
+                    $"viewer {viewer} 의 뷰가 자기 손패 외 공개 카드를 전혀 담지 않았다 — 마스킹 검사가 공허해진다");
                 for (int other = 0; other < 4; other++)
                 {
                     if (other == viewer) continue;
@@ -113,6 +141,42 @@ namespace Tichu.Core.Tests
             Assert.That(v.TeamBScore, Is.EqualTo(-20));
             Assert.That(v.TargetScore, Is.EqualTo(s.Scores.TargetScore));
             Assert.That(v.Phase, Is.EqualTo(RoundPhase.Play));
+        }
+
+        [Test]
+        public void Trick_view_carries_played_cards_and_marks_passes()
+        {
+            // seat0 가 A 단독 리드 → seat1 은 3 뿐이라 받을 수 없어 패스한다(결정적).
+            var ace = Card.Normal(14, Suit.Jade);
+            var s = GameFlowHelpers.PlayState(0,
+                new List<Card> { ace },
+                new List<Card> { Card.Normal(3, Suit.Jade) },
+                new List<Card> { Card.Normal(4, Suit.Jade) },
+                new List<Card> { Card.Normal(5, Suit.Jade) });
+
+            Assert.That(GameEngine.Apply(s, GameAction.Play(0, new[] { ace })).Ok, Is.True,
+                "테스트 전제: seat0 단독 A 리드 적용");
+            Assert.That(LegalMoveGenerator.LegalMoves(s, 1).Count, Is.EqualTo(0),
+                "테스트 전제: seat1 은 A 를 받을 수 없어야 함");
+            Assert.That(GameEngine.Apply(s, GameAction.Pass(1)).Ok, Is.True,
+                "테스트 전제: seat1 패스 적용");
+
+            var v = ViewProjector.ProjectFor(s, 2);
+
+            Assert.That(v.CurrentTrick, Is.Not.Null, "진행 중 트릭이 투영돼야 한다");
+            Assert.That(v.CurrentTrick!.TopCards, Is.EquivalentTo(new[] { ace }));
+            Assert.That(v.CurrentTrick.TopOwnerSeat, Is.EqualTo(0));
+            Assert.That(v.CurrentTrick.History.Count, Is.EqualTo(2));
+
+            var lead = v.CurrentTrick.History[0];
+            Assert.That(lead.Seat, Is.EqualTo(0));
+            Assert.That(lead.IsPass, Is.False);
+            Assert.That(lead.Cards, Is.EquivalentTo(new[] { ace }));
+
+            var passed = v.CurrentTrick.History[1];
+            Assert.That(passed.Seat, Is.EqualTo(1));
+            Assert.That(passed.IsPass, Is.True, "Combination 이 null 인 엔트리는 패스로 매핑돼야 한다");
+            Assert.That(passed.Cards, Is.Empty);
         }
     }
 }

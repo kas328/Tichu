@@ -18,7 +18,7 @@ namespace Tichu.Net
         /// Rank 가 0이 아니면 그 값까지 일치해야 한다 — 클라이언트의 뷰가 낡아 다른 조합을
         /// 의도한 경우를 잡는 선택적 검증이다. 모호성 해소용이 아니다: Recognize 는 카드
         /// 다중집합의 순수 함수라 두 합법수가 같은 카드 집합을 가질 수 없고, 그 불변식은
-        /// LegalMovesTests 의 전용 테스트가 지킨다.
+        /// MoveResolverTests.No_two_legal_moves_share_a_card_multiset 가 지킨다.
         /// </summary>
         public static Combination? ResolveMove(GameState s, int seat, ClientAction a)
         {

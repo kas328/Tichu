@@ -20,7 +20,7 @@ namespace Tichu.Core.Tests
             new IAgent[] { new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() };
 
         [Test]
-        public void Null_hooks_produce_the_same_round_as_before()
+        public void Explicit_null_hooks_match_the_default_overload()
         {
             var a = new GameDriver(FourDefaults()).RunRound(GameEngine.NewRound(42UL));
             var b = new GameDriver(FourDefaults()).RunRound(GameEngine.NewRound(42UL), null, null, null);
@@ -108,7 +108,7 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void Rejected_pending_bomb_is_dropped_without_throwing()
+        public void Rejected_pending_bomb_is_neither_logged_nor_broadcast()
         {
             var s = GameFlowHelpers.PlayState(0,
                 Hand(Card.Normal(3, Suit.Jade)),
@@ -123,15 +123,51 @@ namespace Tichu.Core.Tests
                 Card.Normal(9, Suit.Pagoda), Card.Normal(9, Suit.Star)
             };
 
+            var notified = new List<GameAction>();
             bool handed = false;
+            RoundOutcome outcome = null!;
+
             Assert.DoesNotThrow(() =>
-                new GameDriver(FourDefaults()).RunRound(s, null, null,
-                    takePendingBomb: _ =>
+                outcome = new GameDriver(FourDefaults()).RunRound(s,
+                    (st, act) => notified.Add(act),
+                    null,
+                    _ =>
                     {
                         if (handed) return null;
                         handed = true;
                         return GameAction.Play(2, bogus);
                     }));
+
+            Assert.That(handed, Is.True, "테스트 전제: 폭탄 예약 훅이 한 번은 호출돼야 함");
+            foreach (var a in outcome.Log)
+                Assert.That(a.Cards, Is.Not.EqualTo(bogus), "거부된 폭탄이 로그에 들어갔다");
+            foreach (var a in notified)
+                Assert.That(a.Cards, Is.Not.EqualTo(bogus), "거부된 폭탄이 방송됐다");
+            Assert.That(notified.Count, Is.EqualTo(outcome.Log.Count), "방송 수와 로그 수가 어긋났다");
+        }
+
+        [Test]
+        public void Rejected_pending_tichu_is_dropped_without_throwing()
+        {
+            // 손패가 14장이 아니면 GameEngine.ApplyCallTichu 가 거부한다. 원격 입력이므로
+            // 드라이버는 throw 하지 않고 버려야 한다.
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(Card.Normal(3, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(5, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)));
+
+            bool handed = false;
+            RoundOutcome outcome = null!;
+
+            Assert.DoesNotThrow(() =>
+                outcome = new GameDriver(FourDefaults()).RunRound(s, null,
+                    takePendingTichu: _ => { if (handed) return -1; handed = true; return 2; }));
+
+            Assert.That(handed, Is.True, "테스트 전제: 티츄 예약 훅이 한 번은 호출돼야 함");
+            Assert.That(outcome.State.Seats[2].Call, Is.EqualTo(TichuCall.None), "거부된 콜이 적용됐다");
+            foreach (var a in outcome.Log)
+                Assert.That(a.Kind, Is.Not.EqualTo(GameActionKind.CallTichu), "거부된 콜이 로그에 들어갔다");
         }
     }
 }

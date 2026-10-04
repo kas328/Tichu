@@ -104,17 +104,27 @@ namespace Tichu.GameFlow
 
         /// <summary>
         /// Play 페이즈의 한 번의 반복. 고정 순서:
-        /// 1) 용 양도 → 2) 폭탄 창 → 3) 작은 티츄 훅(폴스루) → 4) 인-턴 행동.
+        /// 0) 작은 티츄 예약 → 0b) 차례밖 폭탄 예약 → 1) 용 양도 → 2) 폭탄 창 → 3) 작은 티츄 훅(폴스루) → 4) 인-턴 행동.
         /// 각 분기는 처리 후 return 하여 바깥 루프가 상태를 재평가하게 한다.
         /// 단, 작은 티츄 훅은 턴을 소모하지 않으므로 return 하지 않고 4로 폴스루한다.
         /// </summary>
         private void DrivePlay(GameState s, List<GameAction> log)
         {
             // 0) 작은 티츄 인터럽트: 예약된 콜을 먼저 적용(차례 무관, 첫 패 전이면 합법).
+            //    원격 클라이언트가 먹이는 입력이라 0b 와 동일하게 절대 throw 하지 않는다 —
+            //    Play 와 CallTichu 를 연달아 보내면 손패가 13장이 된 뒤 예약이 소비될 수 있고,
+            //    그때 엔진이 거부한다. 불법 입력은 상태를 바꾸지 않고 조용히 버린다(기획서 7.7).
+            //    AsyncGameDriver 는 예약이 로컬 UI 버튼에서 와 합법성이 미리 게이팅되므로 throw 한다.
             if (_takePendingTichu != null)
             {
                 int ts = _takePendingTichu(s);
-                if (ts >= 0) { Apply(s, GameAction.CallTichu(ts), log); return; }
+                if (ts >= 0)
+                {
+                    var tichuAction = GameAction.CallTichu(ts);
+                    var tichuRes = GameEngine.Apply(s, tichuAction);
+                    if (tichuRes.Ok) { log.Add(tichuAction); _onApply?.Invoke(s, tichuAction); }
+                    return;
+                }
             }
 
             // 0b) 차례밖 폭탄 인터럽트: 예약된 폭탄을 적용 시도. 합법성은 엔진이 판정하며,

@@ -27,7 +27,7 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path $PSScriptRoot -Parent
 
-function Path([string[]]$parts) { [IO.Path]::Combine(@($root) + $parts) }
+function Path([string[]]$parts) { [IO.Path]::Combine($root, ($parts -join [IO.Path]::DirectorySeparatorChar)) }
 
 $mappings = @(
     @{
@@ -54,6 +54,10 @@ $mappings = @(
         Exclude = @("*Bench.cs", "*Trainer.cs", "*TrainerTests.cs", "OldAiAgent.cs")
     }
 )
+
+foreach ($m in $mappings) {
+    if (-not (Test-Path $m.Src)) { throw "Mapping Src does not exist: $($m.Src)" }
+}
 
 function Get-CsFiles([string]$dir, [string[]]$exclude) {
     Get-ChildItem -Recurse -Path $dir -Filter "*.cs" |

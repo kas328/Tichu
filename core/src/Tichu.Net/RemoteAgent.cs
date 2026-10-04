@@ -22,6 +22,11 @@ namespace Tichu.Net
     ///
     /// 불법 입력은 상태를 바꾸지 않고 발신자에게만 ActionRejected 를 보낸 뒤 계속 기다린다
     /// (기획서 7.7). 즉 이 클래스가 서버측 검증 관문이다.
+    ///
+    /// 단, 그 보장은 블로킹 메서드 네 개(큰 티츄·교환·차례·용 양도)에만 적용된다. 예약
+    /// 우편함 둘은 관문을 우회한다 — 드라이버는 티츄·폭탄 예약 훅에서 엔진이 거부한 액션을
+    /// ActionRejected 없이 조용히 버린다. 그래서 작은 티츄 콜과 차례밖 폭탄은 실패해도
+    /// 클라이언트가 통보를 받지 못한다. 이걸 표면화하는 일은 M1 범위가 아니다(M2/M5).
     /// </summary>
     public sealed class RemoteAgent : IAgent
     {
@@ -83,32 +88,42 @@ namespace Tichu.Net
         {
             if (a.Seat != _seat) { Reject(a, "action seat does not match this seat"); return; }
 
+            // 거부는 잠금 안에서 결정만 하고 해제한 뒤에 보낸다 — _gate 를 쥔 채 콜백을
+            // 부르면 재진입 틈이 생긴다. 이러면 좌석 불일치 거부와 위치가 같아진다.
+            string? rejectReason = null;
             lock (_gate)
             {
-                if (a.ActionSeq <= _lastSeq) { Reject(a, "duplicate or out-of-order actionSeq"); return; }
-                _lastSeq = a.ActionSeq;
-
-                if (_awaiting.HasValue && Matches(_awaiting.Value, a.Kind))
+                if (a.ActionSeq <= _lastSeq)
                 {
-                    // 큐로 받는다. 거부 뒤 재제출처럼 한 결정에 여러 액션이 연달아 올 수 있고,
-                    // 단일 슬롯이면 먼저 온 것이 덮어써져 거부 통보가 사라진다.
-                    _matched.Enqueue(a);
-                    _signal.Release();
-                    return;
+                    rejectReason = "duplicate or out-of-order actionSeq";
                 }
-
-                if (a.Kind == ClientActionKind.CallTichu) { _tichuReserved = true; return; }
-
-                if (a.Kind == ClientActionKind.Play)
+                else
                 {
-                    // 차례밖 폭탄 후보. 자기 차례가 되면 Await 가 여기서 꺼내 쓴다.
-                    // 도착 순번은 제출 시점에 확정해 항목마다 들고 간다.
-                    _offTurnPlays.Enqueue(new OffTurnPlay(a, _nextArrival()));
-                    return;
-                }
+                    _lastSeq = a.ActionSeq;
 
-                _early.Add(a);
+                    if (_awaiting.HasValue && Matches(_awaiting.Value, a.Kind))
+                    {
+                        // 큐로 받는다. 거부 뒤 재제출처럼 한 결정에 여러 액션이 연달아 올 수 있고,
+                        // 단일 슬롯이면 먼저 온 것이 덮어써져 거부 통보가 사라진다.
+                        _matched.Enqueue(a);
+                        _signal.Release();
+                        return;
+                    }
+
+                    if (a.Kind == ClientActionKind.CallTichu) { _tichuReserved = true; return; }
+
+                    if (a.Kind == ClientActionKind.Play)
+                    {
+                        // 차례밖 폭탄 후보. 자기 차례가 되면 Await 가 여기서 꺼내 쓴다.
+                        // 도착 순번은 제출 시점에 확정해 항목마다 들고 간다.
+                        _offTurnPlays.Enqueue(new OffTurnPlay(a, _nextArrival()));
+                        return;
+                    }
+
+                    _early.Add(a);
+                }
             }
+            if (rejectReason != null) Reject(a, rejectReason);
         }
 
         // ── 세션이 예약을 꺼내가는 입구 ─────────────────────────────────────────
@@ -247,6 +262,14 @@ namespace Tichu.Net
 
         private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat)
         {
+            // Seat 은 _seat, LegalMoves/CanPass 는 seat 로 계산한다. 둘이 어긋나면 한 좌석의
+            // 신분에 다른 좌석의 합법수를 실어 보내는 은닉 정보 누출이 된다 — 이 마일스톤의
+            // 핵심 불변식이라 배선 오류를 조용히 넘기지 않고 크게 터뜨린다(클라이언트 입력이
+            // 아니라 프로그래머 오류이므로 세션을 죽이는 쪽이 맞다).
+            if (seat != _seat)
+                throw new System.InvalidOperationException(
+                    $"seat {_seat} 에이전트가 seat {seat} 으로 질의됐다 — 배선 오류");
+
             var aw = new Awaiting { Kind = kind, Seat = _seat };
             if (kind == StepKind.Play)
             {

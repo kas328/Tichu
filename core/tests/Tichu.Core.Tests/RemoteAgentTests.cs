@@ -174,6 +174,41 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Blocking_wait_is_woken_by_a_later_submit()
+        {
+            // 이 테스트만이 _matched.Enqueue + Release → Wait + Dequeue 경로를 탄다.
+            // 나머지 테스트는 모두 블로킹 호출 전에 Submit 하므로 Await 의 선행 버퍼에서 끝난다.
+            const int submitDelayMs = 150;
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            var submitter = new Thread(() =>
+            {
+                Thread.Sleep(submitDelayMs);
+                agent.Submit(ClientAction.Play(0, 1L,
+                    new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null));
+            }) { IsBackground = true };
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            submitter.Start();
+            var d = agent.DecideTurn(ctx);   // 실제로 블로킹된다
+            sw.Stop();
+
+            Assert.That(submitter.Join(TimeSpan.FromSeconds(5)), Is.True, "제출 스레드가 끝나지 않았다");
+
+            // 경로 식별: 선행 버퍼였다면 밀리초 단위로 즉시 돌아온다.
+            Assert.That(sw.ElapsedMilliseconds, Is.GreaterThanOrEqualTo(80),
+                "즉시 반환됐다 — 선행 버퍼 경로를 탄 것이므로 교차 스레드 깨우기를 검증하지 못했다");
+
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move, Is.Not.Null);
+            Assert.That(d.Move!.Cards, Is.EquivalentTo(new[] { Card.Normal(5, Suit.Jade) }));
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+            Assert.That(h.Awaits.Count, Is.EqualTo(1), "대기 공지는 한 번이어야 한다");
+        }
+
+        [Test]
         public void Timeout_throws()
         {
             var h = new Harness();

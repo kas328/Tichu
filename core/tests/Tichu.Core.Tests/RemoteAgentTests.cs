@@ -252,6 +252,14 @@ namespace Tichu.Core.Tests
         [Test]
         public void Leftover_matched_action_does_not_answer_a_different_question()
         {
+            // ⚠️ 검출력 미입증: 수정 전 코드에서 10회 돌려 0회 실패했다. 두 번째 Submit 이
+            // _awaiting 이 지워지기 전에 도착해야 _matched 에 잔여물이 생기는데, 깨어난 주
+            // 스레드가 _gate 를 먼저 잡는 쪽으로 거의 항상 기울어 Pass 가 선행 큐로 간다.
+            // 그래서 이 테스트는 '지나가다 걸릴지도 모르는 덫' 이고, Critical 의 근거가 아니다.
+            // 실제 근거는 구조다 — Await 가 대기 전에 _matched 를 비우므로 대기 후 Dequeue 는
+            // 매칭 종류만 볼 수 있다. 같은 부류의 결정적 검증은
+            // Buffered_wrong_kind_action_does_not_answer_a_question 이 담당한다.
+            //
             // 한 질문에 매칭 액션 2건이 도착해 첫 건이 수락되면 두 번째가 _matched 에 남는다.
             // 그 잔여물이 다음 질문(다른 StepKind)의 답으로 쓰이면 서버가 플레이어가 하지 않은
             // 결정을 조작한다 — 큰 티츄 자동 패스, 용 점수 무단 헌납.

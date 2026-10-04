@@ -23,7 +23,7 @@
 
 ## 스펙 대비 정제 3건 (계획 수립 중 확정 — 스펙 §11에도 기록)
 
-1. **`ClientAction.Play`에 `Rank`(×2 스케일) 추가.** 손패 `3,4,5,6,봉황`은 봉황을 2로 쓰는 스트레이트와 7로 쓰는 스트레이트를 모두 만들 수 있고 **카드 집합이 완전히 같다**(`LegalMoveGenerator`가 창 `[lo,hi]`마다 `usePhoenix` 유/무로 각각 생성). 카드 집합만으로 해소가 안 되므로 `Rank`를 함께 보낸다.
+1. **`ClientAction.Play`에 `Rank`(×2 스케일) 추가.** ⚠️ **이 근거는 Task 5 구현 중 거짓으로 판명됐다** — `CombinationRecognizer.RecognizeStraight`가 끝 확장 시 상단을 우선하므로 `3,4,5,6,봉황`은 7-high 하나만 생성되고, `Recognize`는 카드 다중집합의 순수 함수라 두 합법수가 같은 카드 집합을 가질 수 없다(생성 24,000회·합법수 40,191개 실측에서 동일-다중집합 쌍 0건). 모호성 해소 분기는 제거됐고 `Rank`는 **선택적 의도 검증**(낡은 클라이언트 뷰 탐지)으로 남았다. 정정 경위는 스펙 §11.1 참조.
 2. **`Awaiting`에 `LegalMoves`·`CanPass` 추가, 단 대기 좌석에게만.** 클라이언트는 `PlayerView`만 들고 있어 `LegalMoveGenerator`(전체 `GameState` 필요)를 돌릴 수 없다. 합법수는 **자기 손패와 공개 트릭 상태에서만** 유도되므로 은닉 정보가 아니다. 다른 좌석에게는 `Kind`·`Seat`만 남긴 축약판을 보낸다(차례 표시용). `LegalMoves`가 돌려주는 `Combination`은 보관해도 안전하다 — `LegalMoveGenerator.cs:218-219` 주석대로 `Recognize()`가 카드를 새 배열로 복사하므로 `ThreadStatic` 스크래치 버퍼를 참조하지 않는다.
 3. **`Awaiting` 발행 시점은 `RemoteAgent`가 대기에 들어가는 순간.** 드라이버의 `grandNext`/`exchangeNext` 카운터는 세션이 볼 수 없고 `RoundSetup`은 `internal`이라 "지금 누구를 기다리는지"를 상태에서 역산할 수 없다. 묻는 주체인 에이전트가 직접 알리는 것이 정확하다.
 
@@ -682,8 +682,8 @@ namespace Tichu.Net
 
         /// <summary>
         /// Play: 클라이언트가 의도한 조합의 ×2 스케일 Rank. 0 = 미지정.
-        /// 봉황이 스트레이트의 어느 칸을 메우는지는 카드 집합만으로 결정되지 않으므로
-        /// (3,4,5,6,봉황 → 봉황을 2로 또는 7로) 이 값으로 해소한다.
+        /// 카드 집합이 일치하는 합법수의 Rank 와 다르면 클라이언트 뷰가 낡았다는 뜻이므로
+        /// 적용하지 않는다 — 선택적 의도 검증이며, 모호성 해소용이 아니다(스펙 §11.1).
         /// </summary>
         public int Rank { get; set; }
 

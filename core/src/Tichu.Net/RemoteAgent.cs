@@ -1,0 +1,289 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using Tichu.Core.Cards;
+using Tichu.Core.Combinations;
+using Tichu.Core.Game;
+using Tichu.GameFlow;
+using Tichu.GameFlow.Agents;
+
+namespace Tichu.Net
+{
+    /// <summary>
+    /// 원격 플레이어 좌석. 드라이버가 물으면 해당 종류의 액션이 도착할 때까지 블로킹한다.
+    ///
+    /// 세 가지 우편함을 쓴다.
+    ///  · 대기 슬롯  — 지금 묻고 있는 종류의 액션. 도착하면 즉시 대기를 깨운다.
+    ///  · 선행 큐    — 아직 묻지 않은 종류의 액션. 보관해 두면 교환 4인 동시 제출이 자연히 동작한다.
+    ///  · 예약       — 작은 티츄 콜과 차례밖 폭탄. 드라이버의 예약 훅으로 빠져나간다.
+    ///
+    /// 폭탄을 예약으로 두는 이유는 드라이버의 폭탄 창이 좌석을 순회하며 각자에게 묻기
+    /// 때문이다 — 사람에게 그걸 동기로 물으면 매 트릭마다 전원이 대기한다.
+    ///
+    /// 불법 입력은 상태를 바꾸지 않고 발신자에게만 ActionRejected 를 보낸 뒤 계속 기다린다
+    /// (기획서 7.7). 즉 이 클래스가 서버측 검증 관문이다.
+    /// </summary>
+    public sealed class RemoteAgent : IAgent
+    {
+        private readonly int _seat;
+        private readonly Action<int, ServerEvent> _send;
+        private readonly Action<int, Awaiting> _onAwait;
+        private readonly Func<long> _nextArrival;
+        private readonly TimeSpan _timeout;
+        private readonly CancellationToken _ct;
+
+        private readonly object _gate = new object();
+        private readonly SemaphoreSlim _signal = new SemaphoreSlim(0);
+        private readonly List<ClientAction> _early = new List<ClientAction>();
+
+        private StepKind? _awaiting;
+        private readonly Queue<ClientAction> _matched = new Queue<ClientAction>();
+        private long _lastSeq;
+        private bool _tichuReserved;
+
+        /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
+        private readonly struct OffTurnPlay
+        {
+            public readonly ClientAction Action;
+            public readonly long Arrival;
+
+            public OffTurnPlay(ClientAction action, long arrival)
+            {
+                Action = action;
+                Arrival = arrival;
+            }
+        }
+
+        // 단일 슬롯이 아니라 큐인 이유: 클라이언트가 기다리지 않고 Play 를 두 번 연달아
+        // 보내면 둘 다 제출 순서대로 검증돼야 한다. 슬롯이면 먼저 온 것이 조용히 덮어써져
+        // 거부 통보 없이 사라지는데, 그건 Task 4 에서 티츄 훅에서 걷어낸 '통보 없는 유실'
+        // 과 같은 부류다 — 이 클래스가 검증 관문이라는 전제와 정면으로 어긋난다.
+        private readonly Queue<OffTurnPlay> _offTurnPlays = new Queue<OffTurnPlay>();
+
+        public RemoteAgent(
+            int seat,
+            Action<int, ServerEvent> send,
+            Action<int, Awaiting> onAwait,
+            Func<long> nextArrival,
+            TimeSpan timeout,
+            CancellationToken ct)
+        {
+            _seat = seat;
+            _send = send;
+            _onAwait = onAwait;
+            _nextArrival = nextArrival;
+            _timeout = timeout;
+            _ct = ct;
+        }
+
+        // ── 클라이언트 입구 ──────────────────────────────────────────────────────
+
+        /// <summary>클라이언트가 액션을 제출한다. 전송 스레드에서 호출된다.</summary>
+        public void Submit(ClientAction a)
+        {
+            if (a.Seat != _seat) { Reject(a, "action seat does not match this seat"); return; }
+
+            lock (_gate)
+            {
+                if (a.ActionSeq <= _lastSeq) { Reject(a, "duplicate or out-of-order actionSeq"); return; }
+                _lastSeq = a.ActionSeq;
+
+                if (_awaiting.HasValue && Matches(_awaiting.Value, a.Kind))
+                {
+                    // 큐로 받는다. 거부 뒤 재제출처럼 한 결정에 여러 액션이 연달아 올 수 있고,
+                    // 단일 슬롯이면 먼저 온 것이 덮어써져 거부 통보가 사라진다.
+                    _matched.Enqueue(a);
+                    _signal.Release();
+                    return;
+                }
+
+                if (a.Kind == ClientActionKind.CallTichu) { _tichuReserved = true; return; }
+
+                if (a.Kind == ClientActionKind.Play)
+                {
+                    // 차례밖 폭탄 후보. 자기 차례가 되면 Await 가 여기서 꺼내 쓴다.
+                    // 도착 순번은 제출 시점에 확정해 항목마다 들고 간다.
+                    _offTurnPlays.Enqueue(new OffTurnPlay(a, _nextArrival()));
+                    return;
+                }
+
+                _early.Add(a);
+            }
+        }
+
+        // ── 세션이 예약을 꺼내가는 입구 ─────────────────────────────────────────
+
+        /// <summary>예약된 차례밖 폭탄 후보(큐의 머리). 없으면 null.</summary>
+        public ClientAction? PeekReservedBomb()
+        {
+            lock (_gate) return _offTurnPlays.Count > 0 ? _offTurnPlays.Peek().Action : null;
+        }
+
+        /// <summary>예약된 폭탄(큐의 머리)의 도착 순번. 좌석 간 직렬화에 쓴다.</summary>
+        public long ReservedBombArrival()
+        {
+            lock (_gate) return _offTurnPlays.Count > 0 ? _offTurnPlays.Peek().Arrival : 0;
+        }
+
+        /// <summary>예약된 폭탄(큐의 머리)을 소비한다.</summary>
+        public void ConsumeReservedBomb()
+        {
+            lock (_gate) { if (_offTurnPlays.Count > 0) _offTurnPlays.Dequeue(); }
+        }
+
+        /// <summary>예약된 작은 티츄 콜을 한 번만 꺼낸다.</summary>
+        public bool TakeReservedTichu()
+        {
+            lock (_gate)
+            {
+                if (!_tichuReserved) return false;
+                _tichuReserved = false;
+                return true;
+            }
+        }
+
+        // ── IAgent 구현 ─────────────────────────────────────────────────────────
+
+        /// <inheritdoc/>
+        public bool CallGrandTichu(in DecisionContext ctx)
+        {
+            var a = Await(StepKind.GrandTichu, ctx.State, ctx.Seat);
+            return a.Kind == ClientActionKind.CallGrandTichu;
+        }
+
+        /// <inheritdoc/>
+        public ExchangeChoice ChooseExchange(in DecisionContext ctx)
+        {
+            var state = ctx.State;
+            int seat = ctx.Seat;
+            while (true)
+            {
+                var a = Await(StepKind.Exchange, state, seat);
+                if (!IsLegalExchange(state, seat, a)) { Reject(a, "exchange cards must be three distinct cards from hand"); continue; }
+                return new ExchangeChoice(a.ToLeft, a.ToPartner, a.ToRight);
+            }
+        }
+
+        /// <inheritdoc/>
+        public bool CallTichu(in DecisionContext ctx) => TakeReservedTichu();
+
+        /// <inheritdoc/>
+        public TurnDecision DecideTurn(in DecisionContext ctx)
+        {
+            var state = ctx.State;
+            int seat = ctx.Seat;
+            while (true)
+            {
+                var a = Await(StepKind.Play, state, seat);
+
+                if (a.Kind == ClientActionKind.Pass)
+                {
+                    if (LegalMoveGenerator.CanPass(state, seat)) return TurnDecision.Pass;
+                    Reject(a, "cannot pass now");
+                    continue;
+                }
+
+                var move = MoveResolver.ResolveMove(state, seat, a);
+                if (move == null) { Reject(a, "illegal or ambiguous move"); continue; }
+                return TurnDecision.Play(move, a.Wish);
+            }
+        }
+
+        /// <inheritdoc/>
+        /// <remarks>항상 null. 폭탄은 예약 경로로만 들어온다 — 그래야 매 트릭 전원 대기가 없다.</remarks>
+        public Combination? DecideBomb(in DecisionContext ctx) => null;
+
+        /// <inheritdoc/>
+        public int ChooseDragonRecipient(in DecisionContext ctx)
+        {
+            var state = ctx.State;
+            int seat = ctx.Seat;
+            while (true)
+            {
+                var a = Await(StepKind.DragonGift, state, seat);
+                int r = a.RecipientSeat;
+                bool isOpponent = r >= 0 && r < 4 && (r % 2) != (seat % 2);
+                if (!isOpponent) { Reject(a, "dragon recipient must be an opponent"); continue; }
+                return r;
+            }
+        }
+
+        // ── 내부 ────────────────────────────────────────────────────────────────
+
+        /// <summary>해당 종류의 액션이 올 때까지 기다린다. 선행 큐와 폭탄 예약을 먼저 확인한다.</summary>
+        private ClientAction Await(StepKind kind, GameState state, int seat)
+        {
+            // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다.** 이 방송이 "지금 누구에게
+            // 무엇을 묻는지"의 유일한 신호라, 건너뛰면 아무도 차례를 알 수 없게 된다.
+            _onAwait(_seat, BuildAwaiting(kind, state, seat));
+
+            lock (_gate)
+            {
+                for (int i = 0; i < _early.Count; i++)
+                {
+                    if (!Matches(kind, _early[i].Kind)) continue;
+                    var buffered = _early[i];
+                    _early.RemoveAt(i);
+                    return buffered;
+                }
+
+                if (kind == StepKind.Play && _offTurnPlays.Count > 0)
+                    return _offTurnPlays.Dequeue().Action;
+
+                _awaiting = kind;
+            }
+
+            bool got = _signal.Wait(_timeout, _ct);
+
+            lock (_gate)
+            {
+                _awaiting = null;
+                if (!got) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
+                // 남은 항목이 다음 결정으로 넘어갈 수 있지만, 꺼낸 액션은 항상 현재 상태로
+                // 재검증되므로(ResolveMove / CanPass / IsLegalExchange) 안전하다.
+                return _matched.Dequeue();
+            }
+        }
+
+        private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat)
+        {
+            var aw = new Awaiting { Kind = kind, Seat = _seat };
+            if (kind == StepKind.Play)
+            {
+                aw.LegalMoves = LegalMoveGenerator.LegalMoves(state, seat);
+                aw.CanPass = LegalMoveGenerator.CanPass(state, seat);
+            }
+            return aw;
+        }
+
+        private static bool Matches(StepKind kind, ClientActionKind action) => kind switch
+        {
+            StepKind.GrandTichu => action == ClientActionKind.CallGrandTichu
+                                || action == ClientActionKind.DeclineGrandTichu,
+            StepKind.Exchange   => action == ClientActionKind.Exchange,
+            StepKind.Play       => action == ClientActionKind.Play || action == ClientActionKind.Pass,
+            StepKind.DragonGift => action == ClientActionKind.GiveDragon,
+            _ => false,
+        };
+
+        private static bool IsLegalExchange(GameState state, int seat, ClientAction a)
+        {
+            if (a.ToLeft.Equals(a.ToPartner) || a.ToLeft.Equals(a.ToRight) || a.ToPartner.Equals(a.ToRight))
+                return false;
+
+            var hand = new List<Card>(state.Seats[seat].Hand);
+            return Take(hand, a.ToLeft) && Take(hand, a.ToPartner) && Take(hand, a.ToRight);
+        }
+
+        private static bool Take(List<Card> hand, Card c)
+        {
+            int i = hand.IndexOf(c);
+            if (i < 0) return false;
+            hand.RemoveAt(i);
+            return true;
+        }
+
+        private void Reject(ClientAction a, string reason) =>
+            _send(_seat, ServerEvent.ActionRejected(a.ActionSeq, reason));
+    }
+}

@@ -41,6 +41,12 @@ namespace Tichu.Net
         public static ServerEvent StateUpdate(PlayerView view) =>
             new ServerEvent { Kind = ServerEventKind.StateUpdate, View = view };
 
+        public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting)
+        {
+            view.Awaiting = awaiting;
+            return new ServerEvent { Kind = ServerEventKind.StateUpdate, View = view };
+        }
+
         public static ServerEvent ActionRejected(long actionSeq, string reason) =>
             new ServerEvent { Kind = ServerEventKind.ActionRejected, ActionSeq = actionSeq, Reason = reason };
 

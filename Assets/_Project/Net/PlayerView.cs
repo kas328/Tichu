@@ -73,5 +73,8 @@ namespace Tichu.Net
         public int TeamAScore { get; set; }
         public int TeamBScore { get; set; }
         public int TargetScore { get; set; }
+
+        /// <summary>서버가 지금 무엇을 기다리는지. 기다리는 중이 아니면 null.</summary>
+        public Awaiting? Awaiting { get; set; }
     }
 }

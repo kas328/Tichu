@@ -66,7 +66,7 @@
 
 - 좌석별 메일박스. `Submit(ClientAction)`은 전송 스레드에서 호출되며 스레드 안전하다.
 - **버퍼링** — 드라이버가 묻기 전에 도착한 액션도 보관한다. 덕분에 교환 4인 동시 제출이 자연히 동작한다(드라이버는 좌석 순서로 소비).
-- **종류 불일치** — 기대하는 `StepKind`와 다른 액션이 오면 상태를 바꾸지 않고 발신자에게만 `ActionRejected`를 보내고 버린다.
+- **종류 불일치는 버리지 않고 보관한다** — 기대하는 `StepKind`와 다른 액션은 선행 큐에 남긴다(위 버퍼링과 같은 메커니즘). 거부는 **좌석 불일치 · `ActionSeq` 중복/역행 · 내용 불법**(손에 없는 카드, 모호한 봉황 배치, 불가능한 패스, 상대가 아닌 용 양도 대상)에만 보내며, 상태를 바꾸지 않고 발신자에게만 간다. ⚠️ 협조하지 않는 클라이언트가 선행 큐를 무한히 키울 수 있다 — 레이트리밋은 실제 전송이 붙는 M2 몫이다(기획서 7.7도 레이트리밋을 그 층의 항목으로 둔다).
 - `DecideTurn` · `ChooseExchange` · `CallGrandTichu` · `ChooseDragonRecipient` — 해당 종류가 올 때까지 `Wait(timeout)`.
 - `DecideBomb` — **항상 즉시 null.** 폭탄은 예약 경로로만 들어온다.
 - `CallTichu` — 예약 플래그를 즉시 반환.
@@ -99,6 +99,16 @@
 
 명시적 보류 두 건: **교환 제출 현황 표시**(`RoundSetup`이 `internal`이라 공개 접근자 또는 `InternalsVisibleTo`가 필요 — M4에서 결정), **PIMC를 core로 승격**(서버 측 AI 인계에 필요 — M5. README가 이미 남은 정리 대상으로 기록).
 
-## 11. 승인된 결정
+## 11. 구현 계획 수립 중 확정된 정제 3건
+
+계획(`docs/superpowers/plans/2026-10-04-mp-m1-session-protocol.md`)을 쓰면서 코드로 내려가 보니 세 군데가 더 정해져야 했다. 스펙을 뒤집는 변경은 없고, 모두 덧붙임이다.
+
+1. **`ClientAction.Play`에 `Rank`(×2 스케일) 추가.** 손패 `3,4,5,6,봉황`은 봉황을 2로 쓰는 스트레이트와 7로 쓰는 스트레이트를 모두 만들 수 있고 **카드 집합이 완전히 같다**(`LegalMoveGenerator`가 창 `[lo,hi]`마다 `usePhoenix` 유/무로 각각 생성). 카드 집합만으로는 해소가 안 되므로 클라이언트가 의도한 조합의 `Rank`를 함께 보내고, 서버는 (카드 다중집합, `Rank`)로 합법수 목록에서 정확히 하나를 찾는다. 0개면 불법, 2개 이상이면 모호로 거부한다.
+
+2. **`Awaiting`에 `LegalMoves`·`CanPass` 추가 — 단 대기 좌석에게만.** 클라이언트는 `PlayerView`만 들고 있어 `LegalMoveGenerator`(전체 `GameState` 필요)를 돌릴 수 없다. 합법수는 **그 좌석 자기 손패와 공개 트릭 상태에서만** 유도되므로 은닉 정보가 아니다. 다른 좌석에게는 `Kind`·`Seat`만 남긴 축약판을 보낸다(차례 표시용). `LegalMoves`가 돌려주는 `Combination`은 보관해도 안전하다 — `LegalMoveGenerator.cs:218-219` 주석대로 `Recognize()`가 카드를 새 배열로 복사하므로 `ThreadStatic` 스크래치 버퍼를 참조하지 않는다.
+
+3. **`Awaiting` 발행 시점은 `RemoteAgent`가 대기에 들어가는 순간.** 드라이버의 `grandNext`/`exchangeNext` 카운터는 세션이 볼 수 없고 `RoundSetup`은 `internal`이라 "지금 누구를 기다리는지"를 상태에서 역산할 수 없다. 묻는 주체인 에이전트가 직접 알리는 것이 정확하며, 덤으로 그 좌석에만 합법수를 싣는 자리가 된다.
+
+## 12. 승인된 결정
 
 ① 범위 = 친구방 ② 권위 = 전용 .NET 서버 ③ Supabase = M6 메타 ④ 세션 드라이버 = 동기 `GameDriver` + 블로킹(매치당 스레드 1) ⑤ M1은 `core/` 전용 · Unity 0줄 · 싱글플레이 재배선 없음.

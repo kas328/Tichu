@@ -31,6 +31,9 @@ namespace Tichu.Presentation.Net
         /// <summary>매치 종료 이벤트를 받았는가.</summary>
         public bool MatchEnded { get; private set; }
 
+        /// <summary>세션 스레드가 폴트로 죽었는가. true면 Pump() 소유자가 펌프를 멈춰야 한다.</summary>
+        public bool Faulted { get; private set; }
+
         public TichuClient(LoopbackTransport transport, TableViewModel vm, int mySeat,
             Action<MatchSummary> onMatchEnded = null)
         {
@@ -81,6 +84,7 @@ namespace Tichu.Presentation.Net
 
                 case ServerEventKind.SessionFaulted:
                     LastRejection = ev.Reason;
+                    Faulted = true;
                     break;
             }
         }

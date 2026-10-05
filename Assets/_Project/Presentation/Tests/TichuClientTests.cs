@@ -238,6 +238,7 @@ namespace Tichu.Presentation.Tests
 
             Assert.That(client.LastRejection, Is.EqualTo("boom"));
             Assert.That(client.MatchEnded, Is.False, "실패는 정상 종료가 아니다");
+            Assert.That(client.Faulted, Is.True, "폴트는 Faulted 로 드러나야 RoundBootstrap 이 펌프를 멈춘다");
         }
 
         [Test]

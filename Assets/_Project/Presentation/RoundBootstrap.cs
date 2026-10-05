@@ -92,12 +92,15 @@ namespace Tichu.Presentation
 
             try
             {
-                while (!summary.HasValue && !ct.IsCancellationRequested)
+                while (!summary.HasValue && !client.Faulted && !ct.IsCancellationRequested)
                 {
                     client.Pump();
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 }
-                if (summary.HasValue) _onComplete?.Invoke(summary.Value);
+                if (client.Faulted)
+                    Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
+                else if (summary.HasValue)
+                    _onComplete?.Invoke(summary.Value);
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }

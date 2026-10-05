@@ -2,6 +2,7 @@ using System;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Core.Game;
+using Tichu.Net;
 using Tichu.Presentation.Audio;
 
 namespace Tichu.Presentation.Tests
@@ -75,6 +76,47 @@ namespace Tichu.Presentation.Tests
         {
             var a = GameAction.Play(0, null);
             Assert.That(SfxMap.For(a), Is.EqualTo(SfxId.CardPlay));
+        }
+
+        // ── SfxMap.For(AppliedAction) — 서버 경로가 같은 규칙을 쓴다 ──────────
+
+        [Test]
+        public void For_applied_normal_play_returns_CardPlay()
+        {
+            var a = AppliedAction.From(GameAction.Play(0, new[] { Card.Normal(7, Suit.Jade) }));
+            Assert.That(SfxMap.For(a), Is.EqualTo(SfxId.CardPlay));
+        }
+
+        [Test]
+        public void For_applied_bomb_returns_Bomb()
+        {
+            var a = AppliedAction.From(GameAction.Play(0, new[]
+            {
+                Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                Card.Normal(7, Suit.Sword), Card.Normal(7, Suit.Pagoda),
+            }));
+            Assert.That(SfxMap.For(a), Is.EqualTo(SfxId.Bomb));
+        }
+
+        [Test]
+        public void For_applied_pass_returns_Pass()
+        {
+            Assert.That(SfxMap.For(AppliedAction.From(GameAction.Pass(0))), Is.EqualTo(SfxId.Pass));
+        }
+
+        [Test]
+        public void For_applied_give_dragon_returns_GiveDragon()
+        {
+            Assert.That(SfxMap.For(AppliedAction.From(GameAction.GiveDragon(0, 1))),
+                Is.EqualTo(SfxId.GiveDragon));
+        }
+
+        [Test]
+        public void For_applied_non_play_action_returns_None()
+        {
+            // Exchange 는 카드를 싣지 않는다(마스킹) — Play 가 아니므로 무발화라야 한다.
+            Assert.That(SfxMap.For(AppliedAction.From(GameAction.CallGrandTichu(0))),
+                Is.EqualTo(SfxId.None));
         }
 
         // ── SfxMap.ForCall(TichuCall) ────────────────────────────────────────

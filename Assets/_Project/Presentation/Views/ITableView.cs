@@ -10,9 +10,9 @@ namespace Tichu.Presentation.Views
     /// <para>
     /// 구독 계약(누락 시 UI desync) — 구현체는 <see cref="TableViewModel"/>의 다음 스트림을
     /// 빠짐없이 구독해야 한다:
-    /// Phase · CurrentTurn · MyHand · CurrentTrick · RoundResult · PendingDecision · Wish ·
+    /// Phase · CurrentTurn · MyHand · CurrentTrick · RoundResult · Prompt · Wish ·
     /// CumulativeA · CumulativeB · HandCount(0..3) · TichuAvailable · Played · PlaysCleared.
-    /// (BombReserved · FastForward 는 차례밖 폭탄/스킵 표현용 — 현재는 직접 조회, D4 애니에서 구독화.)
+    /// (HasPendingBomb · FastForward 는 차례밖 폭탄/스킵 표현용 — 스트림이 아니라 직접 조회다.)
     /// </para>
     /// </summary>
     public interface ITableView

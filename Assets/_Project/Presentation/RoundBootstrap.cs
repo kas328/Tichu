@@ -2,9 +2,8 @@ using System;
 using System.Runtime.CompilerServices;
 using Cysharp.Threading.Tasks;
 using R3;
-using Tichu.Core;
-using Tichu.Core.Game;
-using Tichu.GameFlow;
+using Tichu.Net;
+using Tichu.Presentation.Net;
 using Tichu.Presentation.Shell;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
@@ -57,64 +56,56 @@ namespace Tichu.Presentation
             RunMatchAsync(vm).Forget();
         }
 
-        /// <summary>여러 라운드를 누적 점수와 함께 구동한다(인간 1 + AI 3). 목표 점수 도달 시 종료.</summary>
+        /// <summary>
+        /// 권위 세션을 띄우고 매 프레임 수신함을 비운다. 좌석 0 은 원격(= 이 클라이언트),
+        /// 1~3 은 세션 스레드에서 도는 동기 PIMC 다. 라운드 루프·누적 점수·종료 판정은
+        /// 모두 세션이 쥔다 — 클라이언트가 중복 판정하지 않는다.
+        /// </summary>
         private async UniTaskVoid RunMatchAsync(TableViewModel vm)
         {
             var ct = this.GetCancellationTokenOnDestroy();
-            var human = new HumanAgent(vm);                 // 인간 에이전트는 매치 내내 재사용
-            var master = new Rng(_args.RandomDeal ? unchecked((ulong)DateTime.UtcNow.Ticks) : _args.Seed);
-            int teamA = 0, teamB = 0;
+            ulong masterSeed = _args.RandomDeal ? unchecked((ulong)DateTime.UtcNow.Ticks) : _args.Seed;
+
+            var cfg = Tichu.GameFlow.Agents.PolicyConfig.For(_args.Difficulty);
+            int budgetMs = BudgetMsFor(_args.Difficulty);
+
+            // AI 에이전트는 매치 내내 재사용한다. PimcAgent 의 라운드 상태(_passed)는 매
+            // 라운드 ChooseExchange 가 덮어쓰고 그 전에 결정화가 없으므로 안전하며, _rng 는
+            // 하나의 결정적 스트림으로 이어진다.
+            var agents = new Tichu.GameFlow.Agents.IAgent[4];
+            for (int seat = 0; seat < 4; seat++)
+            {
+                if (seat == _args.MySeat) { agents[seat] = null; continue; }   // 원격 = 나
+                agents[seat] = new PacedPimcAgent(
+                    masterSeed, seat, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward);
+            }
+
+            var transport = new LoopbackTransport();
+            MatchSummary? summary = null;
+            using var client = new TichuClient(transport, vm, _args.MySeat, s => summary = s);
+
+            var session = new MatchSession(
+                agents, transport, masterSeed,
+                targetScore: _args.TargetScore,
+                interRoundPause: TimeSpan.FromSeconds(3.5));   // 결과를 보여 줄 시간
+            session.Start();
 
             try
             {
-                while (!ct.IsCancellationRequested)
+                while (!summary.HasValue && !ct.IsCancellationRequested)
                 {
-                    // 고정 시드도 매 라운드 master를 전진시킨다(MatchRunner.RunMatch와 동일) —
-                    // 라운드별 distinct·재현 가능하며 동일-라운드 무한반복(무승부 시 비종료)을 막는다.
-                    ulong seed = master.NextULong();
-                    var state = GameEngine.NewRound(seed);
-                    vm.RoundResult.Value = null;            // 새 라운드: 이전 결과·로그 지움
-                    vm.ClearPlays();
-                    vm.FastForward = false;                 // 새 라운드: 스킵(빠른 진행) 해제
-                    vm.ApplySnapshot(state);
-
-                    var cfg = Tichu.GameFlow.Agents.PolicyConfig.For(_args.Difficulty);
-                    int budgetMs = BudgetMsFor(_args.Difficulty);
-                    var agents = new IDecisionAgent[]
-                    {
-                        human,
-                        new PimcDecisionAgent(seed, 1, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
-                        new PimcDecisionAgent(seed, 2, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
-                        new PimcDecisionAgent(seed, 3, cfg, budgetMs, _args.AiDelayMs, () => vm.FastForward),
-                    };
-
-                    // 매 플레이마다 뷰 갱신 + 로그 기록 → 사람이 AI 플레이를 보며 카운팅.
-                    var outcome = await new AsyncGameDriver(agents).RunRoundAsync(
-                        state, ct, (st, act) => { vm.ApplySnapshot(st); vm.RecordPlay(act); },
-                        vm.TakePendingTichuSeat, vm.TakePendingBomb, vm.BombReserved);
-
-                    teamA += outcome.Result.TeamATotal;     // 누적
-                    teamB += outcome.Result.TeamBTotal;
-                    vm.CumulativeA.Value = teamA;
-                    vm.CumulativeB.Value = teamB;
-                    vm.RoundResult.Value = outcome.Result;
-                    vm.ApplySnapshot(outcome.State);
-
-                    // 목표 점수 종료 판정(이미 단위 테스트된 순수 로직 재사용).
-                    var decision = MatchRunner.Decide(teamA, teamB, _args.TargetScore);
-                    if (decision != MatchDecision.Continue)
-                    {
-                        int winner = decision == MatchDecision.TeamAWins ? 0 : 1;
-                        _onComplete?.Invoke(new MatchSummary(winner, teamA, teamB));
-                        return;                             // 매치 종료
-                    }
-
-                    // 결과를 잠시 보여준 뒤 다음 라운드.
-                    await UniTask.Delay(TimeSpan.FromSeconds(3.5), cancellationToken: ct);
+                    client.Pump();
+                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 }
+                if (summary.HasValue) _onComplete?.Invoke(summary.Value);
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }
+            finally
+            {
+                session.Stop();
+                session.Join(TimeSpan.FromSeconds(2));
+            }
         }
 
         /// <summary>난이도별 인게임 1수 시간예산(ms). 스펙 §5 시작값. 0=탐색 OFF(Easy).</summary>

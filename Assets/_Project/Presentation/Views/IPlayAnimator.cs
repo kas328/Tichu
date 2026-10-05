@@ -6,7 +6,7 @@ namespace Tichu.Presentation.Views
 {
     /// <summary>
     /// 플레이 연출 훅(진실/연출 분리). 렌더 시점에 호출되며 절대 블로킹하지 않는다.
-    /// 진실은 ApplySnapshot(R3 즉시 갱신)이 담당 — 이 훅은 시각 효과만. onApply=null 경로에선 렌더가
+    /// 진실은 TableViewModel.Apply(R3 즉시 갱신)가 담당 — 이 훅은 시각 효과만. onApply=null 경로에선 렌더가
     /// 안 돌아 호출되지 않으므로 오라클 비트동일성에 닿지 않는다.
     /// </summary>
     public interface IPlayAnimator

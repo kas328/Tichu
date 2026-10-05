@@ -6,7 +6,9 @@ using R3;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
+using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
+using Tichu.Net;
 using Tichu.Presentation.Audio;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Visuals;
@@ -60,7 +62,7 @@ namespace Tichu.Presentation.Views
         private GameObject _skipButton;  // 빠른 진행(스킵) 버튼 — 내가 out 됐을 때만
         private Card? _exVL, _exVP, _exVR, _exPick;                // 교환(시각 왼쪽/파트너/오른쪽/현재픽)
         private Combination _wishMove;                             // 마작 포함 차례 — 소원 대기
-        private DecisionRequest _activeReq;
+        private Awaiting _activeAw;
         private IReadOnlyList<Card> _hand = new List<Card>();
         private HashSet<Card> _bombCards = new HashSet<Card>();
         private int _cumA, _cumB;
@@ -318,7 +320,7 @@ namespace Tichu.Presentation.Views
                     else { _countTexts[seat].text = $"{c}장"; RenderBacks(seat, c); }
                 }).AddTo(_subs);
             }
-            _vm.PendingDecision.Subscribe(RenderPrompt).AddTo(_subs);
+            _vm.Prompt.Subscribe(RenderPrompt).AddTo(_subs);
             for (int i = 0; i < 4; i++)
             {
                 int seat = i;
@@ -329,7 +331,7 @@ namespace Tichu.Presentation.Views
         private void UpdateScore() => _scoreText.text = $"총점  우리(A) {_cumA} : 상대(B) {_cumB}";
 
         // 플레이 1건을 우상단에 추가. 각 항목은 5초 뒤 ~1.2초에 걸쳐 페이드 후 제거(순차).
-        private void AddPlayEntry(GameAction a)
+        private void AddPlayEntry(AppliedAction a)
         {
             var go = new GameObject("PlayEntry", typeof(RectTransform), typeof(Text), typeof(LayoutElement));
             go.transform.SetParent(_playsRoot, false);
@@ -372,8 +374,8 @@ namespace Tichu.Presentation.Views
 
         // ── 손패(앞면, 선택) ─────────────────────────────────────────────────
 
-        private bool TurnLike => _activeReq != null && (_activeReq.Kind == DecisionKind.Turn || _activeReq.Kind == DecisionKind.Bomb);
-        private bool Exchanging => _activeReq != null && _activeReq.Kind == DecisionKind.Exchange;
+        private bool TurnLike => _activeAw != null && _activeAw.Kind == StepKind.Play;
+        private bool Exchanging => _activeAw != null && _activeAw.Kind == StepKind.Exchange;
         // 차례밖 폭탄 가능: Play 중 내 차례가 아니고 격파 대상 트릭이 있을 때(seat0=나).
         private bool BombInterruptable =>
             _vm.Phase.CurrentValue == RoundPhase.Play
@@ -450,7 +452,7 @@ namespace Tichu.Presentation.Views
 
         // ── 트릭(중앙 앞면) ───────────────────────────────────────────────────
 
-        private void RenderTrick(Trick? trick)
+        private void RenderTrick(TrickView trick)
         {
             if (trick?.Top == null)
             {
@@ -475,7 +477,7 @@ namespace Tichu.Presentation.Views
 
         // 개(Dog)는 규칙상 트릭을 만들지 않아(GameEngine.ApplyDog) 중앙 RenderTrick 경로에 안 잡힌다.
         // 낸 사실이 우상단 로그로만 지나가므로, 개를 잠깐 중앙에 에코한 뒤 파트너가 새로 리드하기 전 비운다(#3).
-        private void ShowDogIfPlayed(GameAction a)
+        private void ShowDogIfPlayed(AppliedAction a)
         {
             if (a.Kind != GameActionKind.Play || a.Cards == null || a.Cards.Count != 1
                 || a.Cards[0].Special != SpecialKind.Dog) return;
@@ -540,9 +542,9 @@ namespace Tichu.Presentation.Views
 
         // ── 결정 프롬프트 ─────────────────────────────────────────────────────
 
-        private void RenderPrompt(DecisionRequest? req)
+        private void RenderPrompt(Awaiting aw)
         {
-            _activeReq = req;
+            _activeAw = aw;
             // 선택(_selection)은 유지한다 — 차례·패스 전환 때 클릭해 둔 카드가 풀리지 않도록.
             // 손패에서 빠진 카드는 MyHand 구독이 정리한다.
             _exVL = _exVP = _exVR = _exPick = null;
@@ -556,45 +558,35 @@ namespace Tichu.Presentation.Views
             ClearChildren(_actionRoot);
             ClearChildren(_wishPickRoot);
             ClearChildren(_exchangeRoot);
-            var req = _activeReq;
-            if (req == null) { RenderBombInterrupt(); return; }
+            var aw = _activeAw;
+            if (aw == null) { RenderBombInterrupt(); return; }
 
             // 마작 포함 차례 → 소원 선택 모드.
             if (_wishMove != null) { RenderWishPicker(); return; }
 
-            switch (req.Kind)
+            switch (aw.Kind)
             {
-                case DecisionKind.GrandTichu:
+                case StepKind.GrandTichu:
                     _promptLabel.text = "큰 티츄?";
                     AddAction("선언", BtnOn, () => _vm.SubmitGrandTichu(true));
                     AddAction("패스", BtnOn, () => _vm.SubmitGrandTichu(false));
                     break;
-                case DecisionKind.Tichu:
-                    _promptLabel.text = "작은 티츄?";
-                    AddAction("선언", BtnOn, () => _vm.SubmitTichu(true));
-                    AddAction("패스", BtnOn, () => _vm.SubmitTichu(false));
-                    break;
-                case DecisionKind.Turn:
+                case StepKind.Play:
                     var selC = RecognizeSelection();
                     bool isBomb = selC != null && selC.IsBomb;
                     _promptLabel.text = _selection.Count == 0 ? "내 턴 — 카드 선택" : $"선택: {string.Join(" ", _selection.OrderBy(SortKey))}";
                     AddAction(isBomb ? "폭탄 내기" : "내기", BtnGo, PlaySelectedTurn, _selection.Count > 0);
-                    bool canPass = req.Context.CanPass;
-                    AddAction("패스", BtnOn, () => _vm.SubmitTurnDecision(TurnDecision.Pass), canPass);
+                    bool canPass = aw.CanPass;
+                    AddAction("패스", BtnOn, () => _vm.SubmitPass(), canPass);
                     break;
-                case DecisionKind.Bomb:
-                    _promptLabel.text = _selection.Count == 0 ? "폭탄? 카드 선택/넘기기" : $"선택: {string.Join(" ", _selection.OrderBy(SortKey))}";
-                    AddAction("폭탄 내기", BtnGo, PlaySelectedBomb, _selection.Count > 0);
-                    AddAction("넘기기", BtnOn, () => _vm.SubmitBomb(null));
-                    break;
-                case DecisionKind.DragonRecipient:
+                case StepKind.DragonGift:
                     _promptLabel.text = "용 양도 — 상대 선택";
                     // 게임 LeftSeat=시각 오른쪽(seat1), RightSeat=시각 왼쪽(seat3). 버튼 위치=실제 대상 일치.
-                    int rightPlayer = req.Context.LeftSeat, leftPlayer = req.Context.RightSeat;
+                    int rightPlayer = (aw.Seat + 1) % 4, leftPlayer = (aw.Seat + 3) % 4;
                     AddAction("왼쪽", BtnOn, () => _vm.SubmitDragonRecipient(leftPlayer));
                     AddAction("오른쪽", BtnOn, () => _vm.SubmitDragonRecipient(rightPlayer));
                     break;
-                case DecisionKind.Exchange:
+                case StepKind.Exchange:
                     _promptLabel.text = "교환 — 카드 선택 후 방향";
                     RenderExchangeRow();
                     AddAction("확정", BtnGo, ConfirmExchange, _exVL.HasValue && _exVP.HasValue && _exVR.HasValue);
@@ -646,7 +638,7 @@ namespace Tichu.Presentation.Views
             go.GetComponent<Button>().onClick.AddListener(() =>
             {
                 var move = _wishMove; _wishMove = null;
-                _vm.SubmitTurnDecision(TurnDecision.Play(move, wish));
+                _vm.SubmitPlay(move.Cards, wish);
             });
             AddCardLabel(go.transform, label, Ink, 22);
         }
@@ -660,14 +652,7 @@ namespace Tichu.Presentation.Views
             if (!LegalByTypeRank(sel)) return;
             // 마작 포함 → 소원 선택 후 제출.
             if (sel.Cards.Any(c => c.Special == SpecialKind.Mahjong)) { _wishMove = sel; RenderHand(); RefreshActions(); return; }
-            _vm.SubmitTurnDecision(TurnDecision.Play(sel)); // 내가 고른 실제 카드로 제출
-        }
-
-        private void PlaySelectedBomb()
-        {
-            var sel = RecognizeSelection();
-            if (sel == null || !sel.IsBomb || !LegalByTypeRank(sel)) return;
-            _vm.SubmitBomb(sel);
+            _vm.SubmitPlay(sel.Cards); // 내가 고른 실제 카드로 제출
         }
 
         // ── 차례밖 폭탄(상대 턴 인터럽트) ───────────────────────────────────────
@@ -698,7 +683,7 @@ namespace Tichu.Presentation.Views
         {
             var bomb = RecognizeBombSelection();
             if (bomb == null) return;
-            _vm.ReserveBomb(bomb);
+            _vm.SubmitPlay(bomb.Cards);
             _selection.Clear();
             RenderHand();
             RefreshActions();
@@ -708,18 +693,16 @@ namespace Tichu.Presentation.Views
         private Combination RecognizeSelection()
         {
             if (_selection.Count == 0) return null;
-            var trick = _activeReq.Context.State.CurrentTrick;
-            TrickContext tc;
-            if (trick?.Top == null) tc = TrickContext.Lead;
-            else { bool single = trick.Top.Type == CombinationType.Single; tc = new TrickContext(false, single, single ? trick.Top.Rank : 0); }
-            var c = CombinationRecognizer.Recognize(_selection.ToArray(), tc);
+            // 문맥은 뷰모델이 쥔다 — 제출 선검사(SubmitPlay)와 같은 규칙이어야 하므로 한 곳에서 만든다.
+            var c = CombinationRecognizer.Recognize(_selection.ToArray(), _vm.RecognizeContext());
             return c.Type == CombinationType.Invalid ? null : c;
         }
 
         // (Type, Rank) 등가로 합법수 존재 확인 — 무늬 무관(같은 랭크 다른 무늬도 허용).
         private bool LegalByTypeRank(Combination sel)
         {
-            var lm = _activeReq.Context.LegalMoves;
+            var lm = _activeAw.LegalMoves;
+            if (lm == null) return false;
             for (int i = 0; i < lm.Count; i++) if (lm[i].Type == sel.Type && lm[i].Rank == sel.Rank) return true;
             return false;
         }
@@ -754,7 +737,7 @@ namespace Tichu.Presentation.Views
 
         // ── 표기/포맷 ─────────────────────────────────────────────────────────
 
-        private static string FormatAction(GameAction a)
+        private static string FormatAction(AppliedAction a)
         {
             string who = a.Seat >= 0 && a.Seat < 4 ? SeatNames[a.Seat] : "?";
             if (a.Kind == GameActionKind.Pass) return $"{who} · 패스";

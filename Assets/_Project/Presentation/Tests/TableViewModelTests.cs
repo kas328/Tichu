@@ -185,6 +185,65 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void One_prompt_accepts_only_one_grand_tichu_answer()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var view = ViewOf(s, 0);
+            view.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
+            vm.Apply(view);
+
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+
+            Assert.That(vm.SubmitGrandTichu(false), Is.True);
+            Assert.That(vm.Prompt.CurrentValue, Is.Null, "답한 질문은 즉시 내려간다");
+            Assert.That(vm.SubmitGrandTichu(true), Is.False, "같은 질문에 두 번 답할 수 없다");
+            Assert.That(sent.Count, Is.EqualTo(1));
+            Assert.That(sent[0].Kind, Is.EqualTo(ClientActionKind.DeclineGrandTichu),
+                "먼저 보낸 답이 유효하다 — 두 번째가 덮어쓰면 안 된다");
+        }
+
+        [Test]
+        public void One_prompt_accepts_only_one_exchange()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var view = ViewOf(s, 0);
+            view.Awaiting = new Awaiting { Kind = StepKind.Exchange, Seat = 0 };
+            vm.Apply(view);
+            var h = vm.MyHand.CurrentValue;
+
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+
+            Assert.That(vm.SubmitExchange(new ExchangeChoice(h[0], h[1], h[2])), Is.True);
+            Assert.That(vm.Prompt.CurrentValue, Is.Null, "답한 질문은 즉시 내려간다");
+            Assert.That(vm.SubmitExchange(new ExchangeChoice(h[3], h[4], h[5])), Is.False,
+                "같은 질문에 두 번 답할 수 없다");
+            Assert.That(sent.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void One_prompt_accepts_only_one_dragon_recipient()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var view = ViewOf(s, 0);
+            view.Awaiting = new Awaiting { Kind = StepKind.DragonGift, Seat = 0 };
+            vm.Apply(view);
+
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+
+            Assert.That(vm.SubmitDragonRecipient(1), Is.True);
+            Assert.That(vm.Prompt.CurrentValue, Is.Null, "답한 질문은 즉시 내려간다");
+            Assert.That(vm.SubmitDragonRecipient(3), Is.False, "같은 질문에 두 번 답할 수 없다");
+            Assert.That(sent.Count, Is.EqualTo(1));
+            Assert.That(sent[0].RecipientSeat, Is.EqualTo(1));
+        }
+
+        [Test]
         public void An_off_turn_bomb_does_not_consume_a_prompt()
         {
             // 차례밖 폭탄은 질문에 대한 답이 아니다 — 프롬프트를 건드려선 안 된다.

@@ -352,5 +352,47 @@ namespace Tichu.Core.Tests
             remote.ConsumeReservedBomb();
             Assert.That(remote.PeekReservedBomb(), Is.Null, "소비 후에는 큐가 비어야 한다");
         }
+
+        // ── 최종 리뷰 FIX 2: 랭크 등가 폴백의 재인식 가드 ───────────────────────────
+
+        [Test]
+        public void Collapsed_straight_template_rejects_a_mixed_suit_substitution()
+        {
+            // 손의 5-9 구간에서 매 랭크의 대표 카드(bag.Cards[r][0], 손패 추가 순서상 Jade
+            // 가 먼저 들어감)가 전부 Jade 라, GenerateStraights 가 만든 카드 집합 자체가
+            // 플러시다 — Recognize 가 그것을 StraightFlushBomb 으로 인식하고, 뒤이은
+            // GenerateStraightFlushBombs 의 동일 카드 집합과 ComboKey 가 겹쳐 중복 제거된다.
+            // 그 구간엔 StraightFlushBomb 템플릿 하나만 남고, 평범 Straight 템플릿은 따로
+            // 생성되지 않는다(이 테스트의 전제).
+            var s = LeadState(
+                Hand(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                     Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade), Card.Normal(7, Suit.Sword)),
+                Hand(Card.Normal(3, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(10, Suit.Jade)));
+
+            bool hasPlainStraight = false, hasFlushBombOf5 = false;
+            foreach (var m in LegalMoveGenerator.LegalMoves(s, 0))
+            {
+                if (m.Type == CombinationType.Straight && m.Cards.Count == 5) hasPlainStraight = true;
+                if (m.Type == CombinationType.StraightFlushBomb && m.Cards.Count == 5) hasFlushBombOf5 = true;
+            }
+            Assert.That(hasPlainStraight, Is.False,
+                "테스트 전제: 대표 카드가 전부 Jade 라 평범 스트레이트 템플릿이 따로 생기면 안 됨(ComboKey 중복 제거)");
+            Assert.That(hasFlushBombOf5, Is.True, "테스트 전제: 그 구간엔 StraightFlushBomb 템플릿 하나만 남아야 함");
+
+            // 클라이언트는 같은 랭크를 혼합 무늬로 제출한다(7 랭크만 Sword) — 진짜 스트레이트일
+            // 뿐 플러시가 아니다. 1차(카드 신원)는 실패하고 2차(랭크 등가)가 위 템플릿에 매치된다.
+            var mixedSuit = new List<Card>
+            {
+                Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Sword),
+                Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade)
+            };
+            var a = ClientAction.Play(0, 1L, mixedSuit, rank: 0, wish: null);
+            var move = MoveResolver.ResolveMove(s, 0, a);
+
+            Assert.That(move, Is.Null,
+                "재인식 없이 템플릿 Type 을 그대로 붙이면 평범 스트레이트가 폭탄으로 둔갑한다 — 재인식 가드가 거부해야 함");
+        }
     }
 }

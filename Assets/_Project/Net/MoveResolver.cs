@@ -8,10 +8,10 @@ namespace Tichu.Net
     /// <summary>
     /// 클라이언트가 보낸 카드 집합을 서버의 합법수 하나로 확정한다.
     /// 합법수 목록에서 찾는 방식이라 봉황 대체·소원 강제·폭탄 인터럽트 같은 규칙이
-    /// 자동으로 지켜진다. 조합 인식은 1차(카드 신원 정확 일치) 경로에서는 엔진과 항상
-    /// 일치하고, 2차(랭크 등가) 경로에서는 Rank·점수가 일치한다 — Type 이 다를 수 있는
-    /// 유일한 경우(스트레이트플러시 폭탄 vs 평범한 스트레이트)는 1차에서 이미 걸러지므로
-    /// 2차까지 내려오면 Type 도 항상 일치한다(ResolveMove 의 증명 주석 참고).
+    /// 자동으로 지켜진다. 조합 인식도 엔진과 항상 일치한다 — 1차(카드 신원 정확 일치)
+    /// 경로는 생성기가 낸 합법수를 그대로 돌려주고, 2차(랭크 등가) 경로는 치환한 카드를
+    /// CombinationRecognizer 로 다시 인식해 (Type, Rank, Length) 가 템플릿과 같을 때만
+    /// 받아들인다(ResolveMove 의 주석 참고).
     /// </summary>
     public static class MoveResolver
     {
@@ -26,23 +26,20 @@ namespace Tichu.Net
         /// 2패스 구조: 1차는 카드 신원이 정확히 같은 템플릿만 찾는다. 1차에서 하나도 못
         /// 찾았을 때만 2차(랭크 등가)로 완화한다.
         ///
-        /// 왜 1차가 먼저여야 하는가 — 스트레이트플러시 폭탄 사고: 생성기는 같은 랭크 구간에
-        /// 대해 무늬 무관 평범 스트레이트(GenerateStraights, 랭크당 bag.Cards[r][0] 하나만
-        /// 대표로 사용)와 실제 한 무늬로만 이루어진 스트레이트플러시 폭탄(GenerateStraightFlushBombs)
-        /// 을 **따로** 낼 수 있다. 손에 그 구간의 한 랭크에 다른 무늬 중복이 있으면 두 합법수가
-        /// 같은 랭크 다중집합을 가지면서 Type 이 다르다(하나는 Straight, 하나는
-        /// StraightFlushBomb). 랭크 등가만으로 매칭했다면 생성 순서상 먼저인 쪽(Straight,
-        /// EnumerateCandidates 의 GenerateStraights 가 GenerateStraightFlushBombs 보다 먼저
-        /// 호출됨)이 이겨, 클라이언트가 보유한 진짜 무늬 그대로의 폭탄을 제출해도 Type=Straight
-        /// 로 확정돼 IsBomb 이 false 가 된다.
-        ///
-        /// 증명 — 2차(랭크 등가)에서는 이 혼동이 재발할 수 없다: 2차에 도달했다는 것은 클라이언트
-        /// 카드와 카드 신원이 정확히 같은 템플릿이 1차에 하나도 없었다는 뜻이다. 만약 클라이언트
-        /// 카드가 진짜 스트레이트플러시 폭탄(보유한 무늬 그대로의 연속런)을 이룬다면,
-        /// GenerateStraightFlushBombs 가 정확히 그 카드들을 냈을 것이고 1차에서 이미 매치됐을
-        /// 것이다 — 모순. 그러므로 2차에 남는 건 플러시가 아닌 수의 무늬-변형뿐이고, 첫
-        /// 랭크-등가 템플릿이 올바른 Type 이다. 포카드 폭탄도 네 무늬를 전부 요구하므로 등가라면
-        /// 반드시 카드 신원도 같다 — 2차에서 폭탄 Type 을 잘못 내보낼 여지가 없다.
+        /// 왜 2차가 재인식을 거쳐야 하는가 — 스트레이트플러시 폭탄 사고: 생성기는 같은 랭크
+        /// 구간에 대해 무늬 무관 평범 스트레이트(GenerateStraights, 랭크당 bag.Cards[r][0]
+        /// 하나만 대표로 사용)와 실제 한 무늬로만 이루어진 스트레이트플러시 폭탄
+        /// (GenerateStraightFlushBombs)을 낼 수 있다. 손의 그 구간에서 매 랭크의 대표 카드가
+        /// 우연히 전부 같은 무늬면, GenerateStraights 가 만든 카드 집합 자체가 플러시라
+        /// Recognize 가 그것을 StraightFlushBomb 으로 인식하고, 뒤이은
+        /// GenerateStraightFlushBombs 가 낸 동일 카드 집합과 ComboKey 가 겹쳐 중복 제거된다 —
+        /// moves 에는 그 구간의 StraightFlushBomb 템플릿 하나만 남는다. 클라이언트가 같은
+        /// 랭크의 혼합 무늬 변형을 보내면 1차(카드 신원)는 실패하고 2차가 그 템플릿에 랭크
+        /// 등가로 매치되는데, 치환한 카드가 플러시가 아니므로 그대로 템플릿의 Type 을 붙이면
+        /// 실제로는 평범한 스트레이트인 카드 집합이 폭탄으로 둔갑한다. 그래서 2차는 치환한
+        /// cards 를 Recognize 로 다시 인식하고, (Type, Rank, Length) 가 템플릿과 다르면 그
+        /// 템플릿을 버리고 다음 후보로 넘어간다 — 끝까지 일치하는 템플릿이 없으면 null
+        /// (불법 처리, fail closed).
         /// </summary>
         public static Combination? ResolveMove(GameState s, int seat, ClientAction a)
         {
@@ -65,19 +62,25 @@ namespace Tichu.Net
                 return m;
             }
 
-            // 2차: 1차에서 아무것도 못 찾았을 때만 랭크 등가로 완화한다(클래스 주석의 증명 참고).
+            // 2차: 1차에서 아무것도 못 찾았을 때만 랭크 등가로 완화한다(클래스 주석 참고).
+            var ctx = TrickComparer.ContextFor(s.CurrentTrick);
             for (int i = 0; i < moves.Count; i++)
             {
                 var m = moves[i];
                 // 생성기는 랭크당 한 장만 내보내므로(GenerateSingles) 카드 신원 일치만 보면
                 // 같은 랭크의 다른 무늬를 고른 사람의 멀쩡한 수가 거부된다. 랭크 다중집합이
-                // 같으면 받아들이고, 카드만 클라이언트 것으로 바꿔 적용한다 — 랭크가 같으니
-                // 소원 강제·봉황 해석·점수는 합법수 그대로다(Type 은 위 증명대로 이 패스에선
-                // 항상 m.Type 과 일치하는 유일한 후보다).
+                // 같으면 카드만 클라이언트 것으로 바꾸되, 치환한 카드를 엔진과 똑같이
+                // Recognize 로 다시 인식해 (Type, Rank, Length) 가 템플릿과 같을 때만 받아들인다
+                // — 무늬가 섞여 실제로는 플러시가 아닌데 템플릿의 폭탄 Type 이 그대로 붙는 사고
+                // (ResolveMove 주석 참고)를 막는다.
                 var cards = SubstituteCards(m.Cards, a.Cards);
                 if (cards == null) continue;
                 if (a.Rank != 0 && m.Rank != a.Rank) return null; // 의도 불일치 — 적용하지 않는다
-                return new Combination(m.Type, cards, m.Length, m.Rank, m.PointsInPlay);
+
+                var recognized = CombinationRecognizer.Recognize(cards.ToArray(), ctx);
+                if (recognized.Type != m.Type || recognized.Rank != m.Rank || recognized.Length != m.Length)
+                    continue; // 재인식이 템플릿과 다르면 이 템플릿은 쓸 수 없다 — fail closed
+                return recognized;
             }
             return null;
         }

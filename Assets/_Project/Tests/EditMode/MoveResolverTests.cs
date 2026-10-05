@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Threading;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
@@ -262,6 +263,94 @@ namespace Tichu.Core.Tests
 
             Assert.That(MoveResolver.ResolveMove(s, 0, a), Is.Null,
                 "소원 랭크를 포함하지 않는 수는 등가 비교로도 통과하면 안 된다");
+        }
+
+        // ── Task 4.5 리뷰 라운드 1: 스트레이트플러시 폭탄 오타입 ────────────────────
+
+        [Test]
+        public void Genuine_straight_flush_resolves_as_a_bomb_not_a_plain_straight()
+        {
+            // 생성기는 5-9 구간에 대해 무늬 무관 평범 스트레이트(대표는 bag.Cards[r][0] —
+            // 손패 추가 순서상 7 랭크에서 Sword 가 Jade 보다 먼저 들어가 대표가 된다)와
+            // 보유한 무늬 그대로의 스트레이트플러시 폭탄을 **따로** 낸다. 리드(자기 턴)라
+            // 둘 다 LegalMoves 에 들어간다 — 이 테스트의 전제.
+            var s = LeadState(
+                Hand(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Sword),
+                     Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade), Card.Normal(7, Suit.Jade)),
+                Hand(Card.Normal(3, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(10, Suit.Jade)));
+
+            bool hasMixedStraight = false, hasFlushBomb = false;
+            foreach (var m in LegalMoveGenerator.LegalMoves(s, 0))
+            {
+                if (m.Type == CombinationType.Straight && m.Cards.Count == 5) hasMixedStraight = true;
+                if (m.Type == CombinationType.StraightFlushBomb) hasFlushBomb = true;
+            }
+            Assert.That(hasMixedStraight, Is.True, "테스트 전제: 혼동용 평범 스트레이트가 합법수에 있어야 함");
+            Assert.That(hasFlushBomb, Is.True, "테스트 전제: 진짜 스트레이트플러시 폭탄도 합법수에 있어야 함");
+
+            var genuineFlush = new List<Card>
+            {
+                Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade)
+            };
+            var a = ClientAction.Play(0, 1L, genuineFlush, rank: 0, wish: null);
+            var move = MoveResolver.ResolveMove(s, 0, a);
+
+            Assert.That(move, Is.Not.Null);
+            Assert.That(move!.Type, Is.EqualTo(CombinationType.StraightFlushBomb),
+                "보유한 무늬 그대로의 폭탄이 랭크 등가 폴백 때문에 평범 스트레이트로 잘못 타입되면 안 된다");
+            Assert.That(move.IsBomb, Is.True);
+            Assert.That(move.Cards, Is.EquivalentTo(genuineFlush));
+        }
+
+        [Test]
+        public void Off_turn_bomb_reservation_for_a_genuine_flush_is_consumed_not_stuck()
+        {
+            // MatchSession.TakePendingBomb(MatchSession.cs:227-252, private 라 직접 호출 불가)가
+            // 소비하는 경로를 그대로 재현한다: RemoteAgent 의 오프턴 폭탄 예약 큐 →
+            // MoveResolver.ResolveMove → move.IsBomb 게이트(MatchSession.cs:248) →
+            // ConsumeReservedBomb. IsBomb 이 false 로 나오면 그 게이트가 거부해 예약이
+            // 큐 머리에 영구히 걸리고(TakePendingBomb 의 문서화된 한계), 이후 모든 폭탄이
+            // 막힌다 — Task 4 의 _bombSent 가 막던 것과 같은 부류의 증상이 다른 문으로 재발한다.
+            //
+            // 참고(실측): 이 구체적 모양은 오프턴에서는 수정 전에도 이미 안전했다 —
+            // LegalMoveGenerator.LegalMoves 의 턴 게이트(canPlayNonBomb)가 비(非)폭탄 후보를
+            // 오프턴 조회에서 걸러내므로, 오프턴 LegalMoves 에는 진짜 폭탄 후보만 남는다.
+            // 이 테스트는 그 보호가 (수정 이후에도) 깨지지 않았다는 것과, 예약→해소→게이트→
+            // 소비로 이어지는 전체 경로가 실제로 동작한다는 것을 고정한다.
+            var s = GameFlowHelpers.PlayState(1,
+                Hand(Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Sword),
+                     Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade), Card.Normal(7, Suit.Jade)),
+                Hand(Card.Normal(3, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(10, Suit.Jade)));
+            Assert.That(GameEngine.Apply(s, GameAction.Play(1, new[] { Card.Normal(3, Suit.Jade) })).Ok,
+                Is.True, "테스트 전제: seat1 단독 3 리드 적용(seat0 이 오프턴에서 인터럽트할 트릭)");
+
+            long arrival = 0;
+            var remote = new RemoteAgent(0,
+                (seat, ev) => { }, (seat, aw) => { }, () => ++arrival,
+                System.TimeSpan.FromSeconds(5), new CancellationTokenSource().Token);
+
+            var genuineFlush = new List<Card>
+            {
+                Card.Normal(5, Suit.Jade), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade)
+            };
+            remote.Submit(ClientAction.Play(0, 1L, genuineFlush, rank: 0, wish: null)); // 차례밖 → 예약 큐
+
+            var pending = remote.PeekReservedBomb();
+            Assert.That(pending, Is.Not.Null, "테스트 전제: 제출이 오프턴 예약 큐에 들어가야 함");
+
+            var move = MoveResolver.ResolveMove(s, 0, pending!); // MatchSession.cs:247 과 동일 호출
+            Assert.That(move, Is.Not.Null);
+            Assert.That(move!.IsBomb, Is.True,
+                "MatchSession.cs:248 의 게이트 — IsBomb 이 false 면 예약이 큐 머리에 영원히 남는다");
+
+            remote.ConsumeReservedBomb();
+            Assert.That(remote.PeekReservedBomb(), Is.Null, "소비 후에는 큐가 비어야 한다");
         }
     }
 }

@@ -147,6 +147,57 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Tichu_reserved_during_the_turn_decision_is_applied_before_the_play()
+        {
+            // 콜이 합법이려면 선언 좌석의 손패가 14장이어야 한다.
+            var fourteen = new List<Card>();
+            for (int rank = 7; rank <= 14; rank++) fourteen.Add(Card.Normal(rank, Suit.Jade));   // 8장
+            for (int rank = 7; rank <= 12; rank++) fourteen.Add(Card.Normal(rank, Suit.Sword));  // 6장
+            Assert.That(fourteen.Count, Is.EqualTo(14), "테스트 전제: seat0 손패가 14장이어야 함");
+
+            var s = GameFlowHelpers.PlayState(0,
+                fourteen,
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(5, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)));
+
+            int reserved = -1;
+            bool firstTurn = true; // seat0 턴은 라운드 중 다시 돌아올 수 있다 — 강제 수는 최초 1회만.
+            var agents = FourDefaults();
+            ((ScriptedAgent)agents[0]).DecideTurnFn = ctx =>
+            {
+                if (!firstTurn)
+                {
+                    var moves = ctx.LegalMoves;
+                    return moves.Count > 0 ? TurnDecision.Play(moves[0]) : TurnDecision.Pass;
+                }
+                firstTurn = false;
+                // 프롬프트가 떠 있는 동안 버튼을 누른 순간에 해당한다(3) 이후, Play 이전).
+                reserved = 0;
+                return TurnDecision.Play(CombinationRecognizer.Recognize(
+                    new[] { Card.Normal(7, Suit.Jade) }, TrickContext.Lead));
+            };
+
+            var outcome = new GameDriver(agents).RunRound(
+                s, null, st => { int r = reserved; reserved = -1; return r; }, null);
+
+            // 로그 순서가 핵심이다 — 콜이 그 좌석의 첫 Play 보다 앞에 있어야 한다.
+            int callAt = -1, firstPlayAt = -1;
+            for (int i = 0; i < outcome.Log.Count; i++)
+            {
+                var a = outcome.Log[i];
+                if (a.Seat != 0) continue;
+                if (callAt < 0 && a.Kind == GameActionKind.CallTichu) callAt = i;
+                if (firstPlayAt < 0 && a.Kind == GameActionKind.Play) firstPlayAt = i;
+            }
+
+            Assert.That(callAt, Is.GreaterThanOrEqualTo(0),
+                "프롬프트 중 누른 작은 티츄가 적용되지 않았다 — 손패가 13장이 된 뒤 거부돼 사라졌다");
+            Assert.That(callAt, Is.LessThan(firstPlayAt),
+                "콜이 첫 Play 보다 먼저 적용돼야 한다");
+        }
+
+        [Test]
         public void Rejected_pending_tichu_is_dropped_without_throwing()
         {
             // 손패가 14장이 아니면 GameEngine.ApplyCallTichu 가 거부한다. 원격 입력이므로

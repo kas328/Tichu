@@ -1714,3 +1714,15 @@ git commit -m "docs: 비동기 경로를 오라클 전용으로 표시 + README 
 **3. 타입 정합성** — `Prompt`(≠`PendingDecision`), `Record`(≠`RecordPlay`), `SubmitPlay`/`SubmitPass`(≠`SubmitTurnDecision`), `TrickView.Top`, `AppliedAction.RecipientSeat` 를 Task 4 의 모든 참조와 맞췄다. `Awaiting` 은 타입명과 충돌하므로 속성명을 `Prompt` 로 둔다.
 
 **4. 알고 받아들이는 차이 두 개** — ① 차례밖 폭탄이 AI 한 수만큼 늦는다(결정 중단 토큰은 M5). ② AI 라운드별 재시드가 사라진다(`_passed` 는 매 라운드 덮어써지고 `_rng` 는 결정적 스트림이라 안전; 확인함).
+
+---
+
+## 실행 중 삽입된 태스크
+
+### Task 4.5: `MoveResolver` 가 플레이어의 실제 카드를 받아들인다
+
+Task 4 구현자가 범위 밖 회귀를 보고해 컨트롤러 룰링(R6)으로 삽입했다. `MoveResolver.ResolveMove` 가 생성기가 내보낸 카드와의 **정확 일치**를 요구하는데 `LegalMoveGenerator.GenerateSingles` 는 랭크당 한 장만 내보내므로, 사람이 같은 랭크의 다른 무늬를 클릭하면 서버가 거부한다. 구 경로는 `(Type, Rank)` 등가로 통과시키고 플레이어의 실제 카드를 적용했다.
+
+해법은 비교를 `(Rank, Special)` 등가로 바꾸고 조합이 **클라이언트의 카드**를 싣게 하는 것이다. ⚠️ 그 완화는 보유하지 않은 카드를 낼 구멍을 열기 때문에(7♠ 만 들고 7♥ 를 보내도 랭크 다중집합은 같다) `ResolveMove` 안에서 손패 보유를 직접 검증해야 한다 — 엔진의 `HandContainsAll` 에 맡기면 드라이버가 통보 없이 버려 `RemoteAgent` 가 검증 관문이라는 M1 전제가 깨진다.
+
+브리프: `.superpowers/sdd/2026-10-05-mp-client-rewiring/task-4.5-brief.md` (전체 코드·테스트·판별력 포함)

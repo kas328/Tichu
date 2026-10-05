@@ -27,7 +27,7 @@ M1이 만든 프로토콜은 **실제 UI를 한 번도 만나지 않았다** —
 ```
 MatchSession (전용 스레드)                  TichuClient (메인 스레드)
   GameDriver + RemoteAgent(좌석0)   ──┐       매 프레임 Drain(mySeat)
-  + PacedAgent(PimcAgent)×3           │   ┌── StateUpdate  → vm.Apply(PlayerView)
+  + PacedPimcAgent×3                       │   ┌── StateUpdate  → vm.Apply(PlayerView)
   onApply/OnAwait → LoopbackTransport─┘   ├── Awaiting      → vm.Awaiting
                        ▲                  ├── RoundScored   → vm.RoundResult
                        │                  ├── MatchEnded    → 셸로 전달
@@ -52,11 +52,17 @@ MatchSession (전용 스레드)                  TichuClient (메인 스레드)
 
 `TrickView`가 `Combination? Top`을 그대로 싣고 분해 필드를 없앤다. 근거는 `Awaiting.LegalMoves`와 동일하다 — `Combination`은 불변이고 `Recognize`가 카드를 새 배열로 복사하므로 보관이 안전하며(`LegalMoveGenerator.cs:218-219`), 트릭의 Top은 앞면이라 공개 정보다. `Top == null`이 "아직 리드 없음"을 명확히 표현하므로 `CombinationType.Invalid` 판별도 불필요해진다. **M1 설계의 단순화이고 재배선이 찾아낸 것이다.** 대가는 `ViewProjectorTests`의 `TopCards` 단언을 `Top.Cards`로 고치는 것뿐이다.
 
-### 5.3 `PacedAgent` — AI 관전 지연
+### 5.3 `PacedPimcAgent` — AI 관전 지연 (위치·기법 정정)
 
 지연이 **모든** 결정에 걸려 있지 않다. `PimcDecisionAgent`는 턴 결정과 **실제로 폭탄을 던질 때만**(`if (bomb != null)`) 지연하고, 큰 티츄·교환·작은 티츄·용 양도는 즉시 반환한다. 폭탄 조건이 중요하다 — 폭탄 창은 매 트릭 세 좌석을 폴링하므로 무조건 지연을 걸면 트릭마다 3배 지연이 붙는다.
 
-`PacedAgent : IAgent` 데코레이터가 그 배치를 **1:1로 미러**한다. `Func<bool>`로 빨리감기를 받고, 세션이 전용 스레드를 소유하므로 `Thread.Sleep`이 안전하다(메인 스레드가 아니다). 유니티 무의존 순수 데코레이터이고 M3에서 서버가 빈자리 AI를 페이싱할 때 그대로 쓰이므로 `Tichu.Net`에 둔다.
+⚠️ **계획 수립 중 이 절의 두 가지가 거짓으로 판명되어 정정한다.**
+
+**위치**: `PimcAgent`·`Pimc`·`PolicyConfig`·`Determinizer`는 `core/`에 없다 — 유니티 쪽 `Assets/_Project/GameFlow/`에만 있다(README가 남겨 둔 "PIMC는 아직 유니티 GameFlow 에만" 그대로이며, 미러가 단방향이라 유니티가 추가 파일을 갖는다). 따라서 `Tichu.Net`의 데코레이터는 `PimcAgent`를 참조할 수 없다. **`PacedPimcAgent : IAgent` 를 `Assets/_Project/Presentation/Agents/` 에 둔다** — 기존 `PimcDecisionAgent` 의 동기 쌍둥이이고, 같은 이유로 `core/` 에 미러되지 않는다. 서버가 빈자리 AI를 페이싱하려면 PIMC를 `core/` 로 승격해야 하며, 그 승격은 이미 M5 항목으로 추적되고 있다.
+
+**기법**: 순진한 "잠들고 계산"은 체감을 망친다. `PimcDecisionAgent` 는 탐색을 `UniTask.RunOnThreadPool` 로 먼저 띄우고 관전 지연과 **겹친다** — `per-move ≈ max(지연, 연산)`. 티어 사다리가 바로 이 겹침에 의존한다(탐색이 900ms 지연과 겹쳐 900 이내 무지연 → Normal 16 / Hard 20 / Expert 24, 예산 900 통일). 겹침을 잃으면 매 턴이 `지연 + 연산`이 되어 최대 2배로 늘고 티어 정합성 작업이 무효가 된다.
+
+세션이 **자기 전용 스레드**를 소유하므로 스레드풀 핸드오프의 동기(유니티 메인 스레드 비차단)가 사라진다. 그래서 더 단순하게 같은 성질을 얻는다: **연산을 먼저 하고 남은 시간만 `Thread.Sleep` 한다.** 추가 스레드가 없고, 소유 스레드가 직접 계산하므로 방어적 `ctx.State.Clone()` 도 불필요해져 AI 턴마다 전체 상태 복사 하나가 사라진다. anytime 예산 CTS(`CancellationTokenSource(budgetMs)`)와 Easy 단축(`PolicyConfig.Worlds <= 0` → 예산 없는 `DecideTurn`)은 그대로 미러한다.
 
 ## 6. Presentation 변경
 
@@ -73,7 +79,7 @@ M1 스펙이 "교환 제출 현황 표시는 `RoundSetup`이 `internal`이라 M4
 
 - `TrickView.Top` 전환 후 `ViewProjectorTests` 갱신(단언 의미는 보존).
 - `AppliedAction`: 교환 액션에 `Cards`가 없음 · Play 액션에 카드가 있음 · 모든 `StateUpdate`가 직전 액션을 싣는지(로그 수와 일치).
-- `PacedAgent`: 지연이 턴 결정과 "폭탄을 실제로 던질 때"에만 걸리고 나머지 네 메서드는 즉시 반환 — 폴링당 지연 누적 회귀를 막는 가드.
+- `PacedPimcAgent`: 지연이 턴 결정과 "폭탄을 실제로 던질 때"에만 걸리고 나머지 네 메서드는 즉시 반환 — 폴링당 지연 누적 회귀를 막는 가드.
 - `TichuClient` 왕복: 루프백 세션 + 가짜 뷰모델로 `Awaiting` 수신 → `ClientAction` 제출 → 상태 반영까지. `ActionSeq` 단조성과 `ActionRejected` 경로 포함.
 - `TableViewModel`: 새 모양의 헤드리스 테스트. 기존 Presentation 145개가 회귀 검사.
 - **유니티 EditMode 필수** — dotnet 그린은 유니티 그린을 뜻하지 않는다(M1에서 `Does.Not.Contain(object)` 하나가 EditMode 어셈블리를 깨뜨렸다). 새 테스트는 NUnit 3.5 계열에서도 컴파일되는 단언만 쓴다.
@@ -86,4 +92,4 @@ M1 스펙이 "교환 제출 현황 표시는 `RoundSetup`이 `internal`이라 M4
 
 ## 10. 승인된 결정
 
-① 다음 증분 = 클라이언트 재배선(M2보다 먼저) ② 전송까지 전체 경로(싱글이 진짜 멀티 경로를 돈다) ③ 클라이언트 층 분리 신설(뷰모델은 프로토콜을 모른다) ④ `AppliedAction`을 `StateUpdate`에 추가, 교환 페이로드 생략 ⑤ `TrickView`가 `Combination? Top`을 그대로 싣는다 ⑥ `PacedAgent`는 `Tichu.Net`, 지연 배치를 1:1 미러 ⑦ 비동기 경로는 사용 중단 표시만, 삭제는 별도 패스.
+① 다음 증분 = 클라이언트 재배선(M2보다 먼저) ② 전송까지 전체 경로(싱글이 진짜 멀티 경로를 돈다) ③ 클라이언트 층 분리 신설(뷰모델은 프로토콜을 모른다) ④ `AppliedAction`을 `StateUpdate`에 추가, 교환 페이로드 생략 ⑤ `TrickView`가 `Combination? Top`을 그대로 싣는다 ⑥ `PacedPimcAgent`는 유니티 쪽 Presentation(PIMC가 core에 없음), 지연 배치 1:1 미러 + `max(지연, 연산)` 겹침 보존 ⑦ 비동기 경로는 사용 중단 표시만, 삭제는 별도 패스.

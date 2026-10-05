@@ -309,12 +309,15 @@ namespace Tichu.Presentation.ViewModel
             return arr;
         }
 
-        // 합법성: 카드 정확 일치 대신 (Type, Rank) 등가 — 같은 랭크 다른 무늬도 합법이다
-        // (GenerateSingles 가 랭크당 1장만 내므로 정확 일치는 다른 무늬를 거부한다).
+        // 합법성: 카드 정확 일치 대신 (Type, Rank, Length) 등가 — 같은 랭크 다른 무늬도
+        // 합법이다(GenerateSingles 가 랭크당 1장만 내므로 정확 일치는 다른 무늬를 거부한다).
+        // Length 까지 봐야 한다 — 같은 top rank 라도 길이가 다른 스트레이트/연속페어는
+        // 서로 다른 수다(예: 6-7-8-9-10 은 합법, 5-6-7-8-9-10 은 아닐 수 있다).
         private static bool IsMoveLegal(Combination move, IReadOnlyList<Combination> legalMoves)
         {
             for (int i = 0; i < legalMoves.Count; i++)
-                if (legalMoves[i].Type == move.Type && legalMoves[i].Rank == move.Rank)
+                if (legalMoves[i].Type == move.Type && legalMoves[i].Rank == move.Rank
+                    && legalMoves[i].Length == move.Length)
                     return true;
             return false;
         }

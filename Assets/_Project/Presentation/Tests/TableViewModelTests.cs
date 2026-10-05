@@ -501,5 +501,44 @@ namespace Tichu.Presentation.Tests
             Assert.That(sent[0].Rank, Is.EqualTo(phoenixMove.Rank),
                 "서버 MoveResolver 가 의도 확인에 쓰는 Rank 가 합법수와 같아야 한다");
         }
+
+        [Test]
+        public void Same_top_rank_different_length_straight_is_refused_locally()
+        {
+            // 서버 합법수는 6-7-8-9-10(길이 5, Top=10)뿐이다. 플레이어가 같은 Top(10)의
+            // 더 긴 스트레이트(5-6-7-8-9-10, 길이 6)를 선택하면, Length 를 안 보던 구 코드는
+            // (Type, Rank) 만 같으면 로컬에서 통과시켜 서버가 거부할 때까지 버튼이 눌려도
+            // 아무 반응이 없었다(FIX 3).
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+
+            var legalStraight = CombinationRecognizer.Recognize(
+                new[]
+                {
+                    Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade), Card.Normal(8, Suit.Jade),
+                    Card.Normal(9, Suit.Jade), Card.Normal(10, Suit.Jade),
+                }, TrickContext.Lead);
+
+            var view = ViewOf(s, 0);
+            view.Awaiting = new Awaiting
+            {
+                Kind = StepKind.Play, Seat = 0, CanPass = true,
+                LegalMoves = new List<Combination> { legalStraight },
+            };
+            vm.Apply(view);
+
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+
+            var longerStraight = new List<Card>
+            {
+                Card.Normal(5, Suit.Sword), Card.Normal(6, Suit.Jade), Card.Normal(7, Suit.Jade),
+                Card.Normal(8, Suit.Jade), Card.Normal(9, Suit.Jade), Card.Normal(10, Suit.Jade),
+            };
+
+            Assert.That(vm.SubmitPlay(longerStraight), Is.False,
+                "같은 top rank(10)라도 길이가 다르면(5 vs 6) 로컬에서 거부돼야 한다");
+            Assert.That(sent.Count, Is.EqualTo(0));
+        }
     }
 }

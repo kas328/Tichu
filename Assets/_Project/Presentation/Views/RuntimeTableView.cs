@@ -700,12 +700,14 @@ namespace Tichu.Presentation.Views
             return c.Type == CombinationType.Invalid ? null : c;
         }
 
-        // (Type, Rank) 등가로 합법수 존재 확인 — 무늬 무관(같은 랭크 다른 무늬도 허용).
+        // (Type, Rank, Length) 등가로 합법수 존재 확인 — 무늬 무관(같은 랭크 다른 무늬도
+        // 허용), 단 길이는 같아야 한다(같은 top rank 라도 길이가 다른 수는 별개다).
         private bool LegalByTypeRank(Combination sel)
         {
             var lm = _activeAw.LegalMoves;
             if (lm == null) return false;
-            for (int i = 0; i < lm.Count; i++) if (lm[i].Type == sel.Type && lm[i].Rank == sel.Rank) return true;
+            for (int i = 0; i < lm.Count; i++)
+                if (lm[i].Type == sel.Type && lm[i].Rank == sel.Rank && lm[i].Length == sel.Length) return true;
             return false;
         }
 

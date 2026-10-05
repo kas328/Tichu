@@ -377,6 +377,36 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void A_pending_off_turn_bomb_refuses_a_second_reservation()
+        {
+            // 차례밖 폭탄은 질문의 답이 아니라 프롬프트로 막을 수 없다. 같은 프레임의
+            // 두 번째 탭을 흘려보내면, 둘째 예약은 이미 손패를 떠날 카드로 만들어져
+            // 서버에서 영구히 해결되지 않고 _offTurnPlays 머리에 남는다 —
+            // TakePendingBomb 가 머리만 들여다보므로 그 라운드의 이후 폭탄이 전부 막힌다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));            // 프롬프트 없음 = 차례밖
+
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+
+            var bomb = new List<Card>
+            {
+                Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                Card.Normal(7, Suit.Sword), Card.Normal(7, Suit.Pagoda),
+            };
+            Assert.That(vm.SubmitPlay(bomb), Is.True);
+            Assert.That(vm.SubmitPlay(bomb), Is.False, "소비되지 않은 예약이 있으면 또 보내지 않는다");
+            Assert.That(sent.Count, Is.EqualTo(1));
+
+            // 내 패가 적용되면 예약이 소비됐다는 뜻이므로 다시 보낼 수 있다.
+            vm.Record(AppliedAction.From(GameAction.Play(0, bomb)));
+            Assert.That(vm.HasPendingBomb, Is.False);
+            Assert.That(vm.SubmitPlay(bomb), Is.True, "적용 뒤에는 새 예약을 받는다");
+            Assert.That(sent.Count, Is.EqualTo(2));
+        }
+
+        [Test]
         public void A_phoenix_single_is_ranked_with_the_current_trick_not_as_a_lead()
         {
             // 봉황 단독의 Rank 는 트릭 문맥에 따라 달라지는 유일한 조합이다. 선검사를

@@ -232,6 +232,10 @@ namespace Tichu.Presentation.ViewModel
             else
             {
                 if (combo.Type == CombinationType.Invalid || !combo.IsBomb) return false;
+                // 이미 보낸 예약이 소비되기 전에 또 보내면, 손패를 떠난 카드로 만들어진
+                // 둘째 항목이 영구히 해결되지 않고 _offTurnPlays 머리에 남는다. 세션의
+                // TakePendingBomb 는 머리만 들여다보므로 그 라운드의 이후 폭탄이 전부 막힌다.
+                if (_bombSent) return false;
                 _bombSent = true;
             }
 

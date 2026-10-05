@@ -63,7 +63,7 @@ namespace Tichu.Core.Tests
             for (int i = 0; i < 4; i++) all.AddRange(v.WonCards[i]);
             if (v.CurrentTrick != null)
             {
-                all.AddRange(v.CurrentTrick.TopCards);
+                if (v.CurrentTrick.Top != null) all.AddRange(v.CurrentTrick.Top.Cards);
                 foreach (var p in v.CurrentTrick.History) all.AddRange(p.Cards);
             }
             return all;
@@ -164,7 +164,7 @@ namespace Tichu.Core.Tests
             var v = ViewProjector.ProjectFor(s, 2);
 
             Assert.That(v.CurrentTrick, Is.Not.Null, "진행 중 트릭이 투영돼야 한다");
-            Assert.That(v.CurrentTrick!.TopCards, Is.EquivalentTo(new[] { ace }));
+            Assert.That(v.CurrentTrick!.Top!.Cards, Is.EquivalentTo(new[] { ace }));
             Assert.That(v.CurrentTrick.TopOwnerSeat, Is.EqualTo(0));
             Assert.That(v.CurrentTrick.History.Count, Is.EqualTo(2));
 
@@ -177,6 +177,30 @@ namespace Tichu.Core.Tests
             Assert.That(passed.Seat, Is.EqualTo(1));
             Assert.That(passed.IsPass, Is.True, "Combination 이 null 인 엔트리는 패스로 매핑돼야 한다");
             Assert.That(passed.Cards, Is.Empty);
+        }
+
+        [Test]
+        public void Trick_top_is_projected_as_a_combination()
+        {
+            var s = PlayPhaseState(4242UL);            // 이 픽스처에 이미 있는 헬퍼
+            AdvancePlay(s, 1);                         // 조합 하나가 깔리게 한다(싱글·페어 등 종류는 리드에 따라 다름)
+
+            var view = ViewProjector.ProjectFor(s, 0);
+            Assert.That(view.CurrentTrick, Is.Not.Null);
+            Assert.That(view.CurrentTrick!.Top, Is.Not.Null, "카드가 깔린 트릭은 Top 이 있다");
+            Assert.That(view.CurrentTrick.Top!.Cards.Count, Is.EqualTo(s.CurrentTrick!.Top!.Cards.Count));
+            Assert.That(view.CurrentTrick.Top.Type, Is.EqualTo(s.CurrentTrick.Top.Type));
+            Assert.That(view.CurrentTrick.Top.Rank, Is.EqualTo(s.CurrentTrick.Top.Rank));
+        }
+
+        [Test]
+        public void Fresh_round_projects_no_current_trick()
+        {
+            // 트릭이 시작되기 전에는 CurrentTrick 자체가 null 로 투영된다 — ProjectFor 의 단락 경로다.
+            // 클라이언트(RenderTrick(null)·TableViewModel)가 바로 이 null 을 받으므로 라이브 계약이다.
+            var s = GameEngine.NewRound(4242UL);
+            var view = ViewProjector.ProjectFor(s, 0);
+            Assert.That(view.CurrentTrick, Is.Null);
         }
     }
 }

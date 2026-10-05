@@ -1,108 +1,104 @@
 using System.Collections.Generic;
-using System.Threading;
-using Cysharp.Threading.Tasks;
 using R3;
 using Tichu.Core.Cards;
 using Tichu.Core.Combinations;
 using Tichu.Core.Game;
+using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
+using Tichu.Net;
 
 namespace Tichu.Presentation.ViewModel
 {
     /// <summary>
-    /// IHumanInputPort 구현체 + R3 ReactiveProperty 기반 상태 투영.
-    /// AsyncGameDriver 가 Apply 후 ApplySnapshot 을 호출해 상태를 갱신하고,
-    /// HumanAgent 는 RequestXxxAsync 를 통해 입력을 기다린다.
-    /// UI 뷰(T8)는 ReactiveProperty 를 구독해 화면을 갱신한다.
+    /// 서버가 보낸 <see cref="PlayerView"/> 를 R3 ReactiveProperty 로 투영하고, 사람의
+    /// 입력을 <see cref="ClientAction"/> 으로 내보낸다. 권위 상태(GameState)를 들고 있지
+    /// 않다 — 여기 있는 값은 전부 서버가 내 좌석 시야로 마스킹해 보낸 것이다.
+    ///
+    /// 입력은 "보내고 잊는다". 수락·거부는 서버가 ActionRejected 로 알려 주며, 여기서
+    /// TCS 로 기다리지 않는다 — 그 대기·취소 기계가 서버의 RemoteAgent 우편함으로
+    /// 옮겨 갔기 때문이다. Submit* 의 bool 은 "지금 Awaiting 이 이 입력을 허용하는가"
+    /// 만 뜻한다(로컬 선검사). false 면 아무것도 내보내지 않는다.
     /// </summary>
-    public sealed class TableViewModel : IHumanInputPort
+    public sealed class TableViewModel
     {
-        // ── 내 좌석 ──────────────────────────────────────────────────────────
-        private readonly int _mySeat;
+        private const int FullHand = 14;
 
-        // ── ReactiveProperty ─────────────────────────────────────────────────
+        private readonly int _mySeat;
+        private long _actionSeq;
+
+        // ── 서버 시야 투영 ───────────────────────────────────────────────────
 
         /// <summary>현재 라운드 페이즈.</summary>
         public ReactiveProperty<RoundPhase> Phase { get; } = new ReactiveProperty<RoundPhase>();
 
-        /// <summary>현재 차례 좌석(Play 페이즈에서만 유효, 그 외 -1). 뷰가 이름 색으로 강조한다.</summary>
+        /// <summary>현재 차례 좌석(Play 페이즈에서만 유효, 그 외 -1).</summary>
         public ReactiveProperty<int> CurrentTurn { get; } = new ReactiveProperty<int>(-1);
 
         /// <summary>내 손패.</summary>
         public ReactiveProperty<IReadOnlyList<Card>> MyHand { get; }
             = new ReactiveProperty<IReadOnlyList<Card>>(new List<Card>());
 
-        /// <summary>현재 트릭.</summary>
-        public ReactiveProperty<Trick?> CurrentTrick { get; } = new ReactiveProperty<Trick?>();
+        /// <summary>진행 중 트릭의 공개 상태.</summary>
+        public ReactiveProperty<TrickView> CurrentTrick { get; } = new ReactiveProperty<TrickView>();
 
         /// <summary>마지막으로 완료된 라운드 결산. 라운드 시작 전 null.</summary>
-        public ReactiveProperty<RoundResult?> RoundResult { get; } = new ReactiveProperty<RoundResult?>();
+        public ReactiveProperty<RoundResult> RoundResult { get; } = new ReactiveProperty<RoundResult>();
 
-        /// <summary>
-        /// 현재 인간 플레이어에게 대기 중인 결정 요청.
-        /// 자기 턴이 아닌 경우 null.
-        /// </summary>
-        public ReactiveProperty<DecisionRequest?> PendingDecision { get; }
-            = new ReactiveProperty<DecisionRequest?>();
+        /// <summary>서버가 지금 <b>나에게</b> 묻고 있는 것. 내 차례가 아니면 null.</summary>
+        public ReactiveProperty<Awaiting> Prompt { get; } = new ReactiveProperty<Awaiting>();
 
         /// <summary>현재 활성 마작 소원 랭크(없으면 null).</summary>
         public ReactiveProperty<int?> Wish { get; } = new ReactiveProperty<int?>();
 
-        /// <summary>누적 팀 총점(여러 라운드 합). 부트스트랩이 갱신한다.</summary>
+        /// <summary>매치 누적 팀 점수. RoundScored 를 더해 만든다.</summary>
         public ReactiveProperty<int> CumulativeA { get; } = new ReactiveProperty<int>(0);
         public ReactiveProperty<int> CumulativeB { get; } = new ReactiveProperty<int>(0);
 
-        /// <summary>빠른 진행(스킵): true면 AI 딜레이를 건너뛴다. 내가 out된 뒤 사용, 새 라운드에 리셋.</summary>
-        public bool FastForward { get; set; }
+        /// <summary>작은 티츄 선언 가능 여부(Play·내 손패 14장·미콜·미전송).</summary>
+        public ReactiveProperty<bool> TichuAvailable { get; } = new ReactiveProperty<bool>(false);
 
-        /// <summary>플레이가 일어날 때마다 발행(뷰가 항목별로 5초 후 페이드시킨다).</summary>
-        private readonly Subject<GameAction> _played = new Subject<GameAction>();
-        public Observable<GameAction> Played => _played;
-        /// <summary>새 라운드 시작 시 발행(로그 비우기).</summary>
-        private readonly Subject<R3.Unit> _cleared = new Subject<R3.Unit>();
-        public Observable<R3.Unit> PlaysCleared => _cleared;
-        /// <summary>차례밖 폭탄 예약 즉시 신호 — 드라이버가 진행 중 상대 결정을 취소해 폭탄을 선점 적용한다.</summary>
-        private readonly Subject<R3.Unit> _bombReserved = new Subject<R3.Unit>();
-        public Observable<R3.Unit> BombReserved => _bombReserved;
-
-        // 좌석별 손패 수 (0..3)
         private readonly ReactiveProperty<int>[] _handCounts = new ReactiveProperty<int>[4];
-
-        /// <summary>좌석 i 의 손패 수 ReactiveProperty.</summary>
-        public ReactiveProperty<int> HandCount(int seat) => _handCounts[seat];
-
         private readonly ReactiveProperty<TichuCall>[] _calls = new ReactiveProperty<TichuCall>[4];
 
-        /// <summary>좌석 i 의 티츄 콜 상태(None/Tichu/GrandTichu).</summary>
+        /// <summary>좌석 i 의 손패 수.</summary>
+        public ReactiveProperty<int> HandCount(int seat) => _handCounts[seat];
+
+        /// <summary>좌석 i 의 티츄 콜 상태.</summary>
         public ReactiveProperty<TichuCall> SeatCall(int seat) => _calls[seat];
 
-        // ── 진행 중인 결정 TCS ───────────────────────────────────────────────
-        // 각 결정 종류별로 최대 1개의 대기 TCS 를 보관한다.
-        private UniTaskCompletionSource<bool>? _grandTichuTcs;
-        private UniTaskCompletionSource<ExchangeChoice>? _exchangeTcs;
-        private UniTaskCompletionSource<bool>? _tichuTcs;
-        private UniTaskCompletionSource<TurnDecision>? _turnTcs;
-        private UniTaskCompletionSource<Combination?>? _bombTcs;
-        private UniTaskCompletionSource<int>? _dragonTcs;
+        // ── 스트림 ───────────────────────────────────────────────────────────
 
-        // 각 결정 요청 시 컨텍스트를 보관한다(Submit 시 합법성 검사에 사용).
-        private DecisionContext _pendingCtx;
+        private readonly Subject<AppliedAction> _played = new Subject<AppliedAction>();
+        /// <summary>서버가 적용한 액션(로그·효과음·연출이 먹는다).</summary>
+        public Observable<AppliedAction> Played => _played;
 
-        /// <summary>작은 티츄 선언 가능 여부(인간 차례·손패14·미선언). 뷰가 상시 버튼을 표시한다.</summary>
-        public ReactiveProperty<bool> TichuAvailable { get; } = new ReactiveProperty<bool>(false);
-        // 작은 티츄 단계에서 인간이 먼저 낸 턴 결정을 캐시(다음 RequestTurnDecisionAsync 가 소비).
-        private bool _hasCachedTurn;
-        private TurnDecision _cachedTurn;
-        // 상대 턴 중 버튼으로 예약된 작은 티츄 콜(드라이버가 다음 Play 반복에서 소비).
-        private const int FullHand = 14;
-        private bool _pendingSmallTichu;
-        // 상대 턴 중 버튼으로 예약된 차례밖 폭탄(드라이버가 다음 Play 반복에서 적용 시도).
-        private Combination _pendingBomb;
+        private readonly Subject<R3.Unit> _cleared = new Subject<R3.Unit>();
+        /// <summary>새 라운드 시작(로그 비우기).</summary>
+        public Observable<R3.Unit> PlaysCleared => _cleared;
 
-        /// <summary>차례밖 폭탄 예약 상태(뷰가 "예약됨" 표시).</summary>
-        public bool HasPendingBomb => _pendingBomb != null;
+        private readonly Subject<ClientAction> _submitted = new Subject<ClientAction>();
+        /// <summary>내가 서버로 올릴 액션. TichuClient 가 전송에 밀어 넣는다.</summary>
+        public Observable<ClientAction> Submitted => _submitted;
 
-        // ── 생성자 ──────────────────────────────────────────────────────────
+        // ── 로컬 전용 상태 ───────────────────────────────────────────────────
+
+        // 빠른 진행(스킵). 세션 스레드의 AI 가 읽으므로 volatile 로 둔다.
+        private volatile bool _fastForward;
+
+        /// <summary>true 면 AI 관전 지연을 건너뛴다. 내가 아웃된 뒤 사용, 새 라운드에 해제.</summary>
+        public bool FastForward
+        {
+            get { return _fastForward; }
+            set { _fastForward = value; }
+        }
+
+        // 작은 티츄를 보냈다(서버 적용 전이라도 버튼을 숨긴다).
+        private bool _tichuSent;
+        // 차례밖 폭탄을 보냈다(뷰가 "발동!" 표시). 내 Play 가 적용되면 해제.
+        private bool _bombSent;
+
+        /// <summary>차례밖 폭탄 전송 상태(뷰 표시용).</summary>
+        public bool HasPendingBomb { get { return _bombSent; } }
 
         public TableViewModel(int mySeat)
         {
@@ -114,374 +110,222 @@ namespace Tichu.Presentation.ViewModel
             }
         }
 
-        // ── 상태 투영 ────────────────────────────────────────────────────────
+        // ── 수신 ─────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// GameEngine.Apply 후 드라이버가 호출. GameState 를 ReactiveProperty 에 투영한다.
-        /// </summary>
-        public void ApplySnapshot(GameState s)
+        /// <summary>서버 StateUpdate 의 뷰를 투영한다.</summary>
+        public void Apply(PlayerView v)
         {
-            Phase.Value = s.Phase;
-            Wish.Value = s.Wish;
-            // ReactiveProperty 는 같은 참조를 다시 넣으면 통지하지 않는다. 엔진은 손패 List·트릭을
-            // 제자리 변경하므로(같은 참조), 변경 감지를 위해 사본/강제 재통지가 필요하다.
-            CurrentTrick.Value = null;                              // 트릭 Top 갱신 반영: null→값으로 강제 통지
-            CurrentTrick.Value = s.CurrentTrick;
+            Phase.Value = v.Phase;
+            Wish.Value = v.Wish;
+
+            // 트릭은 매번 새 객체라 참조 비교로 통지된다(강제 재통지 불필요 —
+            // 제자리 변경되는 GameState 를 직접 보던 시절의 우회가 사라졌다).
+            CurrentTrick.Value = v.CurrentTrick;
+
             for (int i = 0; i < 4; i++)
             {
-                _handCounts[i].Value = s.Seats[i].Hand.Count;
-                _calls[i].Value = s.Seats[i].Call;
+                _handCounts[i].Value = v.HandCounts[i];
+                _calls[i].Value = v.Calls[i];
             }
-            // 작은 티츄 상시 버튼: Play 중 내가 첫 패 전(14장)·미콜·미예약이면 표시.
-            TichuAvailable.Value = s.Phase == RoundPhase.Play
-                && s.Seats[_mySeat].Call == TichuCall.None
-                && s.Seats[_mySeat].Hand.Count == FullHand
-                && !_pendingSmallTichu;
-            // 현재 차례(Play에서만) — 뷰가 좌석 이름 강조.
-            CurrentTurn.Value = s.Phase == RoundPhase.Play ? s.Turn : -1;
-            // MyHand 는 마지막에 통지: RenderHand 가 최신 트릭/차례(차례밖 폭탄 가능 여부)를 참조하도록.
-            MyHand.Value = new List<Card>(s.Seats[_mySeat].Hand);   // 사본 → 항상 통지
+
+            TichuAvailable.Value = v.Phase == RoundPhase.Play
+                && v.Calls[_mySeat] == TichuCall.None
+                && v.HandCounts[_mySeat] == FullHand
+                && !_tichuSent;
+
+            CurrentTurn.Value = v.Phase == RoundPhase.Play ? v.Turn : -1;
+
+            // 손패를 프롬프트보다 먼저 통지한다 — 프롬프트 렌더가 RefreshActions 를 타므로
+            // 순서가 뒤바뀌면 한 이벤트 동안 지난 손패·정리 안 된 선택으로 버튼을 그린다.
+            MyHand.Value = new List<Card>(v.MyHand);
+
+            // 내게 온 질문만 프롬프트다. 남의 차례 알림은 축약판이라 합법수가 없다.
+            Prompt.Value = (v.Awaiting != null && v.Awaiting.Seat == _mySeat) ? v.Awaiting : null;
         }
 
-        /// <summary>플레이 액션을 최근 로그에 기록한다(Play/Pass/GiveDragon만).</summary>
-        public void RecordPlay(GameAction a)
+        /// <summary>서버가 적용한 액션을 로그·사운드로 흘린다.</summary>
+        public void Record(AppliedAction a)
         {
-            if (a.Kind == GameActionKind.Play || a.Kind == GameActionKind.Pass || a.Kind == GameActionKind.GiveDragon)
+            if (a.Kind == GameActionKind.Play && a.Seat == _mySeat)
+            {
+                _bombSent = false;
+                // 낙관적 숨김은 제출→적용 창에서만 유효하다. 내 패가 나간 뒤에는 권위
+                // 값(v.Calls/v.HandCounts)만 버튼을 결정하게 둔다 — 서버가 조용히 버린
+                // 콜이 버튼을 영구히 숨기지 않도록.
+                _tichuSent = false;
+            }
+
+            if (a.Kind == GameActionKind.Play
+                || a.Kind == GameActionKind.Pass
+                || a.Kind == GameActionKind.GiveDragon)
                 _played.OnNext(a);
         }
 
-        /// <summary>새 라운드 시작 시 로그 비우기 신호.</summary>
-        public void ClearPlays() { _pendingSmallTichu = false; _pendingBomb = null; _cleared.OnNext(default); }
-
-        // ── IHumanInputPort 구현 ─────────────────────────────────────────────
-
-        /// <inheritdoc/>
-        public UniTask<bool> RequestGrandTichuAsync(DecisionContext ctx, CancellationToken ct)
+        /// <summary>라운드 정산 수신 — 누적에 더하고 결과를 띄운다.</summary>
+        public void OnRoundScored(RoundResult r)
         {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
-            ApplySnapshot(ctx.State);
-            _pendingCtx = ctx;
-            _grandTichuTcs = new UniTaskCompletionSource<bool>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.GrandTichu, ctx);
-            ct.Register(CancelGrandTichu);
-            return _grandTichuTcs.Task;
+            CumulativeA.Value += r.TeamATotal;
+            CumulativeB.Value += r.TeamBTotal;
+            RoundResult.Value = r;
         }
 
-        /// <inheritdoc/>
-        public UniTask<ExchangeChoice> RequestExchangeAsync(DecisionContext ctx, CancellationToken ct)
+        /// <summary>새 라운드 시작: 로그·로컬 예약 상태를 비운다.</summary>
+        public void ClearPlays()
         {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
-            ApplySnapshot(ctx.State);
-            _pendingCtx = ctx;
-            _exchangeTcs = new UniTaskCompletionSource<ExchangeChoice>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.Exchange, ctx);
-            ct.Register(CancelExchange);
-            return _exchangeTcs.Task;
+            _tichuSent = false;
+            _bombSent = false;
+            RoundResult.Value = null;
+            FastForward = false;
+            _cleared.OnNext(default);
         }
 
-        /// <inheritdoc/>
-        // 작은 티츄: 별도 프롬프트를 띄우지 않고 턴 UI 를 그대로 보여주며 상시 "스몰 티츄" 버튼을 활성화한다.
-        // 버튼을 누르면 선언(true), 그냥 패를 내면 미선언(false)+그 결정을 캐시해 다음 턴 요청이 소비한다.
-        public UniTask<bool> RequestTichuAsync(DecisionContext ctx, CancellationToken ct)
-        {
-            ApplySnapshot(ctx.State);
-            _pendingCtx = ctx;
-            _tichuTcs = new UniTaskCompletionSource<bool>();
-            // 버튼 표시는 ApplySnapshot 이 단일 관리(Play·14장·미콜·미예약).
-            PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
-            ct.Register(CancelTichu);
-            return _tichuTcs.Task;
-        }
+        // ── 송신 (로컬 선검사 후 발행) ───────────────────────────────────────
 
-        /// <inheritdoc/>
-        public UniTask<TurnDecision> RequestTurnDecisionAsync(DecisionContext ctx, CancellationToken ct)
-        {
-            ApplySnapshot(ctx.State);
-            // 티츄 단계에서 이미 낸 결정이 있으면 즉시 소비(추가 프롬프트 없이).
-            if (_hasCachedTurn)
-            {
-                _hasCachedTurn = false;
-                var cached = _cachedTurn;
-                PendingDecision.Value = null;
-                return UniTask.FromResult(cached);
-            }
-            _pendingCtx = ctx;
-            _turnTcs = new UniTaskCompletionSource<TurnDecision>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.Turn, ctx);
-            ct.Register(CancelTurn);
-            return _turnTcs.Task;
-        }
-
-        /// <inheritdoc/>
-        // 인간은 차례밖 폭탄 창에서 매번 묻지 않는다(자동 넘김). 폭탄은 자기 차례에 카드 선택으로 낸다.
-        public UniTask<Combination?> RequestBombAsync(DecisionContext ctx, CancellationToken ct)
-            => UniTask.FromResult<Combination?>(null);
-
-        /// <inheritdoc/>
-        public UniTask<int> RequestDragonRecipientAsync(DecisionContext ctx, CancellationToken ct)
-        {
-            // 인간 프롬프트 시점에 현재 상태를 테이블에 반영한다.
-            ApplySnapshot(ctx.State);
-            _pendingCtx = ctx;
-            _dragonTcs = new UniTaskCompletionSource<int>();
-            PendingDecision.Value = new DecisionRequest(DecisionKind.DragonRecipient, ctx);
-            ct.Register(CancelDragon);
-            return _dragonTcs.Task;
-        }
-
-        // ── Submit (로컬 합법성 게이팅) ──────────────────────────────────────
-
-        /// <summary>
-        /// 큰 티츄 선언 여부를 제출한다.
-        /// GrandTichu 는 어떤 bool 값이든 합법이다.
-        /// </summary>
-        /// <returns>수락 여부.</returns>
+        /// <summary>큰 티츄 선언/패스. 큰 티츄 질문을 받은 상태여야 한다.</summary>
         public bool SubmitGrandTichu(bool call)
         {
-            if (_grandTichuTcs == null) return false;
-            var tcs = _grandTichuTcs;
-            _grandTichuTcs = null;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(call);
+            if (!Asking(StepKind.GrandTichu)) return false;
+            Send(call
+                ? ClientAction.CallGrandTichu(_mySeat, NextSeq())
+                : ClientAction.DeclineGrandTichu(_mySeat, NextSeq()));
+            Answered();
             return true;
         }
 
-        /// <summary>
-        /// 교환 카드를 제출한다.
-        /// 3장이 손패 안에 있고 서로 달라야 한다.
-        /// </summary>
+        /// <summary>교환 3장. 서로 다르고 모두 내 손패에 있어야 한다.</summary>
         public bool SubmitExchange(ExchangeChoice choice)
         {
-            if (_exchangeTcs == null) return false;
-            var hand = _pendingCtx.MyHand;
-            // 3장이 손패에 있고 서로 다른지 검사
-            if (!IsDistinctAndInHand(choice.ToLeft, choice.ToPartner, choice.ToRight, hand))
+            if (!Asking(StepKind.Exchange)) return false;
+            if (!IsDistinctAndInHand(choice.ToLeft, choice.ToPartner, choice.ToRight, MyHand.CurrentValue))
                 return false;
-            var tcs = _exchangeTcs;
-            _exchangeTcs = null;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(choice);
+            Send(ClientAction.Exchange(_mySeat, NextSeq(), choice.ToLeft, choice.ToPartner, choice.ToRight));
+            Answered();
+            return true;
+        }
+
+        /// <summary>패스. 서버가 CanPass 라고 알린 상태여야 한다.</summary>
+        public bool SubmitPass()
+        {
+            var aw = Prompt.CurrentValue;
+            if (aw == null || aw.Kind != StepKind.Play || !aw.CanPass) return false;
+            Send(ClientAction.Pass(_mySeat, NextSeq()));
+            Answered();
             return true;
         }
 
         /// <summary>
-        /// 작은 티츄 선언 여부를 제출한다. 어떤 bool 값이든 합법이다.
+        /// 카드를 낸다. 내 차례면 합법수 목록으로 선검사하고, 차례밖이면 선검사 없이
+        /// 보낸다 — 차례밖 Play 는 서버가 폭탄 예약으로 받아 합법일 때 적용한다.
         /// </summary>
-        public bool SubmitTichu(bool call)
+        public bool SubmitPlay(IReadOnlyList<Card> cards, int? wish = null)
         {
-            if (_tichuTcs == null) return false;
-            var tcs = _tichuTcs;
-            _tichuTcs = null;
-            TichuAvailable.Value = false;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(call);
-            return true;
-        }
+            if (cards == null || cards.Count == 0) return false;
 
-        /// <summary>상시 "스몰 티츄" 버튼: 작은 티츄를 선언한다.
-        /// 내 차례 훅 대기 중이면 그 경로로, 아니면(상대 턴 등) 보류 콜로 예약한다.</summary>
-        public bool DeclareSmallTichu()
-        {
-            if (_tichuTcs != null)
+            var aw = Prompt.CurrentValue;
+            bool myTurn = aw != null && aw.Kind == StepKind.Play;
+
+            var combo = CombinationRecognizer.Recognize(ToArray(cards), RecognizeContext());
+            if (myTurn)
             {
-                TichuAvailable.Value = false;
-                var tcs = _tichuTcs;
-                _tichuTcs = null;
-                tcs.TrySetResult(true); // 선언 → 드라이버가 CallTichu 적용 후 턴을 다시 묻는다.
-                return true;
-            }
-            // 상대 턴 등: 드라이버가 다음 Play 반복에서 TakePendingTichuSeat 로 소비.
-            _pendingSmallTichu = true;
-            TichuAvailable.Value = false;
-            return true;
-        }
-
-        /// <summary>드라이버가 매 Play 반복 시작에 호출: 버튼으로 예약된 작은 티츄 콜을 소비한다.
-        /// 첫 패 전(14장)·미콜이면 내 좌석을, 아니면 -1 을 반환한다.</summary>
-        public int TakePendingTichuSeat(GameState s)
-        {
-            if (!_pendingSmallTichu) return -1;
-            _pendingSmallTichu = false;
-            if (s.Phase == RoundPhase.Play
-                && s.Seats[_mySeat].Call == TichuCall.None
-                && s.Seats[_mySeat].Hand.Count == FullHand)
-                return _mySeat;
-            return -1; // 늦음(이미 콜됐거나 첫 패를 냄) — 무시.
-        }
-
-        /// <summary>차례밖 폭탄을 예약한다(상대 턴 중 버튼). 드라이버가 다음 Play 반복에서 적용 시도.</summary>
-        public void ReserveBomb(Combination bomb) { _pendingBomb = bomb; _bombReserved.OnNext(default); }
-
-        /// <summary>드라이버가 매 Play 반복 시작에 호출: 예약된 폭탄을 Play 액션으로 소비한다.
-        /// 합법성(현재 Top 격파·손패 보유)은 엔진 Apply 가 판정하며, 거부되면 드라이버가 조용히 버린다.</summary>
-        public GameAction TakePendingBomb(GameState s)
-        {
-            if (_pendingBomb == null) return null;
-            var bomb = _pendingBomb;
-            _pendingBomb = null;
-            if (s.Phase != RoundPhase.Play) return null;
-            return GameAction.Play(_mySeat, bomb.Cards);
-        }
-
-        /// <summary>
-        /// 자기 턴 결정을 제출한다.
-        /// - 패스: ctx.CanPass 일 때만 허용.
-        /// - 패 내기: 카드 집합이 ctx.LegalMoves 중 하나와 일치해야 한다.
-        /// </summary>
-        /// <returns>수락 여부(false 면 거부, await 는 계속 대기).</returns>
-        public bool SubmitTurnDecision(TurnDecision d)
-        {
-            // 턴 TCS 가 없고 티츄 단계면: 작은 티츄 미선언 + 이 결정을 캐시(다음 턴 요청이 소비).
-            bool tichuPhase = _turnTcs == null && _tichuTcs != null;
-            if (_turnTcs == null && !tichuPhase) return false;
-
-            if (d.IsPass)
-            {
-                if (!_pendingCtx.CanPass) return false;
+                if (aw.LegalMoves == null || !IsMoveLegal(combo, aw.LegalMoves)) return false;
             }
             else
             {
-                // d.Move 의 카드 집합이 합법 수 목록 중 하나와 일치해야 한다.
-                if (d.Move == null || !IsMoveLegal(d.Move, _pendingCtx.LegalMoves))
-                    return false;
+                if (combo.Type == CombinationType.Invalid || !combo.IsBomb) return false;
+                // 이미 보낸 예약이 소비되기 전에 또 보내면, 손패를 떠난 카드로 만들어진
+                // 둘째 항목이 영구히 해결되지 않고 _offTurnPlays 머리에 남는다. 세션의
+                // TakePendingBomb 는 머리만 들여다보므로 그 라운드의 이후 폭탄이 전부 막힌다.
+                if (_bombSent) return false;
+                _bombSent = true;
             }
 
-            if (tichuPhase)
-            {
-                _hasCachedTurn = true;
-                _cachedTurn = d;
-                TichuAvailable.Value = false;
-                var tt = _tichuTcs;
-                _tichuTcs = null;
-                tt.TrySetResult(false); // 작은 티츄 미선언 → 다음 RequestTurnDecisionAsync 가 캐시 소비
-                return true;
-            }
-
-            var tcs = _turnTcs;
-            _turnTcs = null;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(d);
+            // Rank 는 의도 확인용이다(모호성 해소가 아니다 — 기획서 11.1).
+            Send(ClientAction.Play(_mySeat, NextSeq(), new List<Card>(cards), combo.Rank, wish));
+            if (myTurn) Answered();   // 차례밖 폭탄은 질문에 대한 답이 아니다 — 프롬프트를 건드리지 않는다
             return true;
         }
 
-        /// <summary>
-        /// 폭탄 인터럽트를 제출한다.
-        /// null(거절) 은 항상 허용.
-        /// 폭탄은 ctx.LegalMoves 에 있는 폭탄과 카드 집합이 일치해야 한다.
-        /// </summary>
-        public bool SubmitBomb(Combination? bomb)
-        {
-            if (_bombTcs == null) return false;
-
-            if (bomb != null && !IsMoveLegal(bomb, _pendingCtx.LegalMoves))
-                return false;
-
-            var tcs = _bombTcs;
-            _bombTcs = null;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(bomb);
-            return true;
-        }
-
-        /// <summary>
-        /// 용 양도 대상을 제출한다.
-        /// ctx.LeftSeat 또는 ctx.RightSeat 여야 한다.
-        /// </summary>
+        /// <summary>용 양도 대상(상대 좌석).</summary>
         public bool SubmitDragonRecipient(int seat)
         {
-            if (_dragonTcs == null) return false;
-            if (seat != _pendingCtx.LeftSeat && seat != _pendingCtx.RightSeat)
-                return false;
-            var tcs = _dragonTcs;
-            _dragonTcs = null;
-            PendingDecision.Value = null;
-            tcs.TrySetResult(seat);
+            if (!Asking(StepKind.DragonGift)) return false;
+            if (seat < 0 || seat > 3 || (seat % 2) == (_mySeat % 2)) return false;
+            Send(ClientAction.GiveDragon(_mySeat, NextSeq(), seat));
+            Answered();
             return true;
         }
 
-        // ── 취소 콜백 ────────────────────────────────────────────────────────
-
-        private void CancelGrandTichu()
+        /// <summary>
+        /// 작은 티츄를 선언한다. 서버는 이걸 질문으로 묻지 않고 예약으로 받으므로
+        /// 프롬프트 없이 언제든 보낼 수 있다(늦으면 서버가 조용히 버린다 — M5 에서 통보).
+        /// </summary>
+        public bool DeclareSmallTichu()
         {
-            _grandTichuTcs?.TrySetCanceled();
-            _grandTichuTcs = null;
-            PendingDecision.Value = null;
-        }
-
-        private void CancelExchange()
-        {
-            _exchangeTcs?.TrySetCanceled();
-            _exchangeTcs = null;
-            PendingDecision.Value = null;
-        }
-
-        private void CancelTichu()
-        {
-            _tichuTcs?.TrySetCanceled();
-            _tichuTcs = null;
+            if (_tichuSent) return false;
+            _tichuSent = true;
             TichuAvailable.Value = false;
-            _hasCachedTurn = false;
-            PendingDecision.Value = null;
+            Send(ClientAction.CallTichu(_mySeat, NextSeq()));
+            return true;
         }
-
-        private void CancelTurn()
-        {
-            _turnTcs?.TrySetCanceled();
-            _turnTcs = null;
-            PendingDecision.Value = null;
-        }
-
-        private void CancelBomb()
-        {
-            _bombTcs?.TrySetCanceled();
-            _bombTcs = null;
-            PendingDecision.Value = null;
-        }
-
-        private void CancelDragon()
-        {
-            _dragonTcs?.TrySetCanceled();
-            _dragonTcs = null;
-            PendingDecision.Value = null;
-        }
-
-        // ── 합법성 검사 헬퍼 ─────────────────────────────────────────────────
 
         /// <summary>
-        /// move 의 카드 집합이 legalMoves 중 하나와 멀티셋 동일한지 확인한다.
+        /// 지금 깔린 트릭으로 조합 인식 문맥을 만든다. 서버의 합법수 생성이 쓰는
+        /// TrickComparer.ContextFor 와 같은 규칙이라야 한다 — 어긋나면 봉황 단독의
+        /// Rank 가 서버 것과 달라져 선검사와 서버 검증이 모두 내 수를 거부한다.
+        /// 뷰도 선택 카드를 인식할 때 이걸 쓴다(규칙이 한 곳에만 있도록).
         /// </summary>
-        // 합법성: 카드 정확 일치 대신 (Type, Rank) 등가 — 같은 랭크 다른 무늬 카드도 동일하게 합법.
-        // (GenerateSingles 가 랭크당 1장만 합법수로 내므로, 정확 일치는 다른 무늬를 거부함.)
+        public TrickContext RecognizeContext()
+        {
+            var trick = CurrentTrick.CurrentValue;
+            if (trick == null || trick.Top == null) return TrickContext.Lead;
+            bool single = trick.Top.Type == CombinationType.Single;
+            return new TrickContext(false, single, single ? trick.Top.Rank : 0);
+        }
+
+        // ── 내부 ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 질문에 답했다 — 프롬프트를 즉시 내린다. 뷰가 버튼을 Object.Destroy 로 치우므로
+        /// 프레임 끝까지 클릭이 살아 있고, 두 번째 답은 서버 우편함에 남아 다음 질문에
+        /// 조용히 쓰인다(패스 재사용·폭탄 큐 막힘). 거부되면 RemoteAgent 의 while(true)
+        /// 가 **새** Awaiting 을 방송하므로 R3 가 다시 통지해 프롬프트가 돌아온다.
+        /// </summary>
+        private void Answered() { Prompt.Value = null; }
+
+        private bool Asking(StepKind kind)
+        {
+            var aw = Prompt.CurrentValue;
+            return aw != null && aw.Kind == kind;
+        }
+
+        private long NextSeq() { return ++_actionSeq; }
+
+        private void Send(ClientAction a) { _submitted.OnNext(a); }
+
+        private static Card[] ToArray(IReadOnlyList<Card> cards)
+        {
+            var arr = new Card[cards.Count];
+            for (int i = 0; i < cards.Count; i++) arr[i] = cards[i];
+            return arr;
+        }
+
+        // 합법성: 카드 정확 일치 대신 (Type, Rank, Length) 등가 — 같은 랭크 다른 무늬도
+        // 합법이다(GenerateSingles 가 랭크당 1장만 내므로 정확 일치는 다른 무늬를 거부한다).
+        // Length 까지 봐야 한다 — 같은 top rank 라도 길이가 다른 스트레이트/연속페어는
+        // 서로 다른 수다(예: 6-7-8-9-10 은 합법, 5-6-7-8-9-10 은 아닐 수 있다).
         private static bool IsMoveLegal(Combination move, IReadOnlyList<Combination> legalMoves)
         {
             for (int i = 0; i < legalMoves.Count; i++)
-            {
-                if (legalMoves[i].Type == move.Type && legalMoves[i].Rank == move.Rank)
+                if (legalMoves[i].Type == move.Type && legalMoves[i].Rank == move.Rank
+                    && legalMoves[i].Length == move.Length)
                     return true;
-            }
             return false;
-        }
-
-        /// <summary>두 카드 리스트가 멀티셋으로 동일한지 확인한다. 순서 무관.</summary>
-        private static bool CardsMatch(IReadOnlyList<Card> a, IReadOnlyList<Card> b)
-        {
-            if (a.Count != b.Count) return false;
-            // 작은 리스트이므로 O(n²) 선형 탐색으로 충분하다.
-            var remaining = new List<Card>(b.Count);
-            for (int i = 0; i < b.Count; i++) remaining.Add(b[i]);
-            for (int i = 0; i < a.Count; i++)
-            {
-                if (!remaining.Remove(a[i])) return false;
-            }
-            return true;
         }
 
         /// <summary>교환 카드 3장이 손패 안에 있고 서로 다른지 확인한다.</summary>
         private static bool IsDistinctAndInHand(Card l, Card p, Card r, IReadOnlyList<Card> hand)
         {
-            // 서로 다른지 확인
             if (l.Equals(p) || l.Equals(r) || p.Equals(r)) return false;
-            // 모두 손패 안에 있는지 확인 (멀티셋: 동일 카드 중복 처리)
             var remaining = new List<Card>(hand.Count);
             for (int i = 0; i < hand.Count; i++) remaining.Add(hand[i]);
             return remaining.Remove(l) && remaining.Remove(p) && remaining.Remove(r);

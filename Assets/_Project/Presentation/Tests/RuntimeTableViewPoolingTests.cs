@@ -2,6 +2,7 @@ using System.Threading;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Core.Game;
+using Tichu.Net;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
 using UnityEngine;
@@ -49,7 +50,7 @@ namespace Tichu.Presentation.Tests
                 view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
 
                 var state = GameEngine.NewRound(12345UL);
-                vm.ApplySnapshot(state);
+                vm.Apply(ViewProjector.ProjectFor(state, 0));
 
                 var hand = FindByName(canvasGo, "Hand");
                 int expected = state.Seats[0].Hand.Count;
@@ -57,7 +58,7 @@ namespace Tichu.Presentation.Tests
                 int totalAfterFirst = hand.GetComponentsInChildren<CardView>(true).Length;
 
                 // 같은 크기로 재렌더 → 새 인스턴스 생성 없이 재사용.
-                vm.ApplySnapshot(state);
+                vm.Apply(ViewProjector.ProjectFor(state, 0));
                 Assert.AreEqual(expected, ActiveCards(hand));
                 Assert.AreEqual(totalAfterFirst, hand.GetComponentsInChildren<CardView>(true).Length,
                     "동일 크기 재렌더는 새 칩을 만들지 않는다(풀 재사용)");
@@ -134,7 +135,7 @@ namespace Tichu.Presentation.Tests
                 Assert.AreEqual(0, ActiveCards(trick), "초기 트릭은 비어 있다");
 
                 // 개는 트릭을 만들지 않지만(CurrentTrick=null) 중앙에 잠깐 에코돼야 한다(#3).
-                vm.RecordPlay(GameAction.Play(1, new System.Collections.Generic.List<Card> { Card.Dog }));
+                vm.Record(AppliedAction.From(GameAction.Play(1, new System.Collections.Generic.List<Card> { Card.Dog })));
 
                 Assert.AreEqual(1, ActiveCards(trick), "개 플레이는 중앙에 1장으로 에코된다");
             }
@@ -151,13 +152,13 @@ namespace Tichu.Presentation.Tests
                 ITableView view = new RuntimeTableView();
                 view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
 
-                vm.ApplySnapshot(GameEngine.NewRound(777UL));
+                vm.Apply(ViewProjector.ProjectFor(GameEngine.NewRound(777UL), 0));
                 var backs1 = FindByName(canvasGo, "Backs1");
                 int afterDeal = backs1.GetComponentsInChildren<CardView>(true).Length;
                 Assert.Greater(afterDeal, 0, "상대 뒷면이 렌더돼야 한다");
 
                 // 같은 스냅샷 재적용 → 인스턴스 수 불변(풀 재사용).
-                vm.ApplySnapshot(GameEngine.NewRound(777UL));
+                vm.Apply(ViewProjector.ProjectFor(GameEngine.NewRound(777UL), 0));
                 Assert.AreEqual(afterDeal, backs1.GetComponentsInChildren<CardView>(true).Length,
                     "뒷면도 동일 크기 재렌더 시 새 칩을 만들지 않는다");
             }

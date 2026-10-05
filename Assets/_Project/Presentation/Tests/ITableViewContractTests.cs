@@ -1,6 +1,7 @@
 using System.Threading;
 using NUnit.Framework;
 using Tichu.Core.Game;
+using Tichu.Net;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
 using UnityEngine;
@@ -36,10 +37,10 @@ namespace Tichu.Presentation.Tests
                 Assert.Greater(canvas.transform.childCount, 0,
                     "Bind must build the UI hierarchy under the canvas.");
 
-                // 진실 스냅샷 투영이 구독자(뷰)를 NRE 없이 통과해야 한다 = 구독 계약 와이어링.
+                // 서버 뷰 투영이 구독자(뷰)를 NRE 없이 통과해야 한다 = 구독 계약 와이어링.
                 var state = GameEngine.NewRound(12345UL);
-                Assert.DoesNotThrow(() => vm.ApplySnapshot(state),
-                    "Projecting a snapshot must not throw through the bound view.");
+                Assert.DoesNotThrow(() => vm.Apply(ViewProjector.ProjectFor(state, 0)),
+                    "서버 뷰를 투영하는 것이 바인딩된 뷰를 통과해야 한다");
             }
             finally
             {

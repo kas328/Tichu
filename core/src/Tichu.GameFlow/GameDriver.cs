@@ -107,6 +107,8 @@ namespace Tichu.GameFlow
         /// 0) 작은 티츄 예약 → 0b) 차례밖 폭탄 예약 → 1) 용 양도 → 2) 폭탄 창 → 3) 작은 티츄 훅(폴스루) → 4) 인-턴 행동.
         /// 각 분기는 처리 후 return 하여 바깥 루프가 상태를 재평가하게 한다.
         /// 단, 작은 티츄 훅은 턴을 소모하지 않으므로 return 하지 않고 4로 폴스루한다.
+        /// 4) 는 턴 결정을 받은 직후·적용 전에 예약을 한 번 더 걷는다 — 3) 이 지나간 뒤,
+        /// 차례 프롬프트가 떠 있는 동안 도착한 작은 티츄를 놓치지 않기 위함이다(Task 4.6).
         /// </summary>
         private void DrivePlay(GameState s, List<GameAction> log)
         {
@@ -169,6 +171,22 @@ namespace Tichu.GameFlow
 
             // 4) 인-턴 행동: 패스 또는 패 내기(마작 소원 포함).
             var d = _agents[activeTurn].DecideTurn(Ctx(s, activeTurn));
+
+            // 사람이 차례 프롬프트를 들고 있는 동안 누른 작은 티츄는 3)이 이미 지나간 뒤에
+            // 도착한다. 여기서 한 번 더 걷지 않으면 아래 Play 로 손패가 13장이 된 뒤 다음
+            // iteration 의 0)이 소비하려다 엔진에 거부되어(Hand.Count != FullHandCount)
+            // 통보 없이 사라진다. 콜은 턴을 소모하지 않으므로 적용하고 그대로 내려간다.
+            if (_takePendingTichu != null)
+            {
+                int late = _takePendingTichu(s);
+                if (late >= 0)
+                {
+                    var lateCall = GameAction.CallTichu(late);
+                    var lateRes = GameEngine.Apply(s, lateCall);
+                    if (lateRes.Ok) { log.Add(lateCall); _onApply?.Invoke(s, lateCall); }
+                }
+            }
+
             if (d.IsPass)
                 Apply(s, GameAction.Pass(activeTurn), log);
             else

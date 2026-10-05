@@ -28,10 +28,14 @@ namespace Tichu.Net
     {
         public CombinationType LeadType { get; set; }
         public int LeadLength { get; set; }
-        public CombinationType TopType { get; set; }
-        public int TopRank { get; set; }
-        public int TopLength { get; set; }
-        public List<Card> TopCards { get; set; } = new List<Card>();
+
+        /// <summary>
+        /// 현재 격파 대상 조합. 깔린 카드가 없으면 null.
+        /// 불변 값이라 그대로 싣는다 — 클라이언트가 정렬·비교에 쓰려면 Type·Rank·Cards 가
+        /// 한 덩어리로 필요하고, 평탄화해 보내면 되조립 책임이 클라이언트로 번진다.
+        /// </summary>
+        public Combination? Top { get; set; }
+
         public int TopOwnerSeat { get; set; }
         public int AccumulatedPoints { get; set; }
         public List<PlayView> History { get; set; } = new List<PlayView>();

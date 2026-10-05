@@ -3,6 +3,7 @@ using System.Threading;
 using NUnit.Framework;
 using Tichu.Core.Cards;
 using Tichu.Core.Game;
+using Tichu.Net;
 using Tichu.Presentation.Audio;
 using Tichu.Presentation.ViewModel;
 using Tichu.Presentation.Views;
@@ -47,7 +48,7 @@ namespace Tichu.Presentation.Tests
             var canvas = Build(out var vm, out var rec);
             try
             {
-                vm.RecordPlay(GameAction.Play(1, new[] { Card.Normal(7, Suit.Jade) }));
+                vm.Record(AppliedAction.From(GameAction.Play(1, new[] { Card.Normal(7, Suit.Jade) })));
                 Assert.AreEqual(SfxId.CardPlay, rec.Last);
                 Assert.AreEqual(1, rec.Count);
             }
@@ -60,7 +61,7 @@ namespace Tichu.Presentation.Tests
             var canvas = Build(out var vm, out var rec);
             try
             {
-                vm.RecordPlay(GameAction.Pass(1));
+                vm.Record(AppliedAction.From(GameAction.Pass(1)));
                 Assert.AreEqual(SfxId.Pass, rec.Last);
             }
             finally { Object.DestroyImmediate(canvas); }
@@ -72,7 +73,7 @@ namespace Tichu.Presentation.Tests
             var canvas = Build(out var vm, out var rec);
             try
             {
-                vm.RecordPlay(Bomb(1));
+                vm.Record(AppliedAction.From(Bomb(1)));
                 Assert.AreEqual(SfxId.Bomb, rec.Last);
             }
             finally { Object.DestroyImmediate(canvas); }
@@ -124,8 +125,8 @@ namespace Tichu.Presentation.Tests
                 view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
                 Assert.DoesNotThrow(() =>
                 {
-                    vm.RecordPlay(GameAction.Play(1, new[] { Card.Normal(7, Suit.Jade) }));
-                    vm.RecordPlay(GameAction.Pass(1));
+                    vm.Record(AppliedAction.From(GameAction.Play(1, new[] { Card.Normal(7, Suit.Jade) })));
+                    vm.Record(AppliedAction.From(GameAction.Pass(1)));
                     vm.RoundResult.Value = new RoundResult { TeamATotal = 0, TeamBTotal = 0 };
                     vm.SeatCall(2).Value = TichuCall.Tichu;
                 });

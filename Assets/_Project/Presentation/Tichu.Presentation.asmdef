@@ -4,6 +4,7 @@
     "references": [
         "Tichu.Core",
         "Tichu.GameFlow",
+        "Tichu.Net",
         "UniTask",
         "Unity.InputSystem",
         "VContainer",

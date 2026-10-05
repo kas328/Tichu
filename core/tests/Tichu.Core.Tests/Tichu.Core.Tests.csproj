@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Tichu.Core\Tichu.Core.csproj" />
     <ProjectReference Include="..\..\src\Tichu.GameFlow\Tichu.GameFlow.csproj" />
+    <ProjectReference Include="..\..\src\Tichu.Net\Tichu.Net.csproj" />
   </ItemGroup>
 
 </Project>

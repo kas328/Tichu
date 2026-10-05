@@ -27,7 +27,7 @@ $ErrorActionPreference = "Stop"
 
 $root = Split-Path $PSScriptRoot -Parent
 
-function Path([string[]]$parts) { [IO.Path]::Combine(@($root) + $parts) }
+function Path([string[]]$parts) { [IO.Path]::Combine($root, ($parts -join [IO.Path]::DirectorySeparatorChar)) }
 
 $mappings = @(
     @{
@@ -41,6 +41,11 @@ $mappings = @(
         Exclude = @()
     },
     @{
+        Src     = Path @("core", "src", "Tichu.Net")
+        Dest    = Path @("Assets", "_Project", "Net")
+        Exclude = @()
+    },
+    @{
         Src     = Path @("core", "tests", "Tichu.Core.Tests")
         Dest    = Path @("Assets", "_Project", "Tests", "EditMode")
         # dotnet 전용 하니스 — 유니티 테스트 러너에 들어가면 안 된다.
@@ -49,6 +54,10 @@ $mappings = @(
         Exclude = @("*Bench.cs", "*Trainer.cs", "*TrainerTests.cs", "OldAiAgent.cs")
     }
 )
+
+foreach ($m in $mappings) {
+    if (-not (Test-Path $m.Src)) { throw "Mapping Src does not exist: $($m.Src)" }
+}
 
 function Get-CsFiles([string]$dir, [string[]]$exclude) {
     Get-ChildItem -Recurse -Path $dir -Filter "*.cs" |

@@ -33,7 +33,7 @@ jobs:
       - name: 정본과 사본 비교
         run: |
           drift=0
-          for pair in "core/src/Tichu.Core:Assets/_Project/Core" "core/src/Tichu.GameFlow:Assets/_Project/GameFlow"; do
+          for pair in "core/src/Tichu.Core:Assets/_Project/Core" "core/src/Tichu.GameFlow:Assets/_Project/GameFlow" "core/src/Tichu.Net:Assets/_Project/Net"; do
             src="${pair%%:*}"; dst="${pair##*:}"
             while IFS= read -r f; do
               rel="${f#$src/}"

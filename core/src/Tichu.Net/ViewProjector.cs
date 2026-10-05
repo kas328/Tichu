@@ -59,17 +59,10 @@ namespace Tichu.Net
             {
                 LeadType = t.LeadType,
                 LeadLength = t.LeadLength,
+                Top = t.Top,                 // 불변 값 — 깊은 복사 불필요
                 TopOwnerSeat = t.TopOwnerSeat,
                 AccumulatedPoints = t.AccumulatedPoints,
             };
-
-            if (t.Top != null)
-            {
-                tv.TopType = t.Top.Type;
-                tv.TopRank = t.Top.Rank;
-                tv.TopLength = t.Top.Length;
-                tv.TopCards = new List<Card>(t.Top.Cards);
-            }
 
             tv.History = new List<PlayView>(t.History.Count);
             foreach (var p in t.History)

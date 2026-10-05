@@ -63,7 +63,7 @@ namespace Tichu.Core.Tests
             for (int i = 0; i < 4; i++) all.AddRange(v.WonCards[i]);
             if (v.CurrentTrick != null)
             {
-                all.AddRange(v.CurrentTrick.TopCards);
+                if (v.CurrentTrick.Top != null) all.AddRange(v.CurrentTrick.Top.Cards);
                 foreach (var p in v.CurrentTrick.History) all.AddRange(p.Cards);
             }
             return all;
@@ -164,7 +164,7 @@ namespace Tichu.Core.Tests
             var v = ViewProjector.ProjectFor(s, 2);
 
             Assert.That(v.CurrentTrick, Is.Not.Null, "진행 중 트릭이 투영돼야 한다");
-            Assert.That(v.CurrentTrick!.TopCards, Is.EquivalentTo(new[] { ace }));
+            Assert.That(v.CurrentTrick!.Top!.Cards, Is.EquivalentTo(new[] { ace }));
             Assert.That(v.CurrentTrick.TopOwnerSeat, Is.EqualTo(0));
             Assert.That(v.CurrentTrick.History.Count, Is.EqualTo(2));
 
@@ -177,6 +177,29 @@ namespace Tichu.Core.Tests
             Assert.That(passed.Seat, Is.EqualTo(1));
             Assert.That(passed.IsPass, Is.True, "Combination 이 null 인 엔트리는 패스로 매핑돼야 한다");
             Assert.That(passed.Cards, Is.Empty);
+        }
+
+        [Test]
+        public void Trick_top_is_projected_as_a_combination()
+        {
+            var s = PlayPhaseState(4242UL);            // 이 픽스처에 이미 있는 헬퍼
+            AdvancePlay(s, 1);                         // 카드 한 장이 깔리게 한다
+
+            var view = ViewProjector.ProjectFor(s, 0);
+            Assert.That(view.CurrentTrick, Is.Not.Null);
+            Assert.That(view.CurrentTrick!.Top, Is.Not.Null, "카드가 깔린 트릭은 Top 이 있다");
+            Assert.That(view.CurrentTrick.Top!.Cards.Count, Is.EqualTo(s.CurrentTrick!.Top!.Cards.Count));
+            Assert.That(view.CurrentTrick.Top.Type, Is.EqualTo(s.CurrentTrick.Top.Type));
+            Assert.That(view.CurrentTrick.Top.Rank, Is.EqualTo(s.CurrentTrick.Top.Rank));
+        }
+
+        [Test]
+        public void Empty_trick_has_null_top()
+        {
+            var s = GameEngine.NewRound(4242UL);
+            var view = ViewProjector.ProjectFor(s, 0);
+            // 라운드 시작 시점엔 트릭이 없거나(null) 비어 있다(Top == null) — 둘 다 "깔린 카드 없음".
+            Assert.That(view.CurrentTrick == null || view.CurrentTrick.Top == null, Is.True);
         }
     }
 }

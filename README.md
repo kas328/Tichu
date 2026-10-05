@@ -32,7 +32,9 @@ flowchart LR
         direction TB
         C1["Tichu.Core<br/>카드 · 콤보 인식 · 트릭 비교<br/>라운드 상태기계 · 정산"]
         C2["Tichu.GameFlow<br/>IAgent · 휴리스틱 AI<br/>티츄 콜 헤드(학습 가중치)"]
+        C3["Tichu.Net<br/>MatchSession · RemoteAgent<br/>세션 프로토콜"]
         C1 --> C2
+        C2 --> C3
     end
 
     subgraph unity["Assets/_Project/ — 유니티"]
@@ -43,6 +45,7 @@ flowchart LR
     end
 
     core -- "tools/sync-core-to-unity.ps1 (단방향)" --> unity
+    C3 -- "RoundBootstrap: 좌석0=RemoteAgent, 나머지=PacedPimcAgent" --> U2
 
     U2 --> APK["서명 AAB<br/>Android arm64"]
 ```
@@ -50,6 +53,7 @@ flowchart LR
 - **정본은 `core/`**, 유니티 쪽은 사본이다. 한 방향으로만 동기화하고, CI가 매 푸시마다 정본과 사본의 해시를 비교해 어긋남을 막는다.
 - PIMC 탐색기(결정화 · 세계별 탐색 · 난이도 정책)는 **아직** 유니티 쪽 `GameFlow` 에만 있다. 코드 자체는 엔진 의존이 0이고(`Tichu.GameFlow.asmdef` 의 `noEngineReferences: true`), 런타임에 묶인 것은 예산과 취소를 감싸는 어댑터 `PacedPimcAgent` 한 겹뿐이다 — 코어로 승격 가능한 남은 정리 대상이다. 그래서 PIMC 테스트 80개는 CI가 아니라 에디터 테스트에서만 돈다. 규칙과 휴리스틱은 양쪽이 같은 코드다.
 - 앱 흐름은 **R3(Reactive Extensions) + 순수 reducer** 로 만든 상태기계다. 메뉴 → 난이도 선택 → 매치 → 결과가 전부 하나의 전이 함수로 표현되고, 씬은 Additive로 얹힌다.
+- 싱글플레이는 **멀티플레이 경로를 인간 1명으로 도는 한 사례**다: `RoundBootstrap` 이 `LoopbackTransport` + `MatchSession` 을 띄우고(좌석 0=`RemoteAgent`, 나머지=`PacedPimcAgent`), `TichuClient` 가 좌석별 `PlayerView` 를 펌프해 `TableViewModel` 에 반영한다.
 
 ---
 

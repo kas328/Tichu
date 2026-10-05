@@ -8,6 +8,9 @@ using Tichu.GameFlow.Agents;
 
 namespace Tichu.Presentation
 {
+    /// ⚠️ 라이브 경로가 아니다. 테이블 UI 는 2026-10-05 부터 MatchSession + TichuClient 를
+    /// 쓴다. 이 타입은 동기↔비동기 드라이버 동일성 오라클(AsyncGameDriverTests)을 위해
+    /// 남아 있다. 삭제는 그 오라클을 대체한 뒤에 별도로 한다.
     /// <summary>
     /// <see cref="GameDriver"/>의 비동기 미러. 한 라운드를 끝까지 구동하는 오케스트레이터.
     /// 각 결정 지점에서 좌석별 <see cref="IDecisionAgent"/>에게 await 로 묻고,

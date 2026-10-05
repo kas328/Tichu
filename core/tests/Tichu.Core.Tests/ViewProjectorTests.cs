@@ -183,7 +183,7 @@ namespace Tichu.Core.Tests
         public void Trick_top_is_projected_as_a_combination()
         {
             var s = PlayPhaseState(4242UL);            // 이 픽스처에 이미 있는 헬퍼
-            AdvancePlay(s, 1);                         // 카드 한 장이 깔리게 한다
+            AdvancePlay(s, 1);                         // 조합 하나가 깔리게 한다(싱글·페어 등 종류는 리드에 따라 다름)
 
             var view = ViewProjector.ProjectFor(s, 0);
             Assert.That(view.CurrentTrick, Is.Not.Null);
@@ -194,12 +194,13 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void Empty_trick_has_null_top()
+        public void Fresh_round_projects_no_current_trick()
         {
+            // 트릭이 시작되기 전에는 CurrentTrick 자체가 null 로 투영된다 — ProjectFor 의 단락 경로다.
+            // 클라이언트(RenderTrick(null)·TableViewModel)가 바로 이 null 을 받으므로 라이브 계약이다.
             var s = GameEngine.NewRound(4242UL);
             var view = ViewProjector.ProjectFor(s, 0);
-            // 라운드 시작 시점엔 트릭이 없거나(null) 비어 있다(Top == null) — 둘 다 "깔린 카드 없음".
-            Assert.That(view.CurrentTrick == null || view.CurrentTrick.Top == null, Is.True);
+            Assert.That(view.CurrentTrick, Is.Null);
         }
     }
 }

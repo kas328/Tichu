@@ -24,34 +24,67 @@ namespace Tichu.Net
         {
             if (a.Cards == null || a.Cards.Count == 0) return null;
 
+            // 랭크 등가는 보유하지 않은 카드를 낼 구멍을 연다(7♠ 만 들고 7♥ 를 보내도
+            // 랭크 다중집합은 같다). 엔진의 HandContainsAll 에 맡기면 드라이버가 통보 없이
+            // 버리므로, 검증 관문인 이 자리에서 막는다.
+            if (!HandContainsAll(s.Seats[seat].Hand, a.Cards)) return null;
+
             var moves = LegalMoveGenerator.LegalMoves(s, seat);
             for (int i = 0; i < moves.Count; i++)
             {
                 var m = moves[i];
-                if (!SameCardMultiset(m.Cards, a.Cards)) continue;
+                // 생성기는 랭크당 한 장만 내보내므로(GenerateSingles) 카드 신원 일치만 보면
+                // 같은 랭크의 다른 무늬를 고른 사람의 멀쩡한 수가 거부된다. 랭크 다중집합이
+                // 같으면 받아들이고, 카드만 클라이언트 것으로 바꿔 적용한다 — 랭크가 같으니
+                // 소원 강제·봉황 해석·점수·폭탄 판정은 합법수 그대로다.
+                var cards = SubstituteCards(m.Cards, a.Cards);
+                if (cards == null) continue;
                 if (a.Rank != 0 && m.Rank != a.Rank) return null; // 의도 불일치 — 적용하지 않는다
-                return m;
+                return new Combination(m.Type, cards, m.Length, m.Rank, m.PointsInPlay);
             }
             return null;
         }
 
-        /// <summary>두 카드 모음이 같은 다중집합인가(순서 무관, 중복 개수 포함).</summary>
-        private static bool SameCardMultiset(IReadOnlyList<Card> x, IReadOnlyList<Card> y)
+        /// <summary>
+        /// template 과 랭크 다중집합이 같은지 보고, 같으면 template 의 순서에 맞춰 client 카드로
+        /// 바꾼 목록을 돌려준다. 다르면 null.
+        ///
+        /// 순서를 template 에 맞추는 이유는 합법수의 카드 순서(생성기가 정한 순서)를 그대로
+        /// 보존하기 위함이다 — 물리 카드만 교체하고 조합의 모양은 건드리지 않는다.
+        /// 특수 카드는 Special 이 유일하므로 (Rank, Special) 비교로 자동 구분된다.
+        /// </summary>
+        private static List<Card>? SubstituteCards(IReadOnlyList<Card> template, IReadOnlyList<Card> client)
         {
-            if (x.Count != y.Count) return false;
+            if (template.Count != client.Count) return null;
 
-            var used = new bool[y.Count];
-            for (int i = 0; i < x.Count; i++)
+            var pool = new List<Card>(client);
+            var result = new List<Card>(template.Count);
+            for (int i = 0; i < template.Count; i++)
             {
-                bool found = false;
-                for (int j = 0; j < y.Count; j++)
+                var t = template[i];
+                int found = -1;
+                for (int j = 0; j < pool.Count; j++)
                 {
-                    if (used[j] || !y[j].Equals(x[i])) continue;
-                    used[j] = true;
-                    found = true;
+                    if (pool[j].Rank != t.Rank || pool[j].Special != t.Special) continue;
+                    found = j;
                     break;
                 }
-                if (!found) return false;
+                if (found < 0) return null;
+                result.Add(pool[found]);
+                pool.RemoveAt(found);
+            }
+            return result;
+        }
+
+        /// <summary>cards 전부가 hand 에 있는가(중복 개수 포함). 카드 신원으로 비교한다.</summary>
+        private static bool HandContainsAll(IReadOnlyList<Card> hand, IReadOnlyList<Card> cards)
+        {
+            var pool = new List<Card>(hand);
+            for (int i = 0; i < cards.Count; i++)
+            {
+                int j = pool.IndexOf(cards[i]);
+                if (j < 0) return false;
+                pool.RemoveAt(j);
             }
             return true;
         }

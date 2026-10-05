@@ -156,5 +156,112 @@ namespace Tichu.Core.Tests
 
             Assert.That(MoveResolver.ResolveMove(s, 0, a), Is.Null);
         }
+
+        // ── Task 4.5: 랭크 등가 ─────────────────────────────────────────────────
+
+        [Test]
+        public void Single_of_a_suit_the_generator_did_not_pick_still_resolves_to_the_card_sent()
+        {
+            // bag.Cards[9] 는 손패 추가 순서로 채워지므로(HandBag.Build) 생성기 대표는
+            // 먼저 추가된 Jade 다(GenerateSingles 는 랭크당 Cards[r][0] 하나만 내보낸다).
+            var s = LeadState(
+                Hand(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Sword)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)),
+                Hand(Card.Normal(7, Suit.Jade)));
+
+            Combination? representative = null;
+            foreach (var m in LegalMoveGenerator.LegalMoves(s, 0))
+                if (m.Type == CombinationType.Single && m.Cards[0].Rank == 9) representative = m;
+            Assert.That(representative, Is.Not.Null, "테스트 전제: 랭크 9 싱글이 합법수로 생성돼야 함");
+            Assert.That(representative!.Cards[0].Suit, Is.EqualTo(Suit.Jade),
+                "테스트 전제: 생성기 대표는 먼저 추가된 Jade 다");
+
+            var a = ClientAction.Play(0, 1L, new List<Card> { Card.Normal(9, Suit.Sword) }, rank: 0, wish: null);
+            var move = MoveResolver.ResolveMove(s, 0, a);
+
+            Assert.That(move, Is.Not.Null, "생성기 대표가 아닌 무늬라고 거부되면 안 된다");
+            Assert.That(move!.Cards, Is.EquivalentTo(new[] { Card.Normal(9, Suit.Sword) }),
+                "돌려주는 카드는 생성기 대표(Jade)가 아니라 클라이언트가 보낸 카드(Sword)여야 한다");
+        }
+
+        [Test]
+        public void Pair_with_one_card_of_a_different_suit_than_the_generator_still_resolves()
+        {
+            var s = LeadState(
+                Hand(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Sword), Card.Normal(9, Suit.Star)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)),
+                Hand(Card.Normal(7, Suit.Jade)));
+
+            // 생성기 대표 페어는 [Jade9, Sword9](TakeInto 가 처음 두 장을 집는다).
+            // 한 장(Sword→Star)만 다른 무늬로 바꿔 보낸다.
+            var sentCards = new List<Card> { Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Star) };
+            var a = ClientAction.Play(0, 1L, sentCards, rank: 0, wish: null);
+            var move = MoveResolver.ResolveMove(s, 0, a);
+
+            Assert.That(move, Is.Not.Null);
+            Assert.That(move!.Type, Is.EqualTo(CombinationType.Pair));
+            Assert.That(move.Cards, Is.EquivalentTo(sentCards));
+        }
+
+        [Test]
+        public void Exact_generator_cards_still_resolve_unchanged()
+        {
+            // 정확 일치 경로(AI 가 합법수 목록에서 그대로 집어 보내는 경로)가 여전히 동작함을 고정한다.
+            var s = LeadState(
+                Hand(Card.Normal(9, Suit.Jade), Card.Normal(9, Suit.Sword)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)),
+                Hand(Card.Normal(7, Suit.Jade)));
+
+            Combination? template = null;
+            foreach (var m in LegalMoveGenerator.LegalMoves(s, 0))
+                if (m.Type == CombinationType.Pair) template = m;
+            Assert.That(template, Is.Not.Null, "테스트 전제: 페어가 합법수로 생성돼야 함");
+
+            var a = ClientAction.Play(0, 1L, new List<Card>(template!.Cards), rank: 0, wish: null);
+            var move = MoveResolver.ResolveMove(s, 0, a);
+
+            Assert.That(move, Is.Not.Null);
+            Assert.That(move!.Type, Is.EqualTo(CombinationType.Pair));
+            Assert.That(move.Cards, Is.EquivalentTo(template.Cards));
+        }
+
+        [Test]
+        public void Card_not_in_hand_with_matching_rank_is_rejected()
+        {
+            // 랭크 등가가 여는 구멍의 가드: 7♠ 만 들고 같은 랭크의 다른 무늬(Sword)를 보내면
+            // 랭크 다중집합은 일치하지만 그 물리 카드를 손에 쥐고 있지 않다 — HandContainsAll 이 막아야 한다.
+            var s = LeadState(
+                Hand(Card.Normal(7, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)),
+                Hand(Card.Normal(9, Suit.Jade)));
+
+            var a = ClientAction.Play(0, 1L, new List<Card> { Card.Normal(7, Suit.Sword) }, rank: 0, wish: null);
+
+            Assert.That(MoveResolver.ResolveMove(s, 0, a), Is.Null,
+                "보유하지 않은 무늬의 같은 랭크 카드는 거부돼야 한다 — HandContainsAll 가드");
+        }
+
+        [Test]
+        public void Wish_forced_rank_cannot_be_evaded_by_rank_equivalence()
+        {
+            // 소원이 걸리면 소원 랭크를 포함하지 않는 수는 합법수 목록 자체에서 빠진다
+            // (ApplyWishFilter). 랭크 다중집합 비교로 느슨해진 뒤에도 그 필터링이
+            // 여전히 적용됨을 고정한다.
+            var s = LeadState(
+                Hand(Card.Normal(7, Suit.Jade), Card.Normal(9, Suit.Star), Card.Normal(13, Suit.Pagoda)),
+                Hand(Card.Normal(3, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(5, Suit.Jade)));
+            s.Wish = 7;
+
+            var a = ClientAction.Play(0, 1L, new List<Card> { Card.Normal(9, Suit.Star) }, rank: 0, wish: null);
+
+            Assert.That(MoveResolver.ResolveMove(s, 0, a), Is.Null,
+                "소원 랭크를 포함하지 않는 수는 등가 비교로도 통과하면 안 된다");
+        }
     }
 }

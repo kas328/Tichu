@@ -24,6 +24,7 @@ namespace Tichu.Net
         private readonly ulong _masterSeed;
         private readonly int _targetScore;
         private readonly Action<RoundOutcome>? _onRoundCompleted;
+        private readonly TimeSpan _interRoundPause;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
         private readonly IAgent[] _agents = new IAgent[SeatCount];
@@ -44,7 +45,8 @@ namespace Tichu.Net
             ulong masterSeed,
             int targetScore = 1000,
             TimeSpan? turnTimeout = null,
-            Action<RoundOutcome>? onRoundCompleted = null)
+            Action<RoundOutcome>? onRoundCompleted = null,
+            TimeSpan? interRoundPause = null)
         {
             if (aiSeats == null || aiSeats.Length != SeatCount)
                 throw new ArgumentException("exactly 4 seats required", nameof(aiSeats));
@@ -53,6 +55,7 @@ namespace Tichu.Net
             _masterSeed = masterSeed;
             _targetScore = targetScore;
             _onRoundCompleted = onRoundCompleted;
+            _interRoundPause = interRoundPause ?? TimeSpan.Zero;
 
             var timeout = turnTimeout ?? Timeout.InfiniteTimeSpan;
             for (int seat = 0; seat < SeatCount; seat++)
@@ -147,7 +150,16 @@ namespace Tichu.Net
                     _onRoundCompleted?.Invoke(outcome);
 
                     var decision = MatchRunner.Decide(_teamA, _teamB, _targetScore);
-                    if (decision == MatchDecision.Continue) { roundIndex++; continue; }
+                    if (decision == MatchDecision.Continue)
+                    {
+                        // 네 클라이언트가 라운드 결과를 읽을 시간. 서버가 쥐는 것이 맞다 —
+                        // 다음 라운드가 이미 시작된 뒤엔 클라이언트가 멈출 수 없다.
+                        // Stop() 으로 깨울 수 있어야 하므로 Sleep 이 아니라 토큰 대기를 쓴다.
+                        if (_interRoundPause > TimeSpan.Zero)
+                            _cts.Token.WaitHandle.WaitOne(_interRoundPause);
+                        roundIndex++;
+                        continue;
+                    }
 
                     int winner = decision == MatchDecision.TeamAWins ? 0 : 1;
                     for (int seat = 0; seat < SeatCount; seat++)
@@ -166,7 +178,7 @@ namespace Tichu.Net
             }
         }
 
-        private void OnApply(GameState s, GameAction a) => Broadcast(s, null);
+        private void OnApply(GameState s, GameAction a) => Broadcast(s, null, AppliedAction.From(a));
 
         /// <summary>RemoteAgent 가 대기에 들어갔다. 대기 좌석엔 합법수까지, 나머지엔 축약판을 보낸다.</summary>
         private void OnAwait(int seat, Awaiting awaiting)
@@ -177,11 +189,11 @@ namespace Tichu.Net
                     ViewProjector.ProjectFor(CurrentState!, i), i == seat ? awaiting : redacted));
         }
 
-        private void Broadcast(GameState s, Awaiting? awaiting)
+        private void Broadcast(GameState s, Awaiting? awaiting, AppliedAction? applied = null)
         {
             CurrentState = s;
             for (int seat = 0; seat < SeatCount; seat++)
-                _transport.SendTo(seat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, seat), awaiting));
+                _transport.SendTo(seat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, seat), awaiting, applied));
         }
 
         /// <summary>세션 스레드 전용. OnAwait 가 투영에 쓴다.</summary>

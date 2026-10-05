@@ -33,15 +33,18 @@ namespace Tichu.Net
         /// <summary>RoundScored: 라운드 정산 결과.</summary>
         public RoundResult? Round { get; set; }
 
+        /// <summary>StateUpdate: 이 갱신을 유발한 액션. 라운드 시작·대기 알림엔 null.</summary>
+        public AppliedAction? Applied { get; set; }
+
         /// <summary>MatchEnded: 승리 팀(0=A, 1=B)과 최종 누적 점수.</summary>
         public int WinningTeam { get; set; }
         public int TeamA { get; set; }
         public int TeamB { get; set; }
 
-        public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting)
+        public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting, AppliedAction? applied = null)
         {
             view.Awaiting = awaiting;
-            return new ServerEvent { Kind = ServerEventKind.StateUpdate, View = view };
+            return new ServerEvent { Kind = ServerEventKind.StateUpdate, View = view, Applied = applied };
         }
 
         public static ServerEvent ActionRejected(long actionSeq, string reason) =>

@@ -351,8 +351,8 @@ git commit -m "feat(net): StateUpdate 가 유발 액션을 싣고 라운드 간 
         [Test]
         public void Trick_top_is_projected_as_a_combination()
         {
-            var s = GameEngine.NewRound(4242UL);
-            DriveToFirstPlay(s);                       // 이 픽스처의 기존 헬퍼를 쓴다
+            var s = PlayPhaseState(4242UL);            // 이 픽스처에 이미 있는 헬퍼
+            AdvancePlay(s, 1);                         // 카드 한 장이 깔리게 한다
 
             var view = ViewProjector.ProjectFor(s, 0);
             Assert.That(view.CurrentTrick, Is.Not.Null);
@@ -372,7 +372,7 @@ git commit -m "feat(net): StateUpdate 가 유발 액션을 싣고 라운드 간 
         }
 ```
 
-픽스처에 `DriveToFirstPlay` 류 헬퍼가 없으면, 기존 테스트가 트릭을 만드는 방식을 그대로 쓴다(새 헬퍼를 발명하지 말 것).
+⚠️ 이 픽스처에는 이미 `PlayPhaseState(ulong seed)` 와 `AdvancePlay(GameState, int actions)` 가 있다(확인함). **새 헬퍼를 만들지 말고 그 둘을 쓴다.** `AdvancePlay` 의 둘째 인자 의미를 파일에서 확인해 트릭에 카드가 깔린 상태가 되게 맞춘다.
 
 - [ ] **Step 2: 실패를 확인한다**
 
@@ -537,8 +537,7 @@ namespace Tichu.Presentation.Tests
         [Test]
         public void Turn_decision_is_delayed()
         {
-            var s = GameEngine.NewRound(31337UL);
-            DriveToPlayPhase(s);
+            var s = PlayPhaseState(31337UL);
             var agent = new PacedPimcAgent(31337UL, s.Turn, NoSearch, budgetMs: 0, delayMs: Delay);
 
             long ms = Millis(() => agent.DecideTurn(Ctx(s, s.Turn)));
@@ -548,8 +547,7 @@ namespace Tichu.Presentation.Tests
         [Test]
         public void Search_overlaps_the_delay()
         {
-            var s = GameEngine.NewRound(31337UL);
-            DriveToPlayPhase(s);
+            var s = PlayPhaseState(31337UL);
             int seat = s.Turn;
             // 세계 수를 크게 둬 예산이 반드시 구속되게 만든다 → 연산 ≈ budget.
             var heavy = new PolicyConfig(256, 4, 0.05);
@@ -570,22 +568,35 @@ namespace Tichu.Presentation.Tests
                 $"연산이 지연과 겹쳐야 한다(연산 {computeOnly}ms, 페이싱 {paced}ms)");
         }
 
-        /// <summary>셋업을 넘겨 Play 페이즈까지 민다. 기존 테스트가 쓰는 방식을 따른다.</summary>
-        private static void DriveToPlayPhase(GameState s)
+        /// <summary>
+        /// 카드가 깔린 Play 페이즈 상태를 하나 잡아 온다. GameDriver 는 한 단계씩 미는
+        /// 공개 진입점이 없으므로(RunRound 뿐), onApply 훅에서 첫 Play 상태를 복제한다.
+        /// </summary>
+        private static GameState PlayPhaseState(ulong seed)
         {
-            var agents = new IAgent[] { new AiAgent(1UL, 0), new AiAgent(1UL, 1), new AiAgent(1UL, 2), new AiAgent(1UL, 3) };
-            while (s.Phase != RoundPhase.Play)
+            var agents = new IAgent[]
             {
-                var step = Tichu.GameFlow.FlowQuery.Next(s);
-                // 셋업 단계만 처리한다 — Play 에 닿으면 루프가 끝난다.
-                Tichu.GameFlow.GameDriver.ApplyOneStep(s, step, agents);
-            }
+                new AiAgent(seed, 0), new AiAgent(seed, 1), new AiAgent(seed, 2), new AiAgent(seed, 3),
+            };
+            GameState captured = null;
+            new GameDriver(agents).RunRound(GameEngine.NewRound(seed), (st, act) =>
+            {
+                if (captured == null
+                    && st.Phase == RoundPhase.Play
+                    && st.CurrentTrick != null
+                    && st.CurrentTrick.Top != null)
+                    captured = st.Clone();
+            });
+            Assert.That(captured, Is.Not.Null, "Play 페이즈 상태를 잡지 못했다");
+            return captured;
         }
     }
 }
 ```
 
-⚠️ `DriveToPlayPhase` 의 마지막 두 줄은 **추정이다.** `GameDriver`/`FlowQuery` 에 그런 공개 진입점이 없으면 발명하지 말고, 같은 디렉터리의 기존 테스트(`AsyncGameDriverTests`, `RuntimeTableViewPoolingTests`, `Assets/_Project/Tests/EditMode/GameDriverHookTests.cs`)가 Play 페이즈까지 미는 방식을 **그대로 복사**한다. 그래도 없으면 `new GameDriver(agents).RunRound(...)` 의 `onApply` 훅에서 `s.Phase == RoundPhase.Play` 인 첫 상태를 `Clone()` 해 잡는다.
+`GameDriver` 의 공개 API 는 생성자와 `RunRound(GameState, Action<GameState,GameAction>? onApply = null, ...)` 뿐이고 `ApplyOneStep` 같은 단계 진입점은 **없다**(확인함). `GameState.Clone()` 은 있다. 위 헬퍼가 그 사실에 맞춘 형태다.
+
+⚠️ `GameEngine.NewRound` 는 `Phase = GrandTichuDecision` 상태를 돌려준다 — 즉 즉시성 단언 네 개가 쓰는 상태는 교환·용 양도 페이즈가 아니다. 이 네 단언은 **반환값이 아니라 소요 시간만** 본다. 그중 하나라도 예외를 던지면 예외를 삼키지 말고, 그 결정에 맞는 페이즈 상태를 `PlayPhaseState` 와 같은 방식(onApply 캡처)으로 잡아 넘긴다.
 
 - [ ] **Step 2: 실패를 확인한다**
 
@@ -1476,24 +1487,41 @@ namespace Tichu.Presentation.Tests
 
 - [ ] **Step 8: `SfxMap` 에 오버로드를 추가한다**
 
-기존 `For(GameAction)` 은 **지우지 않는다**(사용 중단 경로의 `AsyncGameDriver` 테스트가 쓴다). 아래를 추가:
+기존 `For(GameAction)` 은 **지우지 않는다**(사용 중단 경로의 `AsyncGameDriver` 테스트가 쓴다).
+
+두 오버로드의 본문이 같으므로 **공용 헬퍼로 뽑는다**(그대로 복제하면 리뷰 루브릭이 중복으로 잡는다). 기존 `For(GameAction)` 의 본문을 헬퍼 호출로 바꾸고 새 오버로드를 더한다:
 
 ```csharp
+        public static SfxId For(GameAction a) => Classify(a.Kind, a.Cards);
+
         /// <summary>서버가 적용한 액션 → SfxId. For(GameAction) 과 같은 규칙이다.</summary>
-        public static SfxId For(AppliedAction a)
+        public static SfxId For(AppliedAction a) => Classify(a.Kind, a.Cards);
+
+        /// <summary>종류와 카드만으로 판정한다 — 두 입구가 같은 규칙을 공유하는 지점.</summary>
+        private static SfxId Classify(GameActionKind kind, IReadOnlyList<Card> cards)
         {
-            switch (a.Kind)
+            switch (kind)
             {
                 case GameActionKind.Pass:       return SfxId.Pass;
                 case GameActionKind.GiveDragon: return SfxId.GiveDragon;
                 case GameActionKind.Play:
-                    if (a.Cards == null || a.Cards.Count == 0) return SfxId.CardPlay;
-                    var c = CombinationRecognizer.Recognize(a.Cards.ToArray(), TrickContext.Lead);
+                    // null/빈 가드 후에만 Recognize(NRE 방지).
+                    if (cards == null || cards.Count == 0) return SfxId.CardPlay;
+                    var c = CombinationRecognizer.Recognize(ToArray(cards), TrickContext.Lead);
                     return c.IsBomb ? SfxId.Bomb : SfxId.CardPlay;
                 default:                        return SfxId.None;
             }
         }
+
+        private static Card[] ToArray(IReadOnlyList<Card> cards)
+        {
+            var arr = new Card[cards.Count];
+            for (int i = 0; i < cards.Count; i++) arr[i] = cards[i];
+            return arr;
+        }
 ```
+
+`using System.Collections.Generic;` 와 `using Tichu.Core.Cards;` 가 필요하면 추가한다. `GameAction.Cards` 는 `IReadOnlyList<Card>?`, `AppliedAction.Cards` 는 `List<Card>?` 라 둘 다 헬퍼 인자에 그대로 들어간다. 기존 `.ToArray()`(LINQ)를 쓰고 있었으므로 `using System.Linq;` 가 남아 쓰이지 않게 되면 **내 변경이 고아로 만든 것**이라 지운다.
 
 `using Tichu.Net;` 를 추가한다. `SfxMapTests` 에 `AppliedAction` 입력으로 Pass/Play/Bomb/GiveDragon 네 케이스를 복제해 넣는다(기존 `GameAction` 케이스는 유지).
 

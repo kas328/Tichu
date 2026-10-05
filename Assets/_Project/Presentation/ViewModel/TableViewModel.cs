@@ -135,17 +135,25 @@ namespace Tichu.Presentation.ViewModel
 
             CurrentTurn.Value = v.Phase == RoundPhase.Play ? v.Turn : -1;
 
+            // 손패를 프롬프트보다 먼저 통지한다 — 프롬프트 렌더가 RefreshActions 를 타므로
+            // 순서가 뒤바뀌면 한 이벤트 동안 지난 손패·정리 안 된 선택으로 버튼을 그린다.
+            MyHand.Value = new List<Card>(v.MyHand);
+
             // 내게 온 질문만 프롬프트다. 남의 차례 알림은 축약판이라 합법수가 없다.
             Prompt.Value = (v.Awaiting != null && v.Awaiting.Seat == _mySeat) ? v.Awaiting : null;
-
-            // MyHand 는 마지막 — 손패 렌더가 최신 트릭/차례를 참조한다.
-            MyHand.Value = new List<Card>(v.MyHand);
         }
 
         /// <summary>서버가 적용한 액션을 로그·사운드로 흘린다.</summary>
         public void Record(AppliedAction a)
         {
-            if (a.Kind == GameActionKind.Play && a.Seat == _mySeat) _bombSent = false;
+            if (a.Kind == GameActionKind.Play && a.Seat == _mySeat)
+            {
+                _bombSent = false;
+                // 낙관적 숨김은 제출→적용 창에서만 유효하다. 내 패가 나간 뒤에는 권위
+                // 값(v.Calls/v.HandCounts)만 버튼을 결정하게 둔다 — 서버가 조용히 버린
+                // 콜이 버튼을 영구히 숨기지 않도록.
+                _tichuSent = false;
+            }
 
             if (a.Kind == GameActionKind.Play
                 || a.Kind == GameActionKind.Pass
@@ -180,6 +188,7 @@ namespace Tichu.Presentation.ViewModel
             Send(call
                 ? ClientAction.CallGrandTichu(_mySeat, NextSeq())
                 : ClientAction.DeclineGrandTichu(_mySeat, NextSeq()));
+            Answered();
             return true;
         }
 
@@ -190,6 +199,7 @@ namespace Tichu.Presentation.ViewModel
             if (!IsDistinctAndInHand(choice.ToLeft, choice.ToPartner, choice.ToRight, MyHand.CurrentValue))
                 return false;
             Send(ClientAction.Exchange(_mySeat, NextSeq(), choice.ToLeft, choice.ToPartner, choice.ToRight));
+            Answered();
             return true;
         }
 
@@ -199,6 +209,7 @@ namespace Tichu.Presentation.ViewModel
             var aw = Prompt.CurrentValue;
             if (aw == null || aw.Kind != StepKind.Play || !aw.CanPass) return false;
             Send(ClientAction.Pass(_mySeat, NextSeq()));
+            Answered();
             return true;
         }
 
@@ -226,6 +237,7 @@ namespace Tichu.Presentation.ViewModel
 
             // Rank 는 의도 확인용이다(모호성 해소가 아니다 — 기획서 11.1).
             Send(ClientAction.Play(_mySeat, NextSeq(), new List<Card>(cards), combo.Rank, wish));
+            if (myTurn) Answered();   // 차례밖 폭탄은 질문에 대한 답이 아니다 — 프롬프트를 건드리지 않는다
             return true;
         }
 
@@ -235,6 +247,7 @@ namespace Tichu.Presentation.ViewModel
             if (!Asking(StepKind.DragonGift)) return false;
             if (seat < 0 || seat > 3 || (seat % 2) == (_mySeat % 2)) return false;
             Send(ClientAction.GiveDragon(_mySeat, NextSeq(), seat));
+            Answered();
             return true;
         }
 
@@ -266,6 +279,14 @@ namespace Tichu.Presentation.ViewModel
         }
 
         // ── 내부 ─────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// 질문에 답했다 — 프롬프트를 즉시 내린다. 뷰가 버튼을 Object.Destroy 로 치우므로
+        /// 프레임 끝까지 클릭이 살아 있고, 두 번째 답은 서버 우편함에 남아 다음 질문에
+        /// 조용히 쓰인다(패스 재사용·폭탄 큐 막힘). 거부되면 RemoteAgent 의 while(true)
+        /// 가 **새** Awaiting 을 방송하므로 R3 가 다시 통지해 프롬프트가 돌아온다.
+        /// </summary>
+        private void Answered() { Prompt.Value = null; }
 
         private bool Asking(StepKind kind)
         {

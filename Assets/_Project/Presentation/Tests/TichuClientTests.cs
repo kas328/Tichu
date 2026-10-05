@@ -4,6 +4,7 @@ using System.Threading;
 using NUnit.Framework;
 using R3;
 using Tichu.Core.Cards;
+using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
 using Tichu.Net;
@@ -145,6 +146,116 @@ namespace Tichu.Presentation.Tests
             // 내 손패는 어떤 순간에도 14장을 넘을 수 없다 — 넘으면 남의 카드가 섞인 것이다.
             Assert.That(maxHand, Is.LessThanOrEqualTo(14), $"내 손패가 {maxHand}장까지 보였다");
             Assert.That(maxHand, Is.GreaterThan(0), "손패를 한 번도 못 받았다 — 경로가 돌지 않았다");
+        }
+
+        // ── 라운드 경계·거부(세션 없이 이벤트를 직접 넣어 검증) ─────────────────
+
+        [Test]
+        public void The_first_state_update_after_scoring_starts_a_new_round()
+        {
+            // 설계 메모 6 — 라운드 인덱스를 프로토콜에 넣지 않고 RoundScored 다음의 첫
+            // StateUpdate 를 새 라운드로 본다. 세션은 targetScore 1 로 끝나 이 경로를
+            // 태우지 않으므로 전송에 직접 이벤트를 넣는다.
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            using var client = new TichuClient(transport, vm, MySeat);
+
+            int cleared = 0;
+            using var sub = vm.PlaysCleared.Subscribe(_ => cleared++);
+
+            var first = GameEngine.NewRound(55UL);
+            transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(first, MySeat), null));
+            client.Pump();
+            vm.FastForward = true;          // 내가 아웃돼 스킵을 눌렀다
+
+            transport.SendTo(MySeat,
+                ServerEvent.RoundScored(new RoundResult { TeamATotal = 60, TeamBTotal = 40 }));
+            client.Pump();
+            Assert.That(vm.RoundResult.CurrentValue, Is.Not.Null, "정산은 결과 배너를 띄운다");
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(60), "누적은 클라이언트가 더한다");
+            Assert.That(vm.CumulativeB.CurrentValue, Is.EqualTo(40));
+            Assert.That(cleared, Is.EqualTo(0), "정산만으로는 비우지 않는다 — 결과를 보여 줘야 한다");
+
+            var second = GameEngine.NewRound(66UL);
+            transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(second, MySeat), null));
+            client.Pump();
+            Assert.That(vm.RoundResult.CurrentValue, Is.Null, "새 라운드는 배너를 내린다");
+            Assert.That(cleared, Is.EqualTo(1), "로그 비우기가 한 번 발행된다");
+            Assert.That(vm.FastForward, Is.False, "스킵은 라운드마다 해제된다");
+
+            transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(second, MySeat), null));
+            client.Pump();
+            Assert.That(cleared, Is.EqualTo(1), "라운드 시작 플래그는 한 번만 소비된다");
+        }
+
+        [Test]
+        public void Scoring_accumulates_across_rounds()
+        {
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            using var client = new TichuClient(transport, vm, MySeat);
+
+            transport.SendTo(MySeat,
+                ServerEvent.RoundScored(new RoundResult { TeamATotal = 60, TeamBTotal = 40 }));
+            transport.SendTo(MySeat,
+                ServerEvent.RoundScored(new RoundResult { TeamATotal = -25, TeamBTotal = 125 }));
+            client.Pump();
+
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(35));
+            Assert.That(vm.CumulativeB.CurrentValue, Is.EqualTo(165));
+        }
+
+        [Test]
+        public void A_rejection_is_recorded_and_leaves_the_view_alone()
+        {
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            using var client = new TichuClient(transport, vm, MySeat);
+
+            var s = GameEngine.NewRound(55UL);
+            transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, MySeat), null));
+            client.Pump();
+            int handBefore = vm.MyHand.CurrentValue.Count;
+
+            Assert.That(client.LastRejection, Is.Null, "거부 전에는 사유가 없다");
+            transport.SendTo(MySeat, ServerEvent.ActionRejected(7L, "cannot pass now"));
+            client.Pump();
+
+            Assert.That(client.LastRejection, Is.EqualTo("cannot pass now"));
+            Assert.That(vm.MyHand.CurrentValue.Count, Is.EqualTo(handBefore),
+                "거부는 상태를 되돌리지 않는다 — 진실은 StateUpdate 다");
+        }
+
+        [Test]
+        public void A_session_fault_is_recorded()
+        {
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            using var client = new TichuClient(transport, vm, MySeat);
+
+            transport.SendTo(MySeat, ServerEvent.SessionFaulted("boom"));
+            client.Pump();
+
+            Assert.That(client.LastRejection, Is.EqualTo("boom"));
+            Assert.That(client.MatchEnded, Is.False, "실패는 정상 종료가 아니다");
+        }
+
+        [Test]
+        public void Match_ended_raises_the_summary_the_server_sent()
+        {
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            MatchSummary? got = null;
+            using var client = new TichuClient(transport, vm, MySeat, x => got = x);
+
+            transport.SendTo(MySeat, ServerEvent.MatchEnded(1, 410, 1010));
+            client.Pump();
+
+            Assert.That(client.MatchEnded, Is.True);
+            Assert.That(got.HasValue, Is.True);
+            Assert.That(got.Value.WinningTeam, Is.EqualTo(1));
+            Assert.That(got.Value.TeamA, Is.EqualTo(410));
+            Assert.That(got.Value.TeamB, Is.EqualTo(1010));
         }
     }
 }

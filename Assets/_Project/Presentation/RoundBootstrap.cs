@@ -104,7 +104,7 @@ namespace Tichu.Presentation
             finally
             {
                 session.Stop();
-                session.Join(TimeSpan.FromSeconds(2));
+                session.Join(TimeSpan.FromMilliseconds(250));
             }
         }
 

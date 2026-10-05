@@ -638,6 +638,7 @@ namespace Tichu.Presentation.Views
             go.GetComponent<Button>().onClick.AddListener(() =>
             {
                 var move = _wishMove; _wishMove = null;
+                if (move == null) return;        // 두 번째 탭 — 피커는 다음 렌더에 사라진다
                 _vm.SubmitPlay(move.Cards, wish);
             });
             AddCardLabel(go.transform, label, Ink, 22);
@@ -647,6 +648,7 @@ namespace Tichu.Presentation.Views
 
         private void PlaySelectedTurn()
         {
+            if (!TurnLike) return;               // 프롬프트가 내려간 뒤의 늦은 탭(_activeAw 역참조 방지)
             var sel = RecognizeSelection();
             if (sel == null) return;
             if (!LegalByTypeRank(sel)) return;

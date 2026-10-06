@@ -25,11 +25,25 @@ namespace Tichu.Server.Tests
         private static Task<WebSocketClientTransport> Connect(TestServer s) =>
             WebSocketClientTransport.ConnectAsync(s.WsUri, TimeSpan.FromSeconds(5), CancellationToken.None);
 
+        /// <summary>서버가 첫 접속자에게 좌석을 배정할 때까지 기다린다. 핸드셰이크 완료가 좌석 배정보다 먼저라
+        /// 곧바로 두 번째 클라이언트를 붙이면 좌석 순서가 뒤바뀔 수 있다.</summary>
+        private static async Task WaitForSeatLog(TestServer s, string prefix)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (s.Log) if (s.Log.Exists(l => l.StartsWith(prefix))) return;
+                await Task.Delay(5);
+            }
+            Assert.Fail($"서버 로그에 '{prefix}' 가 5초 안에 나타나지 않았다 — 첫 접속자 좌석 배정 실패");
+        }
+
         [Test]
         public async Task Two_websocket_clients_and_two_server_ai_finish_a_match()
         {
             await using var server = await TestServer.StartAsync(Fast());
             using var t0 = await Connect(server);          // 먼저 접속 → 좌석 0
+            await WaitForSeatLog(server, "좌석 0 접속");
             using var t2 = await Connect(server);          // 다음 → 좌석 2
             var clients = new[] { new ScriptedClient(0, t0), new ScriptedClient(2, t2) };
 
@@ -54,6 +68,7 @@ namespace Tichu.Server.Tests
         {
             await using var server = await TestServer.StartAsync(Fast(target: 1));
             using var t0 = await Connect(server);
+            await WaitForSeatLog(server, "좌석 0 접속");
             using var t2 = await Connect(server);
             var clients = new[] { new ScriptedClient(0, t0), new ScriptedClient(2, t2) };
 
@@ -78,9 +93,7 @@ namespace Tichu.Server.Tests
             opt.AiDelayMs = 50;                              // 끊기 전에 매치가 끝나지 않게
             await using var server = await TestServer.StartAsync(opt);
             using var t0 = await Connect(server);
-            // 두 접속이 동시에 서버 핸들러에 들어가면 좌석 배정이 뒤바뀔 수 있다 — 첫 접속이 좌석 0 을 받은 뒤에 연결한다.
-            var seatWait = DateTime.UtcNow + TimeSpan.FromSeconds(5);
-            while (DateTime.UtcNow < seatWait) { lock (server.Log) if (server.Log.Exists(l => l.StartsWith("좌석 0 접속"))) break; await Task.Delay(5); }
+            await WaitForSeatLog(server, "좌석 0 접속");
             var t2 = await Connect(server);
             var c0 = new ScriptedClient(0, t0);
 
@@ -102,6 +115,7 @@ namespace Tichu.Server.Tests
             opt.Seats = new[] { 0 };
             await using var server = await TestServer.StartAsync(opt);
             using var t0 = await Connect(server);
+            await WaitForSeatLog(server, "좌석 0 접속");
             using var late = await Connect(server);          // 만석 — 서버가 바로 닫는다
 
             var got = new List<ServerEvent>();

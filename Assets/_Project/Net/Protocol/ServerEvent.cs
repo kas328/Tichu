@@ -9,7 +9,8 @@ namespace Tichu.Net
         ActionRejected,
         RoundScored,
         MatchEnded,
-        SessionFaulted
+        SessionFaulted,
+        Lobby
     }
 
     /// <summary>
@@ -41,6 +42,13 @@ namespace Tichu.Net
         public int TeamA { get; set; }
         public int TeamB { get; set; }
 
+        /// <summary>Lobby: 이 연결에 배정된 절대 좌석. 회전하지 않는다(대기실이 회전 전에 읽는다).</summary>
+        public int YourSeat { get; set; }
+
+        /// <summary>Lobby: 접속한 인간 수 / 시작에 필요한 인간 수.</summary>
+        public int Connected { get; set; }
+        public int Required { get; set; }
+
         public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting, AppliedAction? applied = null)
         {
             view.Awaiting = awaiting;
@@ -62,5 +70,8 @@ namespace Tichu.Net
 
         public static ServerEvent SessionFaulted(string reason) =>
             new ServerEvent { Kind = ServerEventKind.SessionFaulted, Reason = reason };
+
+        public static ServerEvent Lobby(int yourSeat, int connected, int required) =>
+            new ServerEvent { Kind = ServerEventKind.Lobby, YourSeat = yourSeat, Connected = connected, Required = required };
     }
 }

@@ -38,6 +38,9 @@ namespace Tichu.Net
                 WinningTeam = flip && ev.Kind == ServerEventKind.MatchEnded ? 1 - ev.WinningTeam : ev.WinningTeam,
                 TeamA = flip ? ev.TeamB : ev.TeamA,
                 TeamB = flip ? ev.TeamA : ev.TeamB,
+                YourSeat = ev.YourSeat,     // 회전하지 않는다 — 클래스 주석 참고
+                Connected = ev.Connected,
+                Required = ev.Required,
             };
         }
 

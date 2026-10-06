@@ -131,6 +131,15 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Lobby_seat_is_not_rotated()
+        {
+            var ev = SeatRotation.ToLocal(ServerEvent.Lobby(2, 1, 2), 2);
+            Assert.That(ev.YourSeat, Is.EqualTo(2), "대기실이 회전 전에 읽는 절대 좌석 배정");
+            Assert.That(ev.Connected, Is.EqualTo(1));
+            Assert.That(ev.Required, Is.EqualTo(2));
+        }
+
+        [Test]
         public void Outgoing_actions_rotate_back_and_exchange_targets_stay_relative()
         {
             var gift = SeatRotation.ToServer(ClientAction.GiveDragon(0, 5, 1), 2);

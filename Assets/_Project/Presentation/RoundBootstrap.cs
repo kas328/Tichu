@@ -27,14 +27,14 @@ namespace Tichu.Presentation
     {
         private GameLaunchArgs _args;
         private Action<MatchSummary> _onComplete;
-        private Action _onFault;
+        private Action<string> _onFault;
 
         /// <summary>
         /// 매치를 구동한다. 셸(GameSessionPresenter)이 Table을 Additive 로드한 뒤 호출한다.
         /// 목표 점수 도달 시 <paramref name="onComplete"/>로 결과를 알리고 루프를 종료한다.
-        /// 세션 폴트로 매치가 중단되면 <paramref name="onFault"/>를 부른다.
+        /// 세션 폴트·접속 실패 시 <paramref name="onFault"/>를 사유와 함께 부른다(null = 사용자 취소, 알림 없음).
         /// </summary>
-        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete, Action onFault)
+        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete, Action<string> onFault)
         {
             _args = args;
             _onComplete = onComplete;
@@ -57,7 +57,8 @@ namespace Tichu.Presentation
             view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 
             // 3) 매치 루프 기동(여러 라운드, 누적 점수, 목표 점수에서 종료).
-            RunMatchAsync(vm).Forget();
+            if (args.ServerAddress != null) RunNetworkMatchAsync(vm, canvas).Forget();
+            else RunMatchAsync(vm).Forget();
         }
 
         /// <summary>
@@ -96,18 +97,7 @@ namespace Tichu.Presentation
 
             try
             {
-                while (!summary.HasValue && !client.Faulted && !ct.IsCancellationRequested)
-                {
-                    client.Pump();
-                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                }
-                if (client.Faulted)
-                {
-                    Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
-                    _onFault?.Invoke();
-                }
-                else if (summary.HasValue)
-                    _onComplete?.Invoke(summary.Value);
+                await PumpUntilEndAsync(client, () => summary, ct);
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }
@@ -116,6 +106,108 @@ namespace Tichu.Presentation
                 session.Stop();
                 session.Join(TimeSpan.FromMilliseconds(250));
             }
+        }
+
+        /// <summary>매치가 끝나거나 세션이 폴트날 때까지 펌프하고 결과를 셸에 알린다.</summary>
+        private async UniTask PumpUntilEndAsync(TichuClient client, Func<MatchSummary?> summary, System.Threading.CancellationToken ct)
+        {
+            while (!summary().HasValue && !client.Faulted && !ct.IsCancellationRequested)
+            {
+                client.Pump();
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+            if (client.Faulted)
+            {
+                Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
+                _onFault?.Invoke(client.LastRejection);
+            }
+            else if (summary().HasValue)
+                _onComplete?.Invoke(summary().Value);
+        }
+
+        /// <summary>
+        /// 서버에 접속해 대기실에서 좌석을 받은 뒤 같은 펌프로 매치를 돈다. 로컬 세션·AI 는 없다 —
+        /// 권위와 AI 페이싱은 서버가 쥔다(빨리감기 무효는 의도된 동작).
+        /// </summary>
+        private async UniTaskVoid RunNetworkMatchAsync(TableViewModel vm, Canvas canvas)
+        {
+            var ct = this.GetCancellationTokenOnDestroy();
+            var overlay = CreateLobbyOverlay(canvas, out var status, out var cancel);
+            cancel.onClick.AddListener(() => _onFault?.Invoke(null));   // 사용자 취소 → 알림 없이 메뉴로
+
+            WebSocketClientTransport transport;
+            try
+            {
+                transport = await WebSocketClientTransport.ConnectAsync(_args.ServerAddress, TimeSpan.FromSeconds(5), ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
+                _onFault?.Invoke("서버에 연결할 수 없습니다");
+                return;
+            }
+
+            using (transport)
+            {
+                try
+                {
+                    var lobby = new LobbyWaiter();
+                    while (!lobby.Started && lobby.FaultReason == null)
+                    {
+                        lobby.Feed(transport.Drain());
+                        status.text = lobby.StatusText;
+                        await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                    }
+                    if (lobby.FaultReason != null) { _onFault?.Invoke(lobby.FaultReason); return; }
+
+                    Destroy(overlay);
+                    MatchSummary? summary = null;
+                    using var client = new TichuClient(transport, vm, lobby.Seat, s => summary = s, lobby.Backlog);
+                    await PumpUntilEndAsync(client, () => summary, ct);
+                }
+                catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
+                catch (Exception e) { Debug.LogException(e); }
+            }
+        }
+
+        /// <summary>대기실 오버레이(상태 문구 + 취소). 테이블 위 반투명 판.</summary>
+        private static GameObject CreateLobbyOverlay(Canvas canvas, out Text status, out Button cancel)
+        {
+            var root = new GameObject("LobbyOverlay", typeof(RectTransform), typeof(Image));
+            root.transform.SetParent(canvas.transform, false);
+            var rt = (RectTransform)root.transform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+            root.GetComponent<Image>().color = new Color(0.04f, 0.10f, 0.06f, 0.92f);
+
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            var textGo = new GameObject("Status", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(root.transform, false);
+            status = textGo.GetComponent<Text>();
+            status.font = font; status.fontSize = 48; status.alignment = TextAnchor.MiddleCenter;
+            status.color = new Color(0.92f, 0.94f, 0.98f); status.text = "서버 접속 중…";
+            var trt = status.rectTransform;
+            trt.anchorMin = trt.anchorMax = trt.pivot = new Vector2(0.5f, 0.5f);
+            trt.sizeDelta = new Vector2(1200f, 120f); trt.anchoredPosition = new Vector2(0f, 60f);
+
+            var btnGo = new GameObject("Btn_취소", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGo.transform.SetParent(root.transform, false);
+            var brt = (RectTransform)btnGo.transform;
+            brt.anchorMin = brt.anchorMax = brt.pivot = new Vector2(0.5f, 0.5f);
+            brt.sizeDelta = new Vector2(360f, 96f); brt.anchoredPosition = new Vector2(0f, -100f);
+            btnGo.GetComponent<Image>().color = new Color(0.20f, 0.24f, 0.34f, 1f);
+            cancel = btnGo.GetComponent<Button>();
+
+            var lblGo = new GameObject("L", typeof(RectTransform), typeof(Text));
+            lblGo.transform.SetParent(btnGo.transform, false);
+            var lbl = lblGo.GetComponent<Text>();
+            lbl.font = font; lbl.fontSize = 36; lbl.alignment = TextAnchor.MiddleCenter;
+            lbl.color = new Color(0.92f, 0.94f, 0.98f); lbl.text = "취소";
+            var lrt = lbl.rectTransform;
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one; lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+
+            return root;
         }
 
         /// <summary>난이도별 인게임 1수 시간예산(ms). 정본은 core 의 PimcBudget — 기존 테스트 호환용 위임.</summary>

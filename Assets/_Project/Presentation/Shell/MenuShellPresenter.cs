@@ -103,6 +103,7 @@ namespace Tichu.Presentation.Shell
         // 난이도를 홀더에 기록하고 매치를 시작한다(→ InGame). GameSessionPresenter가 이 값을 읽는다.
         void StartAt(Difficulty d)
         {
+            _settings.ServerAddress = null;   // AI 대전은 로컬 세션
             _settings.Difficulty = d;
             _flow.Send(AppFlowEvent.StartAiMatch);
         }
@@ -124,6 +125,11 @@ namespace Tichu.Presentation.Shell
 
             if (next != null) ShowPanel(next);
 
+            if (s == ScreenState.MainHub && _settings.PendingNotice != null)
+            {
+                ShowToast(_settings.PendingNotice);
+                _settings.PendingNotice = null;
+            }
             ToggleBgm(s);
         }
 

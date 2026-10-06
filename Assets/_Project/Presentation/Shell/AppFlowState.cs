@@ -12,6 +12,7 @@ namespace Tichu.Presentation.Shell
         DifficultySelect,
         HowTo,
         Settings,
+        NetJoin,
         InGame,
         Result,
     }

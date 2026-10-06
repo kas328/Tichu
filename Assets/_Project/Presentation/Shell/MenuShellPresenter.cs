@@ -2,8 +2,10 @@ using System;
 using DG.Tweening;
 using R3;
 using Tichu.GameFlow.Agents;
+using Tichu.Net;
 using Tichu.Presentation.Audio;
 using UnityEngine;
+using UnityEngine.UI;
 using VContainer.Unity;
 
 namespace Tichu.Presentation.Shell
@@ -17,6 +19,8 @@ namespace Tichu.Presentation.Shell
     public sealed class MenuShellPresenter : IStartable, IDisposable
     {
         readonly AppFlowMachine _flow;
+        const string AddressKey = "net.serverAddress";
+        InputField _addressInput;
         readonly MatchSettings _settings;   // 난이도 선택 기록(세션 유지).
         MenuShellView _view;
         IDisposable _sub;
@@ -83,13 +87,16 @@ namespace Tichu.Presentation.Shell
             Wire(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
             Wire(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.OpenDifficultySelect));   // → 난이도 선택
             Wire(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
-            Wire(ScreenState.ModeSelect, "친구방",    () => { _flow.Send(AppFlowEvent.SelectFriendRoomStub); ShowToast("친구방은 Phase 3에서 제공됩니다"); });
+            Wire(ScreenState.ModeSelect, "친구방",    OnFriendRoom);
             Wire(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             Wire(ScreenState.DifficultySelect, "쉬움",   () => StartAt(Difficulty.Easy));
             Wire(ScreenState.DifficultySelect, "보통",   () => StartAt(Difficulty.Normal));
             Wire(ScreenState.DifficultySelect, "어려움", () => StartAt(Difficulty.Hard));
             Wire(ScreenState.DifficultySelect, "전문가", () => StartAt(Difficulty.Expert));
             Wire(ScreenState.DifficultySelect, "뒤로",   () => _flow.Send(AppFlowEvent.Back));
+            _addressInput = _view.AddInputField(ScreenState.NetJoin, PlayerPrefs.GetString(AddressKey, ""), "서버 주소 (예: 192.168.0.5)");
+            Wire(ScreenState.NetJoin, "접속", ConnectToServer);
+            Wire(ScreenState.NetJoin, "뒤로", () => _flow.Send(AppFlowEvent.Back));
             Wire(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             _view.AddSlider(ScreenState.Settings, "음악",   VolumeSettings.Bgm, VolumeSettings.SetBgm);
             _view.AddSlider(ScreenState.Settings, "효과음", VolumeSettings.Sfx, VolumeSettings.SetSfx);
@@ -106,6 +113,32 @@ namespace Tichu.Presentation.Shell
             _settings.ServerAddress = null;   // AI 대전은 로컬 세션
             _settings.Difficulty = d;
             _flow.Send(AppFlowEvent.StartAiMatch);
+        }
+
+        // 친구방: 개발 빌드(에디터 포함)에서만 M2 접속 화면을 연다. 릴리스는 기존 스텁 안내 유지.
+        void OnFriendRoom()
+        {
+            if (!Debug.isDebugBuild)
+            {
+                _flow.Send(AppFlowEvent.SelectFriendRoomStub);
+                ShowToast("친구방은 Phase 3에서 제공됩니다");
+                return;
+            }
+            _flow.Send(AppFlowEvent.OpenNetJoin);
+        }
+
+        // 주소를 정규화해 기록하고 네트워크 매치를 시작한다(→ InGame). 형식 오류면 접속을 시도하지 않는다.
+        void ConnectToServer()
+        {
+            if (!ServerAddress.TryParse(_addressInput.text, out var uri))
+            {
+                ShowToast("서버 주소 형식이 올바르지 않습니다");
+                return;
+            }
+            PlayerPrefs.SetString(AddressKey, _addressInput.text.Trim());
+            PlayerPrefs.Save();
+            _settings.ServerAddress = uri;
+            _flow.Send(AppFlowEvent.StartNetMatch);
         }
 
         /// <summary>

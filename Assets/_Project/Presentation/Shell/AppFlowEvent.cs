@@ -17,5 +17,7 @@ namespace Tichu.Presentation.Shell
         SelectFriendRoomStub,
         MatchEnded,
         ReturnToHub,
+        OpenNetJoin,
+        StartNetMatch,
     }
 }

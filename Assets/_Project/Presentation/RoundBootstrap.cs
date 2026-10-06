@@ -26,15 +26,18 @@ namespace Tichu.Presentation
     {
         private GameLaunchArgs _args;
         private Action<MatchSummary> _onComplete;
+        private Action _onFault;
 
         /// <summary>
         /// 매치를 구동한다. 셸(GameSessionPresenter)이 Table을 Additive 로드한 뒤 호출한다.
         /// 목표 점수 도달 시 <paramref name="onComplete"/>로 결과를 알리고 루프를 종료한다.
+        /// 세션 폴트로 매치가 중단되면 <paramref name="onFault"/>를 부른다.
         /// </summary>
-        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete)
+        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete, Action onFault)
         {
             _args = args;
             _onComplete = onComplete;
+            _onFault = onFault;
 
             // 가로 60fps 목표(D1). 방향 잠금은 PlayerSettings(가로만 허용).
             Application.targetFrameRate = 60;
@@ -98,7 +101,10 @@ namespace Tichu.Presentation
                     await UniTask.Yield(PlayerLoopTiming.Update, ct);
                 }
                 if (client.Faulted)
+                {
                     Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
+                    _onFault?.Invoke();
+                }
                 else if (summary.HasValue)
                     _onComplete?.Invoke(summary.Value);
             }

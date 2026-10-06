@@ -28,6 +28,14 @@ namespace Tichu.Presentation
         private GameLaunchArgs _args;
         private Action<MatchSummary> _onComplete;
         private Action<string> _onFault;
+        private bool _faulted;   // 폴트 알림은 한 번만 — 취소 뒤 늦은 경로가 UI 를 건드리지 않게 하는 표시도 겸한다
+
+        private void InvokeFault(string reason)
+        {
+            if (_faulted) return;
+            _faulted = true;
+            _onFault?.Invoke(reason);
+        }
 
         /// <summary>
         /// 매치를 구동한다. 셸(GameSessionPresenter)이 Table을 Additive 로드한 뒤 호출한다.
@@ -119,7 +127,7 @@ namespace Tichu.Presentation
             if (client.Faulted)
             {
                 Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
-                _onFault?.Invoke(client.LastRejection);
+                InvokeFault(client.LastRejection);
             }
             else if (summary().HasValue)
                 _onComplete?.Invoke(summary().Value);
@@ -133,7 +141,7 @@ namespace Tichu.Presentation
         {
             var ct = this.GetCancellationTokenOnDestroy();
             var overlay = CreateLobbyOverlay(canvas, out var status, out var cancel);
-            cancel.onClick.AddListener(() => _onFault?.Invoke(null));   // 사용자 취소 → 알림 없이 메뉴로
+            cancel.onClick.AddListener(() => InvokeFault(null));   // 사용자 취소 → 알림 없이 메뉴로
 
             WebSocketClientTransport transport;
             try
@@ -143,8 +151,9 @@ namespace Tichu.Presentation
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
             catch (Exception e)
             {
+                if (ct.IsCancellationRequested) return;   // 씬 종료 뒤 Mono 가 OCE 가 아닌 예외를 던질 수 있다
                 Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
-                _onFault?.Invoke("서버에 연결할 수 없습니다");
+                InvokeFault("서버에 연결할 수 없습니다");
                 return;
             }
 
@@ -156,10 +165,11 @@ namespace Tichu.Presentation
                     while (!lobby.Started && lobby.FaultReason == null)
                     {
                         lobby.Feed(transport.Drain());
+                        if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
                         status.text = lobby.StatusText;
                         await UniTask.Yield(PlayerLoopTiming.Update, ct);
                     }
-                    if (lobby.FaultReason != null) { _onFault?.Invoke(lobby.FaultReason); return; }
+                    if (lobby.FaultReason != null) { InvokeFault(lobby.FaultReason); return; }
 
                     Destroy(overlay);
                     MatchSummary? summary = null;

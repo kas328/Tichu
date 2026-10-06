@@ -72,7 +72,7 @@ M1 프로토콜을 진짜 네트워크에 올린다. `LoopbackTransport` 자리�
 테이블 UI는 **"나 = 좌석 0"을 가정**한다 — `RuntimeTableView.cs:29` `SeatNames = { "나", "오른쪽", "파트너", "왼쪽" }`를 절대 좌석으로 인덱싱하고(`:163`·`:315`도 좌석 0 고정), 라운드 결과(`:516` "우리 {TeamA} : 상대 {TeamB}")와 매치 결과(`WinningTeam == 0` → "우리 팀 승리")가 팀 A를 우리 팀으로 고정한다. 싱글플레이는 항상 좌석 0이라 드러나지 않았지만, `--seats 0,2`의 두 번째 접속자는 좌석 2를 받는다.
 
 **해법: 클라이언트 경계 회전.** `Tichu.Net/SeatRotation.cs`(순수 함수):
-- `ServerEvent ToLocal(ServerEvent ev, int mySeat)` — 받은 이벤트를 "내 좌석 = 0" 좌표로 바꾼 **새 객체**를 돌려준다. 회전 `local = (abs − mySeat + 4) % 4`. 대상: `PlayerView.Viewer`·`Turn`·`DragonGiftWinner`·좌석별 배열(`HandCounts`·`Calls`·`IsOut`·`FinishOrder`·`WonCards`)·`TrickView.TopOwnerSeat`·`PlayView.Seat`·`TrickSummary.TopOwnerSeat`·`DragonGiftRecipient`·`Awaiting.Seat`·`AppliedAction.Seat`·`RecipientSeat`(−1 유지)·`Lobby.YourSeat`. `mySeat`가 홀수면 팀이 뒤집히므로 `TeamAScore`↔`TeamBScore`, `RoundResult`의 A/B 필드 전부, `MatchEnded`의 `WinningTeam`(0↔1)·`TeamA`↔`TeamB`도 맞바꾼다.
+- `ServerEvent ToLocal(ServerEvent ev, int mySeat)` — `Lobby.YourSeat`는 회전하지 않는다(대기실이 회전 전에 읽는 절대 좌석 배정). 받은 이벤트를 "내 좌석 = 0" 좌표로 바꾼 **새 객체**를 돌려준다. 회전 `local = (abs − mySeat + 4) % 4`. 대상: `PlayerView.Viewer`·`Turn`·`DragonGiftWinner`·좌석별 배열(`HandCounts`·`Calls`·`IsOut`·`FinishOrder`·`WonCards`)·`TrickView.TopOwnerSeat`·`PlayView.Seat`·`TrickSummary.TopOwnerSeat`·`DragonGiftRecipient`·`Awaiting.Seat`·`AppliedAction.Seat`·`RecipientSeat`(−1 유지)·`mySeat`가 홀수면 팀이 뒤집히므로 `TeamAScore`↔`TeamBScore`, `RoundResult`의 A/B 필드 전부, `MatchEnded`의 `WinningTeam`(0↔1)·`TeamA`↔`TeamB`도 맞바꾼다.
 - `ClientAction ToServer(ClientAction a, int mySeat)` — `Seat`과 `RecipientSeat`(GiveDragon)을 서버 좌표로 되돌린다. 교환의 `ToLeft`·`ToPartner`·`ToRight`는 원래 상대 좌표라 그대로 둔다.
 - 적용 지점: `TichuClient`가 `mySeat`로 생성되어 수신 이벤트에 `ToLocal`, 송신 액션에 `ToServer`를 적용하고, 뷰모델은 **항상 `new TableViewModel(0)`**. 싱글플레이(`mySeat = 0`)에서는 항등 변환이다. **뷰모델·뷰는 무변경.**
 - 기각: 뷰 안의 절대 좌석 인덱싱 10여 곳을 상대 좌석으로 수정(넓은 침습·D시리즈 연출 코드 접촉).
@@ -84,7 +84,7 @@ M1 프로토콜을 진짜 네트워크에 올린다. `LoopbackTransport` 자리�
 ### 4.6 기타 변경
 
 - `TichuClient`가 `LoopbackTransport` 대신 `IClientTransport`에 의존한다(재배선 때 넘어온 이월 항목). `RoundBootstrap`의 싱글플레이 경로는 `LoopbackClient`를 넘긴다 — 동작 동일.
-- `core/tests/Tichu.Core.Tests` 타깃을 net9.0에서 net10.0으로, `.github/workflows/core-tests.yml`의 `dotnet-version`을 `10.0.x`로 올린다. net9 테스트 프로젝트는 net10 서버를 참조할 수 없고, net10이 LTS라 서버 수명과도 맞다.
+- 서버 테스트는 **별도 프로젝트 `core/tests/Tichu.Server.Tests`(net10)** 에 둔다(§10-1). `Tichu.Core.Tests`는 net9.0 그대로. CI는 9.0.x와 10.0.x SDK를 둘 다 설치한다.
 
 ## 5. 접속과 데이터 흐름
 
@@ -167,6 +167,19 @@ WebSocket 텍스트 프레임 하나에 JSON 메시지 하나. `ClientAction`과
 
 재배선 이월 중 이번에 처리하지 않는 것: `AppliedAction` 속성 get-only화(Newtonsoft는 setter가 있어야 역직렬화가 간단하므로 오히려 유지) · `MatchSession` `IDisposable`.
 
-## 10. 승인된 결정
+## 10. 구현 계획 수립 중 확정된 정제
+
+계획(`docs/superpowers/plans/2026-10-07-mp-m2-websocket-server.md`)을 쓰며 코드로 내려가 정한 것들이다. 스펙을 뒤집는 변경은 없다.
+
+1. **서버 테스트는 별도 프로젝트.** `Tichu.Core.Tests`는 Unity로 미러되는데 ASP.NET을 참조하는 서버 테스트는 미러될 수 없다. 그래서 `Tichu.Core.Tests`를 net10으로 올리는 대신 `Tichu.Server.Tests`(net10, 미러 없음)를 새로 둔다. 스크립트 클라이언트(`ScriptedClient.cs`)는 복제하지 않고 링크로 컴파일한다.
+2. **`ProtocolException`.** 해석 실패를 Newtonsoft 예외 대신 `Tichu.Net.ProtocolException`으로 감싼다. 미러되는 테스트가 Newtonsoft를 직접 참조하지 못하고(Unity 테스트 asmdef가 `overrideReferences`), 서버도 라이브러리 타입을 몰라도 된다. 열거형은 이름 문자열로 실어 모르는 `Kind`를 예외로 거른다.
+3. **유선 위 마스킹 테스트 위치.** E2E에서 원문 JSON을 가로채는 대신 `ProtocolJsonTests`가 갓 나눈 라운드의 직렬화 결과를 검사한다(내 카드 외 56장 중 어떤 카드 조각도 없다). 네트워크 없이 같은 불변식을 더 정확히 고정한다.
+4. **서버 실행 인자 추가.** `--ai-delay`(기본 900)와 `--seed`. 라운드 사이 멈춤·레이트리밋 값은 테스트가 코드로 바꾸는 `ServerOptions` 속성이다.
+5. **`ServerAddress.TryParse`** (`Tichu.Net`, 순수). `192.168.0.5` · `host:9000` · `ws://host:7777/ws`(앞뒤 공백 허용)를 받고, 스킴 생략 → `ws`, 포트 생략 → 7777, 경로 생략 → `/ws`. `http` 등은 거절.
+6. **`LobbyWaiter`** (Presentation, 순수). 대기 중 `Lobby`·폴트를 읽고, 첫 매치 이벤트부터는 순서대로 백로그에 담아 `TichuClient(..., backlog)`에 넘긴다. 서버는 좌석 배정·`Lobby` 큐잉·만석 판정을 한 잠금 안에서 해서 마지막 `Lobby`가 첫 `StateUpdate`보다 먼저 큐에 들어감을 보장한다.
+7. **폴트 알림 경로.** `RoundBootstrap.Begin`의 `onFault`가 사유 문자열을 받는다(`Action<string>`, null = 사용자 취소). 셸이 `MatchSettings.PendingNotice`에 담고 `ReturnToHub`하면, 메뉴가 메인 허브에서 토스트로 한 번 띄운다. 대기 화면에 **취소 버튼**을 둔다(영원히 안 차는 방에 갇히지 않게).
+8. **정상 종료 판정.** `WebSocketClientTransport`는 `MatchEnded`나 서버의 `SessionFaulted`를 받은 뒤의 닫힘, 또는 스스로 `Dispose`한 뒤의 닫힘에는 "서버 연결 끊김"을 만들지 않는다. 서버의 닫기에는 송신 태스크를 거쳐 응답한다(동시 전송 방지).
+
+## 11. 승인된 결정
 
 ① M2 = 로컬 서버까지, 배포는 M2b ② PIMC를 M2에서 core로 승격 ③ 직렬화 = Newtonsoft.Json ④ 구조(§4) ⑤ 접속·흐름(§5): 접속순 좌석 · `Lobby` 이벤트 · 좌석 덮어쓰기 · 프로세스당 매치 1 ⑥ 오류 처리(§6): 끊기면 깔끔히 종료 · 16KB/토큰 버킷 ⑦ 진입 UI · 테스트 · DoD(§3·§7·§8). ⑧ 좌석 회전(§4.4) · 예산표 core 이동(§4.5) — 계획 수립 중 발견, 승인됨.

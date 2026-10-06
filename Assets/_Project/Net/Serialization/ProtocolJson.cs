@@ -15,7 +15,7 @@ namespace Tichu.Net
     {
         private static readonly JsonSerializerSettings Settings = new JsonSerializerSettings
         {
-            Converters = { new StringEnumConverter(), new CardJsonConverter(), new CombinationJsonConverter() },
+            Converters = { new StringEnumConverter { AllowIntegerValues = false }, new CardJsonConverter(), new CombinationJsonConverter() },
             NullValueHandling = NullValueHandling.Ignore,
             // 기본값(Auto)은 생성자가 만든 빈 리스트에 이어 붙인다 — 받은 값으로 갈아끼운다.
             ObjectCreationHandling = ObjectCreationHandling.Replace,
@@ -46,3 +46,4 @@ namespace Tichu.Net
         }
     }
 }
+

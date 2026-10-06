@@ -182,5 +182,35 @@ namespace Tichu.Core.Tests
                 if (!mine.Contains(c))
                     Assert.That(json.Contains(Fragment(c)), Is.False, $"내 것이 아닌 카드 {c} 가 유선에 샜다");
         }
+
+        private static string PlayWith(string cardJson) =>
+            "{\"Kind\":\"Play\",\"Seat\":0,\"ActionSeq\":1,\"Cards\":[" + cardJson + "]}";
+
+        [Test]
+        public void Wire_points_are_ignored_and_the_canonical_card_is_built()
+        {
+            var king = ProtocolJson.DeserializeClientAction(PlayWith("{\"r\":13,\"s\":\"Star\",\"x\":\"None\",\"p\":999}")).Cards![0];
+            Assert.That(king.Points, Is.EqualTo(10));
+
+            var phoenix = ProtocolJson.DeserializeClientAction(PlayWith("{\"r\":0,\"s\":\"Special\",\"x\":\"Phoenix\",\"p\":50}")).Cards![0];
+            Assert.That(phoenix.Points, Is.EqualTo(-25));
+        }
+
+        [TestCase("{\"r\":1,\"s\":\"Jade\",\"x\":\"None\",\"p\":0}")]
+        [TestCase("{\"r\":15,\"s\":\"Jade\",\"x\":\"None\",\"p\":0}")]
+        [TestCase("{\"r\":5,\"s\":\"Special\",\"x\":\"None\",\"p\":0}")]
+        [TestCase("{\"r\":15,\"s\":\"Jade\",\"x\":\"Dragon\",\"p\":25}")]
+        [TestCase("{\"r\":5,\"s\":\"Special\",\"x\":\"Dragon\",\"p\":25}")]
+        [TestCase("{\"r\":5,\"s\":\"2\",\"x\":\"None\",\"p\":0}")]
+        public void Invalid_card_combinations_throw_protocol_exception(string cardJson)
+        {
+            Assert.Throws<ProtocolException>(() => ProtocolJson.DeserializeClientAction(PlayWith(cardJson)));
+        }
+
+        [Test]
+        public void Numeric_enum_strings_are_rejected()
+        {
+            Assert.Throws<ProtocolException>(() => ProtocolJson.DeserializeClientAction("{\"Kind\":\"3\"}"));
+        }
     }
 }

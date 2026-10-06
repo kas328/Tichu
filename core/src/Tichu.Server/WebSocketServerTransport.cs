@@ -49,6 +49,8 @@ namespace Tichu.Server
 
         public void SendTo(int seat, ServerEvent ev)
         {
+            if (ev.Kind == ServerEventKind.ActionRejected || ev.Kind == ServerEventKind.SessionFaulted)
+                _log($"좌석 {seat} {ev.Kind}: {ev.Reason}");   // 스펙 §6.4: 폴트·거절은 서버 로그에 남긴다
             Connection? c;
             lock (_gate) _bySeat.TryGetValue(seat, out c);
             c?.Enqueue(ProtocolJson.Serialize(ev));   // AI 좌석·끊긴 좌석은 연결이 없다 → 버린다

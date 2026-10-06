@@ -78,6 +78,9 @@ namespace Tichu.Server.Tests
             opt.AiDelayMs = 50;                              // 끊기 전에 매치가 끝나지 않게
             await using var server = await TestServer.StartAsync(opt);
             using var t0 = await Connect(server);
+            // 두 접속이 동시에 서버 핸들러에 들어가면 좌석 배정이 뒤바뀔 수 있다 — 첫 접속이 좌석 0 을 받은 뒤에 연결한다.
+            var seatWait = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+            while (DateTime.UtcNow < seatWait) { lock (server.Log) if (server.Log.Exists(l => l.StartsWith("좌석 0 접속"))) break; await Task.Delay(5); }
             var t2 = await Connect(server);
             var c0 = new ScriptedClient(0, t0);
 

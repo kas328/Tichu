@@ -231,5 +231,19 @@ namespace Tichu.Server.Tests
 
             Assert.That(transport.Dispatch(0, "{\"Kind\":\"Teleport\"}"), Is.False);
         }
+
+        [Test]
+        public void Rejections_and_faults_are_logged()
+        {
+            var log = new System.Collections.Generic.List<string>();
+            var transport = new WebSocketServerTransport(
+                new SeatTable(new[] { 0 }), () => new TokenBucket(20, 10, () => 0), log.Add);
+
+            transport.SendTo(0, ServerEvent.ActionRejected(1, "x"));
+            transport.SendTo(0, ServerEvent.SessionFaulted("boom"));
+
+            Assert.That(log.Exists(l => l.Contains("ActionRejected") && l.Contains("x")), Is.True);
+            Assert.That(log.Exists(l => l.Contains("SessionFaulted") && l.Contains("boom")), Is.True);
+        }
     }
 }

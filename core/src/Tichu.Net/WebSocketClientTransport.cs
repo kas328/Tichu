@@ -100,9 +100,12 @@ namespace Tichu.Net
                     _inbox.Enqueue(ev);
                 }
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                ReportLostIfUnexpected();
+                // 네트워크 끊김·취소는 평범한 "끊김". 그 밖(프로토콜 위반 등)은 원인을 사유에 남기고 소켓을 버린다.
+                bool network = e is WebSocketException || e is OperationCanceledException || e is ObjectDisposedException;
+                ReportLostIfUnexpected(network ? LostReason : $"{LostReason} ({e.GetType().Name}: {e.Message})");
+                if (!network && Volatile.Read(ref _disposed) == 0) _ws.Abort();
             }
         }
 
@@ -135,11 +138,11 @@ namespace Tichu.Net
             _outSignal.Release();
         }
 
-        private void ReportLostIfUnexpected()
+        private void ReportLostIfUnexpected(string reason = LostReason)
         {
             if (Volatile.Read(ref _disposed) == 1) return;
             if (Interlocked.Exchange(ref _endedNormally, 1) == 1) return;   // 이미 정상 종료(또는 이미 보고)
-            _inbox.Enqueue(ServerEvent.SessionFaulted(LostReason));
+            _inbox.Enqueue(ServerEvent.SessionFaulted(reason));
         }
     }
 }

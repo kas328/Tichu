@@ -67,7 +67,21 @@ M1 프로토콜을 진짜 네트워크에 올린다. `LoopbackTransport` 자리�
 
 ⚠️ `PacedPimcAgent`의 "연산 먼저 + 남은 시간만 sleep" 겹침은 난이도 티어 사다리(Normal16/Hard20/Expert24, 예산 900 통일)의 전제다. 이동만 하고 수정하지 않는다.
 
-### 4.4 기타 변경
+### 4.4 좌석 회전 (계획 수립 중 발견 · 승인됨)
+
+테이블 UI는 **"나 = 좌석 0"을 가정**한다 — `RuntimeTableView.cs:29` `SeatNames = { "나", "오른쪽", "파트너", "왼쪽" }`를 절대 좌석으로 인덱싱하고(`:163`·`:315`도 좌석 0 고정), 라운드 결과(`:516` "우리 {TeamA} : 상대 {TeamB}")와 매치 결과(`WinningTeam == 0` → "우리 팀 승리")가 팀 A를 우리 팀으로 고정한다. 싱글플레이는 항상 좌석 0이라 드러나지 않았지만, `--seats 0,2`의 두 번째 접속자는 좌석 2를 받는다.
+
+**해법: 클라이언트 경계 회전.** `Tichu.Net/SeatRotation.cs`(순수 함수):
+- `ServerEvent ToLocal(ServerEvent ev, int mySeat)` — 받은 이벤트를 "내 좌석 = 0" 좌표로 바꾼 **새 객체**를 돌려준다. 회전 `local = (abs − mySeat + 4) % 4`. 대상: `PlayerView.Viewer`·`Turn`·`DragonGiftWinner`·좌석별 배열(`HandCounts`·`Calls`·`IsOut`·`FinishOrder`·`WonCards`)·`TrickView.TopOwnerSeat`·`PlayView.Seat`·`TrickSummary.TopOwnerSeat`·`DragonGiftRecipient`·`Awaiting.Seat`·`AppliedAction.Seat`·`RecipientSeat`(−1 유지)·`Lobby.YourSeat`. `mySeat`가 홀수면 팀이 뒤집히므로 `TeamAScore`↔`TeamBScore`, `RoundResult`의 A/B 필드 전부, `MatchEnded`의 `WinningTeam`(0↔1)·`TeamA`↔`TeamB`도 맞바꾼다.
+- `ClientAction ToServer(ClientAction a, int mySeat)` — `Seat`과 `RecipientSeat`(GiveDragon)을 서버 좌표로 되돌린다. 교환의 `ToLeft`·`ToPartner`·`ToRight`는 원래 상대 좌표라 그대로 둔다.
+- 적용 지점: `TichuClient`가 `mySeat`로 생성되어 수신 이벤트에 `ToLocal`, 송신 액션에 `ToServer`를 적용하고, 뷰모델은 **항상 `new TableViewModel(0)`**. 싱글플레이(`mySeat = 0`)에서는 항등 변환이다. **뷰모델·뷰는 무변경.**
+- 기각: 뷰 안의 절대 좌석 인덱싱 10여 곳을 상대 좌석으로 수정(넓은 침습·D시리즈 연출 코드 접촉).
+
+### 4.5 난이도 예산표 core 이동
+
+`RoundBootstrap.BudgetMsFor`(Unity 전용)를 `core/src/Tichu.GameFlow/Agents/PimcBudget.cs`의 `PimcBudget.For(Difficulty)`로 옮기고, `RoundBootstrap.BudgetMsFor`는 위임만 남긴다(기존 단조성 테스트 `PimcDecisionAgentTests.BudgetMsFor_is_monotonic_non_decreasing_across_tiers` 무변경). 서버가 같은 표를 쓴다 — 티어 사다리 불변식을 표 두 벌로 나눠 들지 않는다. 서버의 AI 지연은 `GameLaunchArgs.AiDelayMs` 기본값과 같은 900ms.
+
+### 4.6 기타 변경
 
 - `TichuClient`가 `LoopbackTransport` 대신 `IClientTransport`에 의존한다(재배선 때 넘어온 이월 항목). `RoundBootstrap`의 싱글플레이 경로는 `LoopbackClient`를 넘긴다 — 동작 동일.
 - `core/tests/Tichu.Core.Tests` 타깃을 net9.0에서 net10.0으로, `.github/workflows/core-tests.yml`의 `dotnet-version`을 `10.0.x`로 올린다. net9 테스트 프로젝트는 net10 서버를 참조할 수 없고, net10이 LTS라 서버 수명과도 맞다.
@@ -138,6 +152,7 @@ WebSocket 텍스트 프레임 하나에 JSON 메시지 하나. `ClientAction`과
 - `ServerTransportTests` — 좌석 덮어쓰기(사칭 무력화) · 접속순 배정과 끊긴 좌석 재사용 · 만석 거절 · 16KB 초과/깨진 JSON 시 연결 종료 · 레이트리밋 초과 시 연결 종료.
 - **E2E**(프로세스 안 실제 Kestrel, 임의 포트) — 스크립트 클라이언트 2 + 서버 PIMC 2로 낮은 목표 점수 매치를 `MatchEnded`까지 완주. **각 클라이언트가 받은 JSON 원문에 타 좌석 손패 카드가 없다**(유선 위 마스킹 불변식). 빠른 실행을 위해 E2E의 AI는 Easy 난이도와 지연 0.
 - **E2E 끊김** — 매치 중 클라이언트 하나를 닫으면 다른 클라이언트가 `SessionFaulted`를 받고 서버가 종료된다.
+- `SeatRotation` — 좌석 0~3 각각에서 `ToLocal`/`ToServer` 왕복, 홀수 좌석 팀 뒤집기(점수·`RoundResult`·`WinningTeam`), `RecipientSeat = -1` 보존, 좌석 0 항등.
 - Unity — 리듀서 신규 전이 테스트 · Presentation EditMode 전체 그린. 싱글플레이 경로는 기존 테스트가 회귀를 막는다.
 - ⚠️ NUnit 버전 차이: Unity는 NUnit 3.5라 미러되는 테스트에 NUnit 4 전용 API를 쓰지 않는다. dotnet 그린 ≠ 유니티 그린.
 
@@ -154,4 +169,4 @@ WebSocket 텍스트 프레임 하나에 JSON 메시지 하나. `ClientAction`과
 
 ## 10. 승인된 결정
 
-① M2 = 로컬 서버까지, 배포는 M2b ② PIMC를 M2에서 core로 승격 ③ 직렬화 = Newtonsoft.Json ④ 구조(§4) ⑤ 접속·흐름(§5): 접속순 좌석 · `Lobby` 이벤트 · 좌석 덮어쓰기 · 프로세스당 매치 1 ⑥ 오류 처리(§6): 끊기면 깔끔히 종료 · 16KB/토큰 버킷 ⑦ 진입 UI · 테스트 · DoD(§3·§7·§8).
+① M2 = 로컬 서버까지, 배포는 M2b ② PIMC를 M2에서 core로 승격 ③ 직렬화 = Newtonsoft.Json ④ 구조(§4) ⑤ 접속·흐름(§5): 접속순 좌석 · `Lobby` 이벤트 · 좌석 덮어쓰기 · 프로세스당 매치 1 ⑥ 오류 처리(§6): 끊기면 깔끔히 종료 · 16KB/토큰 버킷 ⑦ 진입 UI · 테스트 · DoD(§3·§7·§8). ⑧ 좌석 회전(§4.4) · 예산표 core 이동(§4.5) — 계획 수립 중 발견, 승인됨.

@@ -2,13 +2,12 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using Tichu.Core.Combinations;
-using Tichu.GameFlow.Agents;
 
-namespace Tichu.Presentation
+namespace Tichu.GameFlow.Agents
 {
     /// <summary>
     /// 동기 다세계 <see cref="PimcAgent"/> 를 세션 스레드용 <see cref="IAgent"/> 로 감싸는
-    /// 페이싱 어댑터. <see cref="PimcDecisionAgent"/>(비동기 경로)의 동기 쌍둥이이며 지연
+    /// 페이싱 어댑터. PimcDecisionAgent(비동기 경로)의 동기 쌍둥이이며 지연
     /// 배치를 1:1 로 맞춘다 — 턴 결정과 **실제로 던지는** 폭탄만 지연하고, 셋업 결정은
     /// 즉시 반환한다(폭탄 창은 매 트릭 세 좌석을 폴링하므로 무조건 지연은 3배가 된다).
     ///
@@ -20,8 +19,7 @@ namespace Tichu.Presentation
     /// **뒤**에 시작돼 delay + compute 다. 비동기 원본 PimcDecisionAgent 와 지연 배치를
     /// 1:1 로 맞추려는 의도적 설계이지 결함이 아니다 — 고치지 않는다.
     ///
-    /// PIMC 가 아직 core 에 없어(유니티 쪽 GameFlow 전용) 이 파일은 미러되지 않는다.
-    /// 서버가 빈자리 AI 를 페이싱하는 일은 PIMC 의 core 승격(M5) 뒤의 몫이다.
+    /// 서버(Tichu.Server)도 빈자리 AI 를 이 어댑터로 페이싱한다 — 빨리감기가 없으므로 fastForward 는 null.
     /// </summary>
     public sealed class PacedPimcAgent : IAgent
     {
@@ -29,10 +27,10 @@ namespace Tichu.Presentation
         private readonly PolicyConfig _config;
         private readonly int _budgetMs;
         private readonly int _delayMs;
-        private readonly Func<bool> _fastForward;
+        private readonly Func<bool>? _fastForward;
 
         public PacedPimcAgent(ulong roundSeed, int seat, PolicyConfig config,
-            int budgetMs, int delayMs, Func<bool> fastForward = null)
+            int budgetMs, int delayMs, Func<bool>? fastForward = null)
         {
             _pimc = new PimcAgent(roundSeed, seat, config);
             _config = config;

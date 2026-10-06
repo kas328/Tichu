@@ -4,7 +4,7 @@ using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
 
-namespace Tichu.Presentation.Tests
+namespace Tichu.Core.Tests
 {
     /// <summary>
     /// 동기 페이싱 어댑터. 두 가지를 지킨다.

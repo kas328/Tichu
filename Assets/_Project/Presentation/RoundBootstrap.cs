@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Cysharp.Threading.Tasks;
 using R3;
+using Tichu.GameFlow.Agents;
 using Tichu.Net;
 using Tichu.Presentation.Net;
 using Tichu.Presentation.Shell;
@@ -117,20 +118,8 @@ namespace Tichu.Presentation
             }
         }
 
-        /// <summary>난이도별 인게임 1수 시간예산(ms). 스펙 §5 시작값. 0=탐색 OFF(Easy).</summary>
-        internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d)
-        {
-            switch (d)
-            {
-                case Tichu.GameFlow.Agents.Difficulty.Easy:   return 0;
-                // P2-G 정합성: 예산은 티어 오름차순 비감소. 탐색은 관전 딜레이(~900ms)와 겹쳐 돌아
-                // 900 이내는 체감 지연 0 → Hard/Expert 도 900으로 올려 예산 역전 제거(무지연).
-                case Tichu.GameFlow.Agents.Difficulty.Normal: return 900;
-                case Tichu.GameFlow.Agents.Difficulty.Hard:   return 900;
-                case Tichu.GameFlow.Agents.Difficulty.Expert: return 900;
-                default:                                       return 80;
-            }
-        }
+        /// <summary>난이도별 인게임 1수 시간예산(ms). 정본은 core 의 PimcBudget — 기존 테스트 호환용 위임.</summary>
+        internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d) => PimcBudget.For(d);
 
         private static Canvas CreateCanvas()
         {

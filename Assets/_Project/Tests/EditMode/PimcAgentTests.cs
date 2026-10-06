@@ -35,15 +35,15 @@ namespace Tichu.Core.Tests
             // 좌석 1: left=(1+1)%4=2, partner=3, right=0.
             var pins = PimcAgent.PassedPins(ex, 1);
             Assert.That(pins.Length, Is.EqualTo(3));
-            CollectionAssert.Contains(pins, (ex.ToLeft, 2));
-            CollectionAssert.Contains(pins, (ex.ToPartner, 3));
-            CollectionAssert.Contains(pins, (ex.ToRight, 0));
+            Assert.That(pins, Has.Member((ex.ToLeft, 2)));
+            Assert.That(pins, Has.Member((ex.ToPartner, 3)));
+            Assert.That(pins, Has.Member((ex.ToRight, 0)));
 
             // 좌석 0: left=1, partner=2, right=3 (파트너는 Seating.Partner 와 일치).
             var pins0 = PimcAgent.PassedPins(ex, 0);
-            CollectionAssert.Contains(pins0, (ex.ToLeft, 1));
-            CollectionAssert.Contains(pins0, (ex.ToPartner, 2));
-            CollectionAssert.Contains(pins0, (ex.ToRight, 3));
+            Assert.That(pins0, Has.Member((ex.ToLeft, 1)));
+            Assert.That(pins0, Has.Member((ex.ToPartner, 2)));
+            Assert.That(pins0, Has.Member((ex.ToRight, 3)));
         }
 
         // ── D2 ε 정상화 ──────────────────────────────────────────────────────────────

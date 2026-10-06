@@ -13,7 +13,6 @@ namespace Tichu.Server.Tests
     /// 서버 전송 규칙을 원시 ClientWebSocket 으로 검증한다(클라이언트 전송 구현과 독립).
     /// 매치가 시작되지 않도록 대부분 인간 2좌석 중 하나만 접속한다.
     /// </summary>
-    [Timeout(30000)]
     public class ServerTransportTests
     {
         private static ServerOptions Lobby2() => new ServerOptions
@@ -37,12 +36,13 @@ namespace Tichu.Server.Tests
         /// <summary>다음 메시지를 받는다. 닫히면 null(그때 ws.CloseStatus 를 본다).</summary>
         private static async Task<ServerEvent?> Receive(ClientWebSocket ws)
         {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));   // 회귀가 멈춤이 아니라 실패가 되게
             var buf = new byte[64 * 1024];
             int total = 0;
             WebSocketReceiveResult r;
             do
             {
-                r = await ws.ReceiveAsync(new ArraySegment<byte>(buf, total, buf.Length - total), CancellationToken.None);
+                r = await ws.ReceiveAsync(new ArraySegment<byte>(buf, total, buf.Length - total), cts.Token);
                 if (r.MessageType == WebSocketMessageType.Close) return null;
                 total += r.Count;
             } while (!r.EndOfMessage);
@@ -168,6 +168,44 @@ namespace Tichu.Server.Tests
                 await SendText(a, ProtocolJson.Serialize(ClientAction.Pass(0, i)));
 
             Assert.That(await ReadUntilClosed(a), Is.EqualTo(WebSocketCloseStatus.PolicyViolation));
+        }
+
+        [Test]
+        public async Task Disconnect_right_after_the_room_fills_stops_the_server_and_faults_the_survivor()
+        {
+            await using var server = await TestServer.StartAsync(Lobby2());
+            using var a = await Connect(server.WsUri);
+            await Receive(a);                                 // Lobby 1/2
+            var b = await Connect(server.WsUri);
+            await Receive(b);                                 // Lobby 2/2 -> 방이 찼다
+            await b.CloseAsync(WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+            b.Dispose();
+
+            ServerEvent? ev;
+            do { ev = await Receive(a); }
+            while (ev != null && ev.Kind != ServerEventKind.SessionFaulted);
+
+            Assert.That(ev, Is.Not.Null, "생존자는 SessionFaulted 를 받아야 한다");
+            Assert.That(ev!.Reason, Does.Contain("좌석 2"));
+            Assert.That(await server.WaitForStopAsync(TimeSpan.FromSeconds(10)), Is.True, "서버가 멈추지 않고 종료해야 한다");
+            lock (server.Log)
+            {
+                Assert.That(server.Log.FindAll(m => m.Contains("매치 시작")).Count, Is.EqualTo(1), "매치는 한 번만 시작된다");
+            }
+        }
+
+        [Test]
+        public async Task Client_connecting_after_the_room_filled_is_rejected_even_if_a_seat_was_left()
+        {
+            await using var server = await TestServer.StartAsync(Lobby2());
+            using var a = await Connect(server.WsUri);
+            await Receive(a);
+            var b = await Connect(server.WsUri);
+            await Receive(b);
+            b.Dispose();                                      // 좌석 2 이탈(매치 시작 후)
+
+            using var c = await Connect(server.WsUri);
+            Assert.That(await ReadUntilClosed(c), Is.EqualTo(WebSocketCloseStatus.PolicyViolation), "좌석은 반납되지 않는다");
         }
 
         [Test]

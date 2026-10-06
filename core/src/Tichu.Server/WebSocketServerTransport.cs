@@ -37,7 +37,7 @@ namespace Tichu.Server
         /// <summary>마지막 인간 좌석이 찬 순간 한 번 발생한다. 호출 스레드 = 그 연결의 처리 스레드.</summary>
         public event Action? SeatsFilled;
 
-        /// <summary>매치 시작 후 인간이 끊겼다. 시작 전 끊김은 좌석 반납으로 처리하고 알리지 않는다.</summary>
+        /// <summary>방이 찬 뒤(매치 시작 후) 인간이 끊겼다. 시작 전 끊김은 좌석 반납으로 처리하고 알리지 않는다.</summary>
         public event Action<int>? SeatLeft;
 
         public WebSocketServerTransport(SeatTable seats, Func<TokenBucket> newBucket, Action<string> log)
@@ -45,12 +45,6 @@ namespace Tichu.Server
             _seats = seats;
             _newBucket = newBucket;
             _log = log;
-        }
-
-        /// <summary>이후의 끊김은 좌석 반납이 아니라 SeatLeft 가 된다. 새 접속은 거절된다.</summary>
-        public void MarkMatchStarted()
-        {
-            lock (_gate) _matchStarted = true;
         }
 
         public void SendTo(int seat, ServerEvent ev)
@@ -82,7 +76,14 @@ namespace Tichu.Server
                 {
                     _bySeat[seat] = conn;
                     EnqueueLobbyLocked();
-                    if (_seats.IsFull && !_filledRaised) { _filledRaised = true; raiseFilled = true; }
+                    if (_seats.IsFull && !_filledRaised)
+                    {
+                        // 만석 판정과 "매치 시작됨" 전환을 한 잠금에서 한다 — 이후의 끊김은 반납이 아니라
+                        // SeatLeft 가 되고, 새 접속은 거절된다(SeatsFilled 는 두 번 일어나지 않는다).
+                        _filledRaised = true;
+                        _matchStarted = true;
+                        raiseFilled = true;
+                    }
                 }
             }
 

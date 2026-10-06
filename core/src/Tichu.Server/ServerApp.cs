@@ -31,7 +31,7 @@ namespace Tichu.Server
                 log);
             _ = new MatchHost(opt, transport, () => { app.Lifetime.StopApplication(); return Task.CompletedTask; }, log);
 
-            app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+            app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15), KeepAliveTimeout = TimeSpan.FromSeconds(30) });
             app.Map("/ws", (RequestDelegate)(async ctx =>
             {
                 if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }

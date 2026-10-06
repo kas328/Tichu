@@ -52,7 +52,7 @@ namespace Tichu.Presentation
 
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
             var canvas = CreateCanvas();
-            var vm = new TableViewModel(args.MySeat);
+            var vm = new TableViewModel(0);   // 뷰모델은 항상 "나 = 좌석 0" — 회전은 TichuClient 가 한다
             ITableView view = new RuntimeTableView(new DoTweenPlayAnimator());
             view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 

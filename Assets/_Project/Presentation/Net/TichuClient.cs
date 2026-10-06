@@ -36,6 +36,7 @@ namespace Tichu.Presentation.Net
         /// <summary>세션 스레드가 폴트로 죽었는가. true면 Pump() 소유자가 펌프를 멈춰야 한다.</summary>
         public bool Faulted { get; private set; }
 
+        /// 뷰모델은 항상 좌석 0 기준(new TableViewModel(0))이어야 한다 — 회전은 여기서 한다.
         /// <param name="backlog">대기실(LobbyWaiter)이 이미 꺼내 둔 이벤트. 첫 Pump 에서 먼저 적용한다.</param>
         public TichuClient(IClientTransport transport, TableViewModel vm, int mySeat,
             Action<MatchSummary> onMatchEnded = null, IReadOnlyList<ServerEvent> backlog = null)
@@ -45,7 +46,7 @@ namespace Tichu.Presentation.Net
             _mySeat = mySeat;
             _onMatchEnded = onMatchEnded;
             _backlog = backlog;
-            _outbound = _vm.Submitted.Subscribe(_transport.Submit);
+            _outbound = _vm.Submitted.Subscribe(a => _transport.Submit(SeatRotation.ToServer(a, _mySeat)));
         }
 
         /// <summary>수신함을 비우고 순서대로 적용한다. 메인스레드에서 호출한다.</summary>
@@ -55,11 +56,11 @@ namespace Tichu.Presentation.Net
             {
                 var pending = _backlog;
                 _backlog = null;
-                for (int i = 0; i < pending.Count; i++) Handle(pending[i]);
+                for (int i = 0; i < pending.Count; i++) Handle(SeatRotation.ToLocal(pending[i], _mySeat));
             }
 
             var events = _transport.Drain();
-            for (int i = 0; i < events.Count; i++) Handle(events[i]);
+            for (int i = 0; i < events.Count; i++) Handle(SeatRotation.ToLocal(events[i], _mySeat));
         }
 
         private void Handle(ServerEvent ev)

@@ -276,5 +276,42 @@ namespace Tichu.Presentation.Tests
             client.Pump();
             Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(100), "백로그는 한 번만 적용된다");
         }
+
+        [Test]
+        public void Client_seated_at_two_sees_itself_as_local_seat_zero_and_finishes()
+        {
+            const int serverSeat = 2;
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(0);                 // 뷰모델은 항상 로컬 좌석 0
+            MatchSummary? summary = null;
+            bool sawMyPrompt = false;
+            var agents = new IAgent[] { new AiAgent(1UL, 0), new AiAgent(1UL, 1), null, new AiAgent(1UL, 3) };
+
+            using (var client = new TichuClient(new LoopbackClient(transport, serverSeat), vm, serverSeat, s => summary = s))
+            using (vm.Prompt.Subscribe(aw => { if (aw != null && aw.Seat == 0) sawMyPrompt = true; }))
+            {
+                var responder = new AutoResponder(vm);
+                var session = new MatchSession(agents, transport, masterSeed: 4242UL, targetScore: 1);
+                session.Start();
+                try
+                {
+                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+                    while (!summary.HasValue && DateTime.UtcNow < deadline)
+                    {
+                        client.Pump();
+                        responder.Tick();
+                        Thread.Sleep(2);
+                    }
+                }
+                finally
+                {
+                    session.Stop();
+                    session.Join(TimeSpan.FromSeconds(5));
+                }
+            }
+
+            Assert.That(summary.HasValue, Is.True, "좌석 2 클라이언트도 매치를 끝까지 둬야 한다(회전된 액션이 서버에서 받아들여짐)");
+            Assert.That(sawMyPrompt, Is.True, "내 차례 프롬프트가 로컬 좌석 0 으로 와야 한다");
+        }
     }
 }

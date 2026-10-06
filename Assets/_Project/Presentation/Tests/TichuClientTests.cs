@@ -79,7 +79,7 @@ namespace Tichu.Presentation.Tests
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
             MatchSummary? summary = null;
-            using (var client = new TichuClient(transport, vm, MySeat, s => summary = s))
+            using (var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, s => summary = s))
             {
                 var responder = new AutoResponder(vm);
                 var session = new MatchSession(
@@ -117,7 +117,7 @@ namespace Tichu.Presentation.Tests
             // 폴링으로 재면 한 Pump 가 여러 뷰를 적용할 때 중간 값을 놓친다 — 구독으로
             // 모든 투영을 본다(남의 카드가 한 프레임만 새도 잡히도록).
             using var handWatch = vm.MyHand.Subscribe(h => { if (h.Count > maxHand) maxHand = h.Count; });
-            using (var client = new TichuClient(transport, vm, MySeat))
+            using (var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat))
             {
                 var responder = new AutoResponder(vm);
                 var session = new MatchSession(
@@ -158,7 +158,7 @@ namespace Tichu.Presentation.Tests
             // 태우지 않으므로 전송에 직접 이벤트를 넣는다.
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             int cleared = 0;
             using var sub = vm.PlaysCleared.Subscribe(_ => cleared++);
@@ -193,7 +193,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             transport.SendTo(MySeat,
                 ServerEvent.RoundScored(new RoundResult { TeamATotal = 60, TeamBTotal = 40 }));
@@ -210,7 +210,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             var s = GameEngine.NewRound(55UL);
             transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, MySeat), null));
@@ -231,7 +231,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             transport.SendTo(MySeat, ServerEvent.SessionFaulted("boom"));
             client.Pump();
@@ -247,7 +247,7 @@ namespace Tichu.Presentation.Tests
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
             MatchSummary? got = null;
-            using var client = new TichuClient(transport, vm, MySeat, x => got = x);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, x => got = x);
 
             transport.SendTo(MySeat, ServerEvent.MatchEnded(1, 410, 1010));
             client.Pump();
@@ -257,6 +257,24 @@ namespace Tichu.Presentation.Tests
             Assert.That(got.Value.WinningTeam, Is.EqualTo(1));
             Assert.That(got.Value.TeamA, Is.EqualTo(410));
             Assert.That(got.Value.TeamB, Is.EqualTo(1010));
+        }
+
+        [Test]
+        public void Backlog_is_applied_before_new_events()
+        {
+            // 대기실이 미리 꺼낸 이벤트(라운드 결과)가 먼저 적용돼야 한다 — 순서가 뒤집히면
+            // RoundScored 뒤 첫 StateUpdate 에서 비우는 "새 라운드" 판정이 어긋난다.
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            var round = new RoundResult { TeamATotal = 100, TeamBTotal = 0 };
+            var backlog = new List<ServerEvent> { ServerEvent.RoundScored(round) };
+
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, null, backlog);
+            client.Pump();
+
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(100), "백로그의 RoundScored 가 적용돼야 한다");
+            client.Pump();
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(100), "백로그는 한 번만 적용된다");
         }
     }
 }

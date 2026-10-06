@@ -86,7 +86,7 @@ namespace Tichu.Presentation
 
             var transport = new LoopbackTransport();
             MatchSummary? summary = null;
-            using var client = new TichuClient(transport, vm, _args.MySeat, s => summary = s);
+            using var client = new TichuClient(new LoopbackClient(transport, _args.MySeat), vm, _args.MySeat, s => summary = s);
 
             var session = new MatchSession(
                 agents, transport, masterSeed,

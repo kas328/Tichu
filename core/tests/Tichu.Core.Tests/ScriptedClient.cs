@@ -15,7 +15,7 @@ namespace Tichu.Core.Tests
     internal sealed class ScriptedClient
     {
         private readonly int _seat;
-        private readonly LoopbackTransport _transport;
+        private readonly IClientTransport _transport;
 
         private long _seq;
         private bool _illegalSent;
@@ -34,16 +34,19 @@ namespace Tichu.Core.Tests
         /// <summary>이 클라이언트가 담당하는 좌석.</summary>
         public int Seat => _seat;
 
-        public ScriptedClient(int seat, LoopbackTransport transport)
+        public ScriptedClient(int seat, IClientTransport transport)
         {
             _seat = seat;
             _transport = transport;
         }
 
+        public ScriptedClient(int seat, LoopbackTransport transport)
+            : this(seat, new LoopbackClient(transport, seat)) { }
+
         /// <summary>아직 처리하지 않은 이벤트를 꺼내 처리한다.</summary>
         public void Pump()
         {
-            foreach (var ev in _transport.Drain(_seat))
+            foreach (var ev in _transport.Drain())
             {
                 switch (ev.Kind)
                 {

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using R3;
 using Tichu.Net;
 using Tichu.Presentation.Shell;
@@ -15,11 +16,12 @@ namespace Tichu.Presentation.Net
     /// </summary>
     public sealed class TichuClient : IDisposable
     {
-        private readonly LoopbackTransport _transport;
+        private readonly IClientTransport _transport;
         private readonly TableViewModel _vm;
         private readonly int _mySeat;
         private readonly Action<MatchSummary> _onMatchEnded;
         private readonly IDisposable _outbound;
+        private IReadOnlyList<ServerEvent> _backlog;
 
         // RoundScored 다음에 오는 첫 StateUpdate 가 새 라운드의 시작이다
         // (세션 순서: RoundScored → Decide → 멈춤 → NewRound → Broadcast).
@@ -34,20 +36,29 @@ namespace Tichu.Presentation.Net
         /// <summary>세션 스레드가 폴트로 죽었는가. true면 Pump() 소유자가 펌프를 멈춰야 한다.</summary>
         public bool Faulted { get; private set; }
 
-        public TichuClient(LoopbackTransport transport, TableViewModel vm, int mySeat,
-            Action<MatchSummary> onMatchEnded = null)
+        /// <param name="backlog">대기실(LobbyWaiter)이 이미 꺼내 둔 이벤트. 첫 Pump 에서 먼저 적용한다.</param>
+        public TichuClient(IClientTransport transport, TableViewModel vm, int mySeat,
+            Action<MatchSummary> onMatchEnded = null, IReadOnlyList<ServerEvent> backlog = null)
         {
             _transport = transport;
             _vm = vm;
             _mySeat = mySeat;
             _onMatchEnded = onMatchEnded;
+            _backlog = backlog;
             _outbound = _vm.Submitted.Subscribe(_transport.Submit);
         }
 
         /// <summary>수신함을 비우고 순서대로 적용한다. 메인스레드에서 호출한다.</summary>
         public void Pump()
         {
-            var events = _transport.Drain(_mySeat);
+            if (_backlog != null)
+            {
+                var pending = _backlog;
+                _backlog = null;
+                for (int i = 0; i < pending.Count; i++) Handle(pending[i]);
+            }
+
+            var events = _transport.Drain();
             for (int i = 0; i < events.Count; i++) Handle(events[i]);
         }
 

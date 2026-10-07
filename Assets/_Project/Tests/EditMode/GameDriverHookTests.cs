@@ -198,6 +198,105 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Yield_applies_nothing_and_asks_the_same_seat_again()
+        {
+            var s = GameFlowHelpers.PlayState(0,
+                Hand(Card.Normal(3, Suit.Jade), Card.Normal(8, Suit.Jade)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(5, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)));
+
+            var seen = new List<GameAction>();
+            var asked = new List<int>();          // DecideTurn 을 받은 좌석 순서
+            int seenAtYield = -1;
+            ulong hashAtYield = 0;
+            bool yielded = false;
+
+            var agents = FourDefaults();
+            for (int seat = 0; seat < 4; seat++)
+            {
+                var inner = (ScriptedAgent)agents[seat];
+                inner.DecideTurnFn = ctx =>
+                {
+                    asked.Add(ctx.Seat);
+                    if (ctx.Seat == 0 && !yielded)
+                    {
+                        yielded = true;
+                        seenAtYield = seen.Count;
+                        hashAtYield = ctx.State.ComputeHash();
+                        return TurnDecision.Yield;
+                    }
+                    if (ctx.Seat == 0 && asked.Count == 2)
+                    {
+                        Assert.That(seen.Count, Is.EqualTo(seenAtYield), "Yield 동안 무언가 적용·방송됐다");
+                        Assert.That(ctx.State.ComputeHash(), Is.EqualTo(hashAtYield), "Yield 동안 상태가 바뀌었다");
+                    }
+                    var moves = ctx.LegalMoves;
+                    return moves.Count > 0 ? TurnDecision.Play(moves[0]) : TurnDecision.Pass;
+                };
+            }
+
+            var outcome = new GameDriver(agents).RunRound(s, (st, act) => seen.Add(act));
+
+            Assert.That(yielded, Is.True, "테스트 전제: 첫 질문에서 Yield 를 돌려줘야 함");
+            Assert.That(asked.Count, Is.GreaterThanOrEqualTo(2));
+            Assert.That(asked[1], Is.EqualTo(0), "Yield 뒤에는 같은 좌석에 다시 물어야 한다");
+            Assert.That(seen.Count, Is.EqualTo(outcome.Log.Count), "방송 수와 로그 수가 어긋났다");
+            Assert.That(outcome.Log[0].Kind, Is.EqualTo(GameActionKind.Play), "Yield 가 무언가로 적용됐다");
+            Assert.That(outcome.Log[0].Seat, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Yield_lets_a_tichu_reserved_during_the_prompt_apply_before_the_seat_is_asked_again()
+        {
+            var fourteen = new List<Card>();
+            for (int rank = 7; rank <= 14; rank++) fourteen.Add(Card.Normal(rank, Suit.Jade));   // 8장
+            for (int rank = 7; rank <= 12; rank++) fourteen.Add(Card.Normal(rank, Suit.Sword));  // 6장
+            Assert.That(fourteen.Count, Is.EqualTo(14), "테스트 전제: seat0 손패가 14장이어야 함");
+
+            var s = GameFlowHelpers.PlayState(0,
+                fourteen,
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(5, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)));
+
+            var seen = new List<GameAction>();
+            int reserved = -1;
+            int seat0Asks = 0;
+            int seenBeforeReask = -1;
+
+            var agents = FourDefaults();
+            ((ScriptedAgent)agents[0]).DecideTurnFn = ctx =>
+            {
+                seat0Asks++;
+                if (seat0Asks == 1)
+                {
+                    // 프롬프트가 떠 있는 동안 버튼을 눌렀다 — 원격 좌석이라면 대기가 깨어난다.
+                    reserved = 0;
+                    return TurnDecision.Yield;
+                }
+                if (seat0Asks == 2) seenBeforeReask = seen.Count;
+                var moves = ctx.LegalMoves;
+                return moves.Count > 0 ? TurnDecision.Play(moves[0]) : TurnDecision.Pass;
+            };
+
+            var outcome = new GameDriver(agents).RunRound(
+                s, (st, act) => seen.Add(act), st => { int r = reserved; reserved = -1; return r; }, null);
+
+            Assert.That(seat0Asks, Is.GreaterThanOrEqualTo(2), "Yield 뒤 같은 좌석에 다시 물어야 한다");
+            Assert.That(seenBeforeReask, Is.EqualTo(1), "다시 묻기 전에 예약 콜 하나만 적용·방송돼야 한다");
+            Assert.That(seen[0].Kind, Is.EqualTo(GameActionKind.CallTichu), "예약 콜이 다시 묻기 전에 방송돼야 한다");
+            Assert.That(seen[0].Seat, Is.EqualTo(0));
+            Assert.That(seen[1].Kind, Is.EqualTo(GameActionKind.Play), "콜 다음에 그 좌석의 수가 와야 한다");
+            Assert.That(seen[1].Seat, Is.EqualTo(0));
+            Assert.That(outcome.State.Seats[0].Call, Is.EqualTo(TichuCall.Tichu));
+
+            int calls = 0;
+            foreach (var a in outcome.Log) if (a.Kind == GameActionKind.CallTichu) calls++;
+            Assert.That(calls, Is.EqualTo(1), "콜은 정확히 한 번 적용돼야 한다");
+        }
+
+        [Test]
         public void Rejected_pending_tichu_is_dropped_without_throwing()
         {
             // 손패가 14장이 아니면 GameEngine.ApplyCallTichu 가 거부한다. 원격 입력이므로

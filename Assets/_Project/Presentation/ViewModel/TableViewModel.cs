@@ -97,6 +97,12 @@ namespace Tichu.Presentation.ViewModel
         // 차례밖 폭탄을 보냈다(뷰가 "발동!" 표시). 내 Play 가 적용되면 해제.
         private bool _bombSent;
 
+        // 큰 티츄·교환은 단계에 들어서면 곧바로 묻는다(PromptFor). 이번 라운드에 이미 답했는지와,
+        // 같은 단계 동안 재사용하는 프롬프트 인스턴스(매 갱신마다 새로 만들면 뷰가 다시 그린다).
+        private bool _grandAnswered;
+        private bool _exchangeAnswered;
+        private Awaiting _earlyPrompt;
+
         /// <summary>차례밖 폭탄 전송 상태(뷰 표시용).</summary>
         public bool HasPendingBomb { get { return _bombSent; } }
 
@@ -139,8 +145,43 @@ namespace Tichu.Presentation.ViewModel
             // 순서가 뒤바뀌면 한 이벤트 동안 지난 손패·정리 안 된 선택으로 버튼을 그린다.
             MyHand.Value = new List<Card>(v.MyHand);
 
-            // 내게 온 질문만 프롬프트다. 남의 차례 알림은 축약판이라 합법수가 없다.
-            Prompt.Value = (v.Awaiting != null && v.Awaiting.Seat == _mySeat) ? v.Awaiting : null;
+            Prompt.Value = PromptFor(v);
+        }
+
+        /// <summary>
+        /// 이번 갱신에서 내게 보일 질문. 큰 티츄·교환은 서버가 좌석 순서로 묻지만 답은 미리
+        /// 받아 둔다(RemoteAgent 선행 큐) — 그래서 그 단계에 들어서면 내 차례를 기다리지 않고
+        /// 곧바로 묻는다. 사람이 둘 이상인 네트워크 판에서 앞 좌석이 끝날 때까지 기다리지 않도록.
+        /// 이미 답했으면 서버의 순서 질문은 무시한다(두 번 답하면 다음 질문에 쓰인다).
+        /// 그 밖의 질문은 내게 온 것만 프롬프트다. 남의 차례 알림은 축약판이라 합법수가 없다.
+        /// </summary>
+        private Awaiting PromptFor(PlayerView v)
+        {
+            StepKind early;
+            bool answered;
+            if (v.Phase == RoundPhase.GrandTichuDecision) { early = StepKind.GrandTichu; answered = _grandAnswered; }
+            else if (v.Phase == RoundPhase.Exchange) { early = StepKind.Exchange; answered = _exchangeAnswered; }
+            else
+            {
+                _earlyPrompt = null;
+                return (v.Awaiting != null && v.Awaiting.Seat == _mySeat) ? v.Awaiting : null;
+            }
+
+            if (answered) return null;
+            if (_earlyPrompt == null || _earlyPrompt.Kind != early)
+                _earlyPrompt = new Awaiting { Kind = early, Seat = _mySeat };
+            return _earlyPrompt;
+        }
+
+        /// <summary>
+        /// 서버가 내 액션을 거부했다. 미리 답한 큰 티츄·교환이 거부됐다면 서버가 다시 묻는다 —
+        /// 답함 표시를 풀어야 그 질문이 다시 보인다(새 인스턴스로, 뷰가 다시 그리도록).
+        /// </summary>
+        public void OnActionRejected()
+        {
+            _grandAnswered = false;
+            _exchangeAnswered = false;
+            _earlyPrompt = null;
         }
 
         /// <summary>서버가 적용한 액션을 로그·사운드로 흘린다.</summary>
@@ -174,6 +215,9 @@ namespace Tichu.Presentation.ViewModel
         {
             _tichuSent = false;
             _bombSent = false;
+            _grandAnswered = false;
+            _exchangeAnswered = false;
+            _earlyPrompt = null;
             RoundResult.Value = null;
             FastForward = false;
             _cleared.OnNext(default);
@@ -188,6 +232,7 @@ namespace Tichu.Presentation.ViewModel
             Send(call
                 ? ClientAction.CallGrandTichu(_mySeat, NextSeq())
                 : ClientAction.DeclineGrandTichu(_mySeat, NextSeq()));
+            _grandAnswered = true;
             Answered();
             return true;
         }
@@ -199,6 +244,7 @@ namespace Tichu.Presentation.ViewModel
             if (!IsDistinctAndInHand(choice.ToLeft, choice.ToPartner, choice.ToRight, MyHand.CurrentValue))
                 return false;
             Send(ClientAction.Exchange(_mySeat, NextSeq(), choice.ToLeft, choice.ToPartner, choice.ToRight));
+            _exchangeAnswered = true;
             Answered();
             return true;
         }

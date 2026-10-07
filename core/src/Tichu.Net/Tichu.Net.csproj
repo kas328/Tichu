@@ -10,5 +10,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Tichu.Core\Tichu.Core.csproj" />
     <ProjectReference Include="..\Tichu.GameFlow\Tichu.GameFlow.csproj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 </Project>

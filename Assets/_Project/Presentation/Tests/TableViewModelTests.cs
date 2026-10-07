@@ -26,6 +26,7 @@ namespace Tichu.Presentation.Tests
         {
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting
             {
                 Kind = StepKind.Play,
@@ -94,13 +95,16 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
 
+            // 큰 티츄·교환은 단계 진입 시 먼저 묻는다(아래 Early_* 테스트) — 순서 질문 규칙은 Play 로 본다.
             var mine = ViewOf(s, 0);
-            mine.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
+            mine.Phase = RoundPhase.Play;
+            mine.Awaiting = new Awaiting { Kind = StepKind.Play, Seat = 0 };
             vm.Apply(mine);
             Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
 
             var theirs = ViewOf(s, 0);
-            theirs.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 2 };
+            theirs.Phase = RoundPhase.Play;
+            theirs.Awaiting = new Awaiting { Kind = StepKind.Play, Seat = 2 };
             vm.Apply(theirs);
             Assert.That(vm.Prompt.CurrentValue, Is.Null, "남의 차례는 프롬프트가 아니다");
         }
@@ -138,6 +142,7 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.SubmitGrandTichu(false), Is.True);
 
             // 거부 뒤 재질의처럼 **새** Awaiting 이 오면 다시 답할 수 있다.
+            vm.OnActionRejected();
             var second = ViewOf(s, 0);
             second.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
             vm.Apply(second);
@@ -210,6 +215,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Exchange;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting { Kind = StepKind.Exchange, Seat = 0 };
             vm.Apply(view);
             var h = vm.MyHand.CurrentValue;
@@ -230,6 +236,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting { Kind = StepKind.DragonGift, Seat = 0 };
             vm.Apply(view);
 
@@ -271,6 +278,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting
             {
                 Kind = StepKind.Play, Seat = 0, CanPass = true,
@@ -291,6 +299,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting { Kind = StepKind.Play, Seat = 0, CanPass = false };
             vm.Apply(view);
 
@@ -306,7 +315,9 @@ namespace Tichu.Presentation.Tests
         {
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
-            vm.Apply(ViewOf(s, 0));            // Awaiting == null
+            var view = ViewOf(s, 0);           // Awaiting == null
+            view.Phase = RoundPhase.Play;      // 큰 티츄·교환 단계는 질문 없이도 먼저 묻는다
+            vm.Apply(view);
             var h = vm.MyHand.CurrentValue;
 
             var sent = new List<ClientAction>();
@@ -326,6 +337,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Exchange;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting { Kind = StepKind.Exchange, Seat = 0 };
             vm.Apply(view);
             var h = vm.MyHand.CurrentValue;
@@ -349,6 +361,7 @@ namespace Tichu.Presentation.Tests
             var s = GameEngine.NewRound(777UL);
             var vm = new TableViewModel(0);
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting { Kind = StepKind.DragonGift, Seat = 0 };
             vm.Apply(view);
 
@@ -485,6 +498,7 @@ namespace Tichu.Presentation.Tests
             {
                 LeadType = CombinationType.Single, LeadLength = 1, Top = top, TopOwnerSeat = 1,
             };
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting
             {
                 Kind = StepKind.Play, Seat = 0, CanPass = true,
@@ -520,6 +534,7 @@ namespace Tichu.Presentation.Tests
                 }, TrickContext.Lead);
 
             var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;   // 질문 종류에 맞는 실제 단계
             view.Awaiting = new Awaiting
             {
                 Kind = StepKind.Play, Seat = 0, CanPass = true,
@@ -539,6 +554,110 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.SubmitPlay(longerStraight), Is.False,
                 "같은 top rank(10)라도 길이가 다르면(5 vs 6) 로컬에서 거부돼야 한다");
             Assert.That(sent.Count, Is.EqualTo(0));
+        }
+
+        // ── 큰 티츄·교환은 내 차례를 기다리지 않는다 ──────────────────────────────
+        // 서버는 좌석 순서로 묻지만 답은 미리 받아 둔다(RemoteAgent 선행 큐). 사람이 둘 이상인
+        // 네트워크 판에서 앞 좌석이 끝날 때까지 기다리지 않도록, 단계에 들어서면 곧바로 묻는다.
+
+        [Test]
+        public void Early_grand_tichu_prompt_appears_when_the_phase_starts_without_server_question()
+        {
+            var s = GameEngine.NewRound(777UL);          // 큰 티츄 단계, Awaiting 없음
+            var vm = new TableViewModel(0);
+
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null, "큰 티츄 단계면 곧바로 물어야 한다");
+            Assert.That(vm.Prompt.CurrentValue.Kind, Is.EqualTo(StepKind.GrandTichu));
+            Assert.That(vm.Prompt.CurrentValue.Seat, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Early_prompt_is_the_same_instance_across_updates_in_the_same_phase()
+        {
+            // 남의 결정마다 StateUpdate 가 온다. 프롬프트가 매번 새 인스턴스면 뷰가 버튼을 다시 그린다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            var first = vm.Prompt.CurrentValue;
+
+            var other = ViewOf(s, 0);
+            other.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 1 };   // 남의 차례 알림
+            vm.Apply(other);
+
+            Assert.That(vm.Prompt.CurrentValue, Is.SameAs(first));
+        }
+
+        [Test]
+        public void After_answering_early_the_servers_ordered_question_is_ignored()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.SubmitGrandTichu(false), Is.True);
+
+            // 서버가 순서대로 내 좌석에 같은 질문을 보낸다 — 답은 이미 서버 선행 큐에 있다.
+            var asked = ViewOf(s, 0);
+            asked.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
+            vm.Apply(asked);
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Null, "이미 답한 질문을 다시 띄우면 두 번 답하게 된다");
+            Assert.That(vm.SubmitGrandTichu(true), Is.False);
+            Assert.That(sent.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Early_exchange_prompt_appears_in_the_exchange_phase()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Exchange;
+            vm.Apply(view);
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
+            Assert.That(vm.Prompt.CurrentValue.Kind, Is.EqualTo(StepKind.Exchange));
+            var h = vm.MyHand.CurrentValue;
+            Assert.That(vm.SubmitExchange(new ExchangeChoice(h[0], h[1], h[2])), Is.True);
+
+            vm.Apply(view);
+            Assert.That(vm.Prompt.CurrentValue, Is.Null, "교환을 낸 뒤엔 같은 단계 갱신에서 다시 묻지 않는다");
+        }
+
+        [Test]
+        public void A_rejection_lets_the_early_question_be_asked_again()
+        {
+            // 서버가 답을 거부하면 다시 묻는다(RemoteAgent while(true)). 답함 표시를 풀지 않으면 갇힌다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            vm.SubmitGrandTichu(false);
+
+            vm.OnActionRejected();
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
+            Assert.That(vm.Prompt.CurrentValue.Kind, Is.EqualTo(StepKind.GrandTichu));
+        }
+
+        [Test]
+        public void A_new_round_asks_again_with_a_fresh_prompt()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            var round1 = vm.Prompt.CurrentValue;
+            vm.SubmitGrandTichu(false);
+
+            vm.ClearPlays();                             // 새 라운드
+            vm.Apply(ViewOf(GameEngine.NewRound(778UL), 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.SameAs(round1), "라운드마다 새 질문이다");
         }
     }
 }

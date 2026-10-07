@@ -1,0 +1,6 @@
+<!-- IL2CPP 코드 스트리핑 방지: 프로토콜 타입은 Newtonsoft 가 리플렉션으로 만든다(M2 스펙 §7). -->
+<linker>
+  <assembly fullname="Tichu.Net" preserve="all" />
+  <assembly fullname="Tichu.Core" preserve="all" />
+  <assembly fullname="Tichu.GameFlow" preserve="all" />
+</linker>

@@ -73,18 +73,25 @@ namespace Tichu.GameFlow.Agents
         }
     }
 
-    /// <summary>자기 턴 결정: 패스, 패 내기(소원 선택 포함).</summary>
+    /// <summary>자기 턴 결정: 패스, 패 내기(소원 선택 포함), 또는 양보(다시 물어 달라).</summary>
     public readonly struct TurnDecision
     {
         public readonly bool IsPass;
         public readonly Combination? Move;
         public readonly int? Wish;
 
-        private TurnDecision(bool isPass, Combination? move, int? wish)
+        /// <summary>
+        /// 아직 결정하지 않았다 — 드라이버는 아무것도 적용하지 않고 같은 좌석에 다시 묻는다.
+        /// 원격 좌석이 차례 대기 중 받은 작은 티츄를 먼저 적용시키려고 쓴다. AI 는 내지 않는다.
+        /// </summary>
+        public readonly bool IsYield;
+
+        private TurnDecision(bool isPass, Combination? move, int? wish, bool isYield = false)
         {
             IsPass = isPass;
             Move = move;
             Wish = wish;
+            IsYield = isYield;
         }
 
         /// <summary>패스 결정.</summary>
@@ -93,5 +100,8 @@ namespace Tichu.GameFlow.Agents
         /// <summary>패 내기 결정. wish는 마작 리드 시 선택한 소원 랭크(없으면 null).</summary>
         public static TurnDecision Play(Combination move, int? wish = null)
             => new TurnDecision(false, move, wish);
+
+        /// <summary>양보: 아무것도 적용하지 말고 같은 좌석에 다시 물어 달라.</summary>
+        public static TurnDecision Yield => new TurnDecision(false, null, null, isYield: true);
     }
 }

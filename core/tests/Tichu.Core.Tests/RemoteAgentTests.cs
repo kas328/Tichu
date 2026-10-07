@@ -25,13 +25,29 @@ namespace Tichu.Core.Tests
             public readonly CancellationTokenSource Cts = new CancellationTokenSource();
             private long _arrival;
 
-            public RemoteAgent Create(int seat, TimeSpan? timeout = null) => new RemoteAgent(
-                seat,
-                (s, ev) => { lock (Sent) Sent.Add(ev); },
-                (s, aw) => { lock (Awaits) Awaits.Add(aw); },
-                () => Interlocked.Increment(ref _arrival),
-                timeout ?? TimeSpan.FromSeconds(5),
-                Cts.Token);
+            /// <summary>
+            /// anyTichuPending 을 주지 않으면 세션처럼 자기 예약을 확인하도록 잇는다(좌석 하나뿐인 세션).
+            /// </summary>
+            public RemoteAgent Create(int seat, TimeSpan? timeout = null,
+                Action? onTichuReserved = null, Func<bool>? anyTichuPending = null)
+            {
+                RemoteAgent agent = null!;
+                agent = new RemoteAgent(
+                    seat,
+                    (s, ev) => { lock (Sent) Sent.Add(ev); },
+                    (s, aw) => { lock (Awaits) Awaits.Add(aw); },
+                    () => Interlocked.Increment(ref _arrival),
+                    timeout ?? TimeSpan.FromSeconds(5),
+                    Cts.Token,
+                    onTichuReserved,
+                    anyTichuPending ?? (Func<bool>)(() => agent.HasReservedTichu));
+                return agent;
+            }
+
+            public int AwaitCount
+            {
+                get { lock (Awaits) return Awaits.Count; }
+            }
 
             public int RejectCount
             {
@@ -284,6 +300,184 @@ namespace Tichu.Core.Tests
             var grandCtx = new DecisionContext(GameEngine.NewRound(42UL), 0);
             Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(grandCtx),
                 "잔여 매칭 액션이 다른 종류의 질문에 답으로 쓰였다");
+        }
+
+        /// <summary>
+        /// 다음 대기 공지(onAwait)를 본 뒤에 액션을 제출하는 스레드. 고정 지연 대신 실제로
+        /// 대기에 들어선 것을 보고 보낸다. 공지와 _awaiting 설정 사이의 틈은 Play 대기라면
+        /// 대기 직후의 예약 확인이 메우고, 다른 질문은 어차피 깨우지 않으므로 결과가 같다.
+        /// 블로킹 호출 **전에** 만들어야 한다(그 시점의 공지 수를 기준으로 삼는다).
+        /// </summary>
+        private static Thread SubmitOnAwait(Harness h, RemoteAgent agent, ClientAction a)
+        {
+            int baseline = h.AwaitCount;
+            var t = new Thread(() =>
+            {
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+                while (h.AwaitCount <= baseline && DateTime.UtcNow < deadline) Thread.Sleep(1);
+                agent.Submit(a);
+            }) { IsBackground = true };
+            t.Start();
+            return t;
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_the_turn_wakes_DecideTurn_with_Yield()
+        {
+            // 자기 차례 프롬프트가 떠 있는 동안 외친 작은 티츄는 그 사람이 수를 낼 때까지
+            // 기다리면 안 된다. 대기를 깨워 Yield 를 돌려주면 드라이버가 예약을 먼저 적용한다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            var submitter = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 1L));
+            var d = agent.DecideTurn(ctx);   // 블로킹 → CallTichu 로 깨어난다
+
+            Assert.That(submitter.Join(TimeSpan.FromSeconds(5)), Is.True, "제출 스레드가 끝나지 않았다");
+            Assert.That(d.IsYield, Is.True, "CallTichu 가 차례 대기를 깨워 Yield 로 돌아와야 한다");
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move, Is.Null);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 그대로 남아 있어야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False, "예약은 한 번만 소비된다");
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void After_a_Yield_the_turn_is_answered_by_the_next_move()
+        {
+            // Yield 로 깨운 표식이 다음 질문의 답으로 남거나 거부 통보로 새어 나가면 안 된다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            var t1 = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 1L));
+            Assert.That(agent.DecideTurn(ctx).IsYield, Is.True, "테스트 전제: 첫 대기는 Yield");
+            Assert.That(t1.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True);
+
+            var t2 = SubmitOnAwait(h, agent, ClientAction.Play(0, 2L,
+                new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null));
+            var d = agent.DecideTurn(ctx);
+            Assert.That(t2.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(d.IsYield, Is.False);
+            Assert.That(d.Move!.Cards, Is.EquivalentTo(new[] { Card.Normal(5, Suit.Jade) }));
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Second_CallTichu_in_a_round_is_ignored()
+        {
+            // 라운드당 예약은 한 번. 받아 주면 연타 한 번마다 대기를 깨우거나 드라이버 0단계를
+            // 한 스텝씩 돌려(MaxSteps) 매치를 죽일 수 있다. 새 라운드에는 다시 받는다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = LeadContext(out _);
+
+            var t1 = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 1L));
+            Assert.That(agent.DecideTurn(ctx).IsYield, Is.True, "테스트 전제: 첫 CallTichu 는 깨운다");
+            Assert.That(t1.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True);
+
+            var t2 = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 2L));
+            Assert.Throws<TimeoutException>(() => agent.DecideTurn(ctx), "두 번째 CallTichu 가 다시 깨웠다");
+            Assert.That(t2.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.False, "같은 라운드의 두 번째 CallTichu 는 예약되지 않아야 한다");
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+
+            agent.ResetForNewRound();
+            agent.Submit(ClientAction.CallTichu(0, 3L));
+            Assert.That(agent.TakeReservedTichu(), Is.True, "새 라운드에는 다시 예약을 받아야 한다");
+        }
+
+        [Test]
+        public void Reservation_callback_fires_once_per_round()
+        {
+            var h = new Harness();
+            int fired = 0;
+            RemoteAgent agent = null!;
+            agent = h.Create(0, onTichuReserved: () =>
+            {
+                fired++;
+                // 대기 좌석이 깨어나 0단계가 돌 때 예약이 보여야 한다 — 예약을 세운 뒤에 알린다.
+                Assert.That(agent.HasReservedTichu, Is.True, "콜백 시점엔 예약이 이미 서 있어야 한다");
+            });
+
+            agent.Submit(ClientAction.CallTichu(0, 1L));
+            agent.Submit(ClientAction.CallTichu(0, 2L));
+            Assert.That(fired, Is.EqualTo(1), "같은 라운드에서는 한 번만 알린다");
+
+            agent.ResetForNewRound();
+            agent.Submit(ClientAction.CallTichu(0, 3L));
+            Assert.That(fired, Is.EqualTo(2), "새 라운드에는 다시 알린다");
+        }
+
+        [Test]
+        public void CallTichu_from_another_seat_wakes_the_seat_awaiting_its_turn()
+        {
+            // 세션 배선의 축소판: B 의 예약 콜백이 A 를 깨우고, A 는 대기 직후 두 좌석의 예약을 본다.
+            var h = new Harness();
+            RemoteAgent a = null!;
+            RemoteAgent b = null!;
+            Func<bool> anyPending = () => a.HasReservedTichu || b.HasReservedTichu;
+            a = h.Create(0, TimeSpan.FromSeconds(10), () => a.WakeTurnForTichu(), anyPending);
+            b = h.Create(1, TimeSpan.FromSeconds(10), () => a.WakeTurnForTichu(), anyPending);
+            var ctx = LeadContext(out _);
+
+            var t = SubmitOnAwait(h, b, ClientAction.CallTichu(1, 1L));
+            var d = a.DecideTurn(ctx);
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(d.IsYield, Is.True, "다른 좌석의 콜이 차례 대기를 깨워야 한다");
+            Assert.That(b.TakeReservedTichu(), Is.True, "예약은 콜한 좌석에 있어야 한다");
+            Assert.That(b.TakeReservedTichu(), Is.False, "예약은 한 번만 소비된다");
+            Assert.That(a.TakeReservedTichu(), Is.False, "대기 좌석에 예약이 생기면 안 된다");
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Tichu_reserved_before_the_turn_wait_begins_still_yields()
+        {
+            // 0단계가 지난 뒤, _awaiting 이 서기 전에 도착한 콜: 제출 쪽 깨우기는 대기가 아니라
+            // 무동작이지만, 대기 직후의 예약 확인이 잡아 Yield 해야 한다(수를 낼 때까지 묶이지 않게).
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            agent.Submit(ClientAction.CallTichu(0, 1L));   // 아직 아무것도 묻지 않았다 → 예약만
+            var d = agent.DecideTurn(ctx);
+
+            Assert.That(d.IsYield, Is.True, "대기 시작 시 남아 있는 예약이 대기를 깨워야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.False);
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_grand_tichu_only_reserves()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+
+            var t = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 1L));
+            Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(ctx), "큰 티츄 대기가 CallTichu 로 깨어났다");
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 받아야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False);
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_exchange_only_reserves()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+
+            var t = SubmitOnAwait(h, agent, ClientAction.CallTichu(0, 1L));
+            Assert.Throws<TimeoutException>(() => agent.ChooseExchange(ctx), "교환 대기가 CallTichu 로 깨어났다");
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 받아야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False);
         }
 
         [Test]

@@ -17,7 +17,7 @@ namespace Tichu.Presentation.Shell
         // 메뉴 네비 화면. InGame/Result는 메뉴 셸 밖(C4) — 그 상태에선 프레젠터가 전 패널을 숨긴다.
         public static readonly ScreenState[] MenuStates =
         {
-            ScreenState.Intro, ScreenState.MainHub, ScreenState.ModeSelect, ScreenState.DifficultySelect, ScreenState.HowTo, ScreenState.Settings,
+            ScreenState.Intro, ScreenState.MainHub, ScreenState.ModeSelect, ScreenState.DifficultySelect, ScreenState.HowTo, ScreenState.Settings, ScreenState.NetJoin,
         };
 
         readonly Dictionary<ScreenState, CanvasGroup> _panels = new();
@@ -177,6 +177,7 @@ namespace Tichu.Presentation.Shell
             ScreenState.DifficultySelect => new Color(0.10f, 0.10f, 0.18f, 1f),
             ScreenState.HowTo      => new Color(0.06f, 0.12f, 0.14f, 1f),
             ScreenState.Settings   => new Color(0.11f, 0.11f, 0.13f, 1f),
+            ScreenState.NetJoin    => new Color(0.08f, 0.12f, 0.18f, 1f),
             _                      => new Color(0.08f, 0.08f, 0.08f, 1f),
         };
 
@@ -188,8 +189,43 @@ namespace Tichu.Presentation.Shell
             ScreenState.DifficultySelect => "난이도 선택",
             ScreenState.HowTo      => "게임 방법",
             ScreenState.Settings   => "설정",
+            ScreenState.NetJoin    => "친구방 (개발용)",
             _                      => s.ToString(),
         };
+
+        /// <summary>패널에 한 줄 입력칸을 추가한다(코드 빌드, 레거시 InputField — 안드로이드 소프트 키보드 지원).</summary>
+        public InputField AddInputField(ScreenState panel, string initial, string placeholder)
+        {
+            var go = new GameObject("Input", typeof(RectTransform), typeof(Image), typeof(InputField));
+            go.transform.SetParent(_buttonRoots[panel], false);
+            go.GetComponent<Image>().color = new Color(0.92f, 0.94f, 0.98f, 1f);
+            var le = go.AddComponent<LayoutElement>(); le.preferredWidth = 620; le.preferredHeight = 90;
+
+            var text = NewText("Text", go.transform, "", 34);
+            text.color = new Color(0.08f, 0.10f, 0.14f);
+            text.alignment = TextAnchor.MiddleLeft;
+            text.supportRichText = false;
+            Inset(text.rectTransform);
+
+            var ph = NewText("Placeholder", go.transform, placeholder, 30);
+            ph.color = new Color(0.45f, 0.48f, 0.55f);
+            ph.alignment = TextAnchor.MiddleLeft;
+            ph.fontStyle = FontStyle.Italic;
+            Inset(ph.rectTransform);
+
+            var input = go.GetComponent<InputField>();
+            input.textComponent = text;
+            input.placeholder = ph;
+            input.lineType = InputField.LineType.SingleLine;
+            input.text = initial;
+            return input;
+        }
+
+        static void Inset(RectTransform rt)
+        {
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(20f, 6f); rt.offsetMax = new Vector2(-20f, -6f);
+        }
 
         static void AddCenteredLabel(Transform parent, string text, int size)
         {

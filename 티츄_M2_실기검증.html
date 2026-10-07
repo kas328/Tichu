@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 M2 실기 검증</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--ink:#1d2330;--sub:#5b6475;--line:#dcd8cc;--accent:#1f6f5c;--code:#eef0ea;--warn:#fff3d6;--warnline:#e2b94a;--ok:#1f7a45;--bad:#b3392f}
+@media (prefers-color-scheme:dark){:root{--bg:#14171d;--card:#1d222b;--ink:#e8eaee;--sub:#9aa3b2;--line:#323946;--accent:#5cc4a8;--code:#262c37;--warn:#3a3118;--warnline:#8a7228;--ok:#5dd08a;--bad:#ff8a7d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 -apple-system,"Segoe UI","Malgun Gothic",sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:1.5rem;margin:.2em 0}
+h2{font-size:1.15rem;margin:0 0 .5em}
+.lead{color:var(--sub);margin:0 0 20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:0 0 16px}
+.num{display:inline-block;min-width:1.7em;height:1.7em;line-height:1.7em;text-align:center;border-radius:50%;background:var(--accent);color:var(--bg);font-size:.9rem;margin-right:.4em}
+code,pre{font-family:Consolas,"SFMono-Regular",monospace;background:var(--code);border-radius:6px}
+code{padding:1px 5px;font-size:.9em}
+pre{padding:10px 12px;overflow-x:auto;font-size:.88rem;margin:.5em 0}
+ul.steps{list-style:none;padding:0;margin:.4em 0}
+ul.steps li{margin:.35em 0}
+label{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+input[type=checkbox]{width:20px;height:20px;margin-top:3px;flex:none;accent-color:var(--accent)}
+.note{background:var(--warn);border:1px solid var(--warnline);border-radius:8px;padding:8px 12px;margin:.6em 0;font-size:.95rem}
+.dod{font-size:.8rem;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:0 8px;margin-left:6px;white-space:nowrap}
+.rec{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:.92rem}
+.rec span.t{color:var(--sub)}
+.rec label{align-items:center;gap:6px}
+.rec input[type=text]{flex:1 1 180px;min-width:0;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.pass{color:var(--ok)}.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<main>
+<h1>티츄 M2 실기 검증</h1>
+<p class="lead">친구방 WebSocket 서버(같은 Wi-Fi) · 에디터 1 + S23 1 = 인간 2명(좌석 0, 2, 같은 팀) · 빈자리는 서버 PIMC</p>
+
+<section>
+<h2>준비</h2>
+<ul class="steps">
+<li>PC IP 확인: 명령 프롬프트에서 <code>ipconfig</code> → <b>무선 LAN 어댑터 Wi-Fi</b>의 <code>IPv4 주소</code>.</li>
+<li>S23과 PC가 <b>같은 Wi-Fi</b>에 있어야 한다.</li>
+<li>S23에는 <b>새 Development Build APK</b>(<code>Build/TichuMaster-dev-arm64.apk</code>)를 설치한다. 예전 빌드는 접속 화면이 없다.</li>
+<li>서버 명령(레포 루트):
+<pre>dotnet run --project core/src/Tichu.Server -- --seats 0,2 --target 200</pre></li>
+<li>서버는 <b>계속 켜 둔다</b> — 매치가 끝나거나 누가 끊기면 새 대기실을 연다(Ctrl+C로 종료). 다음 항목 전에 다시 실행할 필요가 없다.</li>
+<li>처음 실행하면 Windows 방화벽이 묻는다 → <b>개인 네트워크 허용</b>.</li>
+</ul>
+</section>
+
+<section>
+<h2><span class="num">1</span>PC IP · 서버 실행 · 방화벽</h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span><code>ipconfig</code>로 무선 LAN IPv4를 확인했다.</span></label></li>
+<li><label><input type="checkbox"><span>위 서버 명령을 실행했고 콘솔에 접속 주소(<code>ws://…:7777/ws</code>)가 나왔다.</span></label></li>
+<li><label><input type="checkbox"><span>방화벽 프롬프트에서 개인 네트워크를 허용했다.</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r1"><span class="pass">Pass</span></label><label><input type="radio" name="r1"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">2</span>에디터 접속 → 대기</h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>에디터 Play → 게임 시작 → 모드 선택 → <b>친구방</b>.</span></label></li>
+<li><label><input type="checkbox"><span>접속 화면에 PC IP를 입력하고 접속한다.</span></label></li>
+<li><label><input type="checkbox"><span>"<b>기다리는 중 1/2</b>"가 표시된다.</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r2"><span class="pass">Pass</span></label><label><input type="radio" name="r2"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">3</span>S23 접속 · 테이블 · 시점</h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>S23 앱에서 같은 경로(모드 선택 → 친구방 → 주소 입력 → 접속)로 접속한다.</span></label></li>
+<li><label><input type="checkbox"><span>에디터와 S23 <b>두 화면 모두</b> 테이블이 표시된다.</span></label></li>
+<li><label><input type="checkbox"><span><b>S23은 좌석 2</b>다. S23 화면에서 <b>자기 손패가 아래</b>, <b>파트너(= 에디터 플레이어)가 위</b>에 있다.</span></label></li>
+</ul>
+<div class="note">에디터는 좌석 0, S23은 좌석 2. 각자 자기 손패가 아래로 보이는 것이 정상이다(S23이 에디터 시점 그대로면 실패).</div>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r3"><span class="pass">Pass</span></label><label><input type="radio" name="r3"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">4</span>끝까지 플레이 · 결과 화면<span class="dod">DoD 2</span></h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>매치를 끝까지 둔다(<code>--target 200</code>이라 짧다).</span></label></li>
+<li><label><input type="checkbox"><span><b>둘 다 결과 화면</b>이 뜬다.</span></label></li>
+<li><label><input type="checkbox"><span>점수가 양쪽에서 같고, "우리 팀" 표기가 둘 다 맞다(같은 팀이므로 승패도 같다).</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r4"><span class="pass">Pass</span></label><label><input type="radio" name="r4"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">5</span>강제 종료 · 폴트 알림<span class="dod">DoD 3</span></h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>서버 콘솔에 "<b>다음 매치 대기</b>"가 나온 뒤(서버는 그대로 켜 둔다) 두 클라이언트가 재접속한다.</span></label></li>
+<li><label><input type="checkbox"><span>몇 수 진행한 뒤 <b>S23 앱을 강제 종료</b>한다.</span></label></li>
+<li><label><input type="checkbox"><span>에디터가 <b>메뉴로 돌아가고</b> "<b>좌석 2 연결 끊김</b>" 토스트가 뜬다.</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r5"><span class="pass">Pass</span></label><label><input type="radio" name="r5"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">6</span>S23 직렬화 · IL2CPP<span class="dod">DoD 4</span></h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>2~4 동안 S23에서 카드·조합이 정상 표시된다.</span></label></li>
+<li><label><input type="checkbox"><span>S23에서 수를 내면 받아들여진다(오류·멈춤 없음).</span></label></li>
+<li><label><input type="checkbox"><span>직렬화 오류·크래시가 한 번도 없었다.</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r6"><span class="pass">Pass</span></label><label><input type="radio" name="r6"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">7</span>서버 없이 AI 대전 스모크<span class="dod">DoD 5</span></h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>서버를 끈 상태에서 일반 AI 대전을 한 판 둔다.</span></label></li>
+<li><label><input type="checkbox"><span>이전과 체감 차이가 없다(진행·애니메이션·AI 속도).</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r7"><span class="pass">Pass</span></label><label><input type="radio" name="r7"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+
+<section>
+<h2><span class="num">8</span>접속 화면 오류 처리</h2>
+<ul class="steps">
+<li><label><input type="checkbox"><span>틀린 주소 <code>http://x</code> → "<b>형식이 올바르지 않습니다</b>".</span></label></li>
+<li><label><input type="checkbox"><span><b>서버를 끈 상태</b>(서버 콘솔에서 Ctrl+C — 서버는 스스로 끝나지 않는다)에서 꺼진 서버 주소 → <b>5초 안에</b> "<b>서버에 연결할 수 없습니다</b>" 표시 후 메뉴로 돌아간다.</span></label></li>
+<li><label><input type="checkbox"><span>대기 화면에서 <b>취소</b> → 메뉴로 돌아간다.</span></label></li>
+</ul>
+<div class="rec"><span class="t">결과</span><label><input type="radio" name="r8"><span class="pass">Pass</span></label><label><input type="radio" name="r8"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>
+</section>
+</main>
+</body>
+</html>

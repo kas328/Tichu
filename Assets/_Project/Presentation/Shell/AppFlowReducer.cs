@@ -18,6 +18,9 @@ namespace Tichu.Presentation.Shell
             (ScreenState.DifficultySelect, AppFlowEvent.StartAiMatch)         => ScreenState.InGame,
             (ScreenState.DifficultySelect, AppFlowEvent.Back)                 => ScreenState.ModeSelect,
             (ScreenState.ModeSelect,       AppFlowEvent.Back)                 => ScreenState.MainHub,
+            (ScreenState.ModeSelect,       AppFlowEvent.OpenNetJoin)          => ScreenState.NetJoin,   // M2 개발용 친구방
+            (ScreenState.NetJoin,          AppFlowEvent.StartNetMatch)        => ScreenState.InGame,
+            (ScreenState.NetJoin,          AppFlowEvent.Back)                 => ScreenState.ModeSelect,
             (ScreenState.HowTo,      AppFlowEvent.Back)           => ScreenState.MainHub,
             (ScreenState.Settings,   AppFlowEvent.Back)           => ScreenState.MainHub,
             (ScreenState.InGame,     AppFlowEvent.MatchEnded)     => ScreenState.Result,

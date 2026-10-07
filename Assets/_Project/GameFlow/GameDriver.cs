@@ -172,6 +172,13 @@ namespace Tichu.GameFlow
             // 4) 인-턴 행동: 패스 또는 패 내기(마작 소원 포함).
             var d = _agents[activeTurn].DecideTurn(Ctx(s, activeTurn));
 
+            // 양보: 원격 좌석이 차례 대기 중 작은 티츄를 받아 깨어났다. 아무것도 적용하지 않고
+            // return → 다음 반복의 0)이 예약을 적용·방송한 뒤 같은 좌석에 다시 묻는다.
+            // 아래 late 수거도 하지 않는다 — 0)이 대신한다. AI 는 Yield 를 내지 않는다.
+            // 다시 묻기 전에 0b)·2)도 다시 돈다 — 그 사이 예약된 차례밖 폭탄은 현재 Top 위에
+            // 떨어진다(합법이며 도착 순서에 더 가깝다).
+            if (d.IsYield) return;
+
             // 사람이 차례 프롬프트를 들고 있는 동안 누른 작은 티츄는 3)이 이미 지나간 뒤에
             // 도착한다. 여기서 한 번 더 걷지 않으면 아래 Play 로 손패가 13장이 된 뒤 다음
             // iteration 의 0)이 소비하려다 엔진에 거부되어(Hand.Count != FullHandCount)

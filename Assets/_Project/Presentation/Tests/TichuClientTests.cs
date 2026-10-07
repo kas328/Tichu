@@ -79,7 +79,7 @@ namespace Tichu.Presentation.Tests
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
             MatchSummary? summary = null;
-            using (var client = new TichuClient(transport, vm, MySeat, s => summary = s))
+            using (var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, s => summary = s))
             {
                 var responder = new AutoResponder(vm);
                 var session = new MatchSession(
@@ -117,7 +117,7 @@ namespace Tichu.Presentation.Tests
             // 폴링으로 재면 한 Pump 가 여러 뷰를 적용할 때 중간 값을 놓친다 — 구독으로
             // 모든 투영을 본다(남의 카드가 한 프레임만 새도 잡히도록).
             using var handWatch = vm.MyHand.Subscribe(h => { if (h.Count > maxHand) maxHand = h.Count; });
-            using (var client = new TichuClient(transport, vm, MySeat))
+            using (var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat))
             {
                 var responder = new AutoResponder(vm);
                 var session = new MatchSession(
@@ -158,7 +158,7 @@ namespace Tichu.Presentation.Tests
             // 태우지 않으므로 전송에 직접 이벤트를 넣는다.
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             int cleared = 0;
             using var sub = vm.PlaysCleared.Subscribe(_ => cleared++);
@@ -193,7 +193,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             transport.SendTo(MySeat,
                 ServerEvent.RoundScored(new RoundResult { TeamATotal = 60, TeamBTotal = 40 }));
@@ -210,7 +210,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             var s = GameEngine.NewRound(55UL);
             transport.SendTo(MySeat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, MySeat), null));
@@ -231,7 +231,7 @@ namespace Tichu.Presentation.Tests
         {
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
-            using var client = new TichuClient(transport, vm, MySeat);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat);
 
             transport.SendTo(MySeat, ServerEvent.SessionFaulted("boom"));
             client.Pump();
@@ -247,7 +247,7 @@ namespace Tichu.Presentation.Tests
             var transport = new LoopbackTransport();
             var vm = new TableViewModel(MySeat);
             MatchSummary? got = null;
-            using var client = new TichuClient(transport, vm, MySeat, x => got = x);
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, x => got = x);
 
             transport.SendTo(MySeat, ServerEvent.MatchEnded(1, 410, 1010));
             client.Pump();
@@ -257,6 +257,110 @@ namespace Tichu.Presentation.Tests
             Assert.That(got.Value.WinningTeam, Is.EqualTo(1));
             Assert.That(got.Value.TeamA, Is.EqualTo(410));
             Assert.That(got.Value.TeamB, Is.EqualTo(1010));
+        }
+
+        [Test]
+        public void Backlog_is_applied_before_new_events()
+        {
+            // 대기실이 미리 꺼낸 이벤트(라운드 결과)가 먼저 적용돼야 한다 — 순서가 뒤집히면
+            // RoundScored 뒤 첫 StateUpdate 에서 비우는 "새 라운드" 판정이 어긋난다.
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(MySeat);
+            var round = new RoundResult { TeamATotal = 100, TeamBTotal = 0 };
+            var backlog = new List<ServerEvent> { ServerEvent.RoundScored(round) };
+
+            using var client = new TichuClient(new LoopbackClient(transport, MySeat), vm, MySeat, null, backlog);
+            client.Pump();
+
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(100), "백로그의 RoundScored 가 적용돼야 한다");
+            client.Pump();
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(100), "백로그는 한 번만 적용된다");
+        }
+
+        [Test]
+        public void Client_seated_at_two_sees_itself_as_local_seat_zero_and_finishes()
+        {
+            const int serverSeat = 2;
+            var transport = new LoopbackTransport();
+            var vm = new TableViewModel(0);                 // 뷰모델은 항상 로컬 좌석 0
+            MatchSummary? summary = null;
+            bool sawMyPrompt = false;
+            var agents = new IAgent[] { new AiAgent(1UL, 0), new AiAgent(1UL, 1), null, new AiAgent(1UL, 3) };
+
+            using (var client = new TichuClient(new LoopbackClient(transport, serverSeat), vm, serverSeat, s => summary = s))
+            using (vm.Prompt.Subscribe(aw => { if (aw != null && aw.Seat == 0) sawMyPrompt = true; }))
+            {
+                var responder = new AutoResponder(vm);
+                var session = new MatchSession(agents, transport, masterSeed: 4242UL, targetScore: 1);
+                session.Start();
+                try
+                {
+                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+                    while (!summary.HasValue && DateTime.UtcNow < deadline)
+                    {
+                        client.Pump();
+                        responder.Tick();
+                        Thread.Sleep(2);
+                    }
+                }
+                finally
+                {
+                    session.Stop();
+                    session.Join(TimeSpan.FromSeconds(5));
+                }
+            }
+
+            Assert.That(summary.HasValue, Is.True, "좌석 2 클라이언트도 매치를 끝까지 둬야 한다(회전된 액션이 서버에서 받아들여짐)");
+            Assert.That(sawMyPrompt, Is.True, "내 차례 프롬프트가 로컬 좌석 0 으로 와야 한다");
+        }
+
+        [Test]
+        public void Second_human_decides_grand_tichu_without_waiting_for_the_first()
+        {
+            // 서버는 큰 티츄를 좌석 순서(0→1→2→3)로 묻는다. 좌석 0 사람이 고민하는 동안에도
+            // 좌석 2 사람은 이미 답할 수 있어야 한다 — 실기에서 S23 이 에디터를 기다렸던 문제.
+            var transport = new LoopbackTransport();
+            var agents = new IAgent[] { null, new AiAgent(1UL, 1), null, new AiAgent(1UL, 3) };
+            var vm0 = new TableViewModel(0);
+            var vm2 = new TableViewModel(0);                    // 뷰모델은 항상 로컬 좌석 0
+            MatchSummary? summary = null;
+            bool seat2AnsweredGrand = false;
+            bool seat0Released = false;
+
+            using (var c0 = new TichuClient(new LoopbackClient(transport, 0), vm0, 0, s => summary = s))
+            using (var c2 = new TichuClient(new LoopbackClient(transport, 2), vm2, 2))
+            using (vm2.Submitted.Subscribe(a =>
+            {
+                if (a.Kind == ClientActionKind.CallGrandTichu || a.Kind == ClientActionKind.DeclineGrandTichu)
+                    seat2AnsweredGrand = true;
+            }))
+            {
+                var r0 = new AutoResponder(vm0);
+                var r2 = new AutoResponder(vm2);
+                var session = new MatchSession(agents, transport, masterSeed: 5150UL, targetScore: 1);
+                session.Start();
+                try
+                {
+                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+                    while (!summary.HasValue && DateTime.UtcNow < deadline)
+                    {
+                        c0.Pump();
+                        c2.Pump();
+                        r2.Tick();
+                        if (seat2AnsweredGrand) seat0Released = true;   // 좌석 0 은 좌석 2 가 답한 뒤에야 움직인다
+                        if (seat0Released) r0.Tick();
+                        Thread.Sleep(2);
+                    }
+                }
+                finally
+                {
+                    session.Stop();
+                    session.Join(TimeSpan.FromSeconds(5));
+                }
+            }
+
+            Assert.That(seat2AnsweredGrand, Is.True, "좌석 2 가 좌석 0 보다 먼저 큰 티츄에 답할 수 있어야 한다");
+            Assert.That(summary.HasValue, Is.True, "두 사람이 모두 둔 매치가 끝까지 가야 한다");
         }
     }
 }

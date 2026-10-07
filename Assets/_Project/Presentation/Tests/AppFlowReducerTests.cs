@@ -23,6 +23,9 @@ namespace Tichu.Presentation.Tests
         [TestCase(ScreenState.InGame,     AppFlowEvent.MatchEnded,     ScreenState.Result)]
         [TestCase(ScreenState.InGame,     AppFlowEvent.ReturnToHub,    ScreenState.MainHub)]
         [TestCase(ScreenState.Result,     AppFlowEvent.ReturnToHub,    ScreenState.MainHub)]
+        [TestCase(ScreenState.ModeSelect, AppFlowEvent.OpenNetJoin,    ScreenState.NetJoin)]
+        [TestCase(ScreenState.NetJoin,    AppFlowEvent.StartNetMatch,  ScreenState.InGame)]
+        [TestCase(ScreenState.NetJoin,    AppFlowEvent.Back,           ScreenState.ModeSelect)]
         public void Valid_transitions(ScreenState from, AppFlowEvent evt, ScreenState expected)
         {
             Assert.That(AppFlowReducer.Reduce(from, evt), Is.EqualTo(expected));
@@ -40,6 +43,8 @@ namespace Tichu.Presentation.Tests
         [TestCase(ScreenState.MainHub, AppFlowEvent.MatchEnded)]
         [TestCase(ScreenState.InGame,  AppFlowEvent.OpenModeSelect)]
         [TestCase(ScreenState.Intro,   AppFlowEvent.Back)]
+        [TestCase(ScreenState.MainHub, AppFlowEvent.StartNetMatch)]
+        [TestCase(ScreenState.NetJoin, AppFlowEvent.StartAiMatch)]
         public void Inapplicable_events_keep_current_state(ScreenState from, AppFlowEvent evt)
         {
             Assert.That(AppFlowReducer.Reduce(from, evt), Is.EqualTo(from));

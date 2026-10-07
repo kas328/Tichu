@@ -146,6 +146,19 @@ pwsh tools/sync-core-to-unity.ps1          # -Check 를 붙이면 비교만
 
 ---
 
+## 친구방 개발 서버 (M2 · 같은 Wi-Fi)
+
+```bash
+dotnet run --project core/src/Tichu.Server -- --seats 0,2 --difficulty Hard --target 1000
+```
+
+- 콘솔에 나온 대로 클라이언트에서 `ws://<이 PC 의 IP>:7777/ws`(또는 IP만)로 접속한다. 친구방 버튼은 개발 빌드·에디터에서만 접속 화면을 연다.
+- `--seats` = 인간 좌석(접속 순서대로 배정, `0,2` = 같은 팀). 빈자리는 서버 PIMC가 채운다.
+- 한 번에 매치 하나. 매치가 끝나거나 누가 끊기면 새 대기실을 연다(Ctrl+C로 종료).
+- 처음 실행할 때 Windows 방화벽이 묻는다 → **개인 네트워크 허용**.
+
+---
+
 ## 현재 상태
 
 Phase 0(룰 엔진) · Phase 1(MVP 앱) · Phase 2(AI) 종료. 서명 AAB가 실기 스모크를 통과했고, 남은 것은 스토어 자산과 비공개 테스트 절차다.

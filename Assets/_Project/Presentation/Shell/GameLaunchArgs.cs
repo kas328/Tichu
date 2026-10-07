@@ -23,6 +23,9 @@ namespace Tichu.Presentation.Shell
 
         /// <summary>AI 난이도(기본 Normal). 메뉴 셀렉터는 후속 — 현재 기본값 사용.</summary>
         public Tichu.GameFlow.Agents.Difficulty Difficulty = Tichu.GameFlow.Agents.Difficulty.Normal;
+
+        /// <summary>네트워크 매치 서버 주소. null 이면 로컬 AI 대전(M2).</summary>
+        public System.Uri ServerAddress;
     }
 
     /// <summary>매치 결과 요약(Result 화면 표시용). 팀 A=좌석 0·2(나·파트너), 팀 B=좌석 1·3.</summary>

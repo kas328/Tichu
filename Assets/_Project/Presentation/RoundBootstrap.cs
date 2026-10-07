@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using Cysharp.Threading.Tasks;
 using R3;
+using Tichu.GameFlow.Agents;
 using Tichu.Net;
 using Tichu.Presentation.Net;
 using Tichu.Presentation.Shell;
@@ -11,6 +12,7 @@ using Tichu.Presentation.Visuals;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [assembly: InternalsVisibleTo("Tichu.Presentation.Tests")]   // BudgetMsFor 정합성 테스트 접근용
@@ -26,14 +28,22 @@ namespace Tichu.Presentation
     {
         private GameLaunchArgs _args;
         private Action<MatchSummary> _onComplete;
-        private Action _onFault;
+        private Action<string> _onFault;
+        private bool _faulted;   // 폴트 알림은 한 번만 — 취소 뒤 늦은 경로가 UI 를 건드리지 않게 하는 표시도 겸한다
+
+        private void InvokeFault(string reason)
+        {
+            if (_faulted) return;
+            _faulted = true;
+            _onFault?.Invoke(reason);
+        }
 
         /// <summary>
         /// 매치를 구동한다. 셸(GameSessionPresenter)이 Table을 Additive 로드한 뒤 호출한다.
         /// 목표 점수 도달 시 <paramref name="onComplete"/>로 결과를 알리고 루프를 종료한다.
-        /// 세션 폴트로 매치가 중단되면 <paramref name="onFault"/>를 부른다.
+        /// 세션 폴트·접속 실패 시 <paramref name="onFault"/>를 사유와 함께 부른다(null = 사용자 취소, 알림 없음).
         /// </summary>
-        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete, Action onFault)
+        public void Begin(GameLaunchArgs args, Action<MatchSummary> onComplete, Action<string> onFault)
         {
             _args = args;
             _onComplete = onComplete;
@@ -50,13 +60,14 @@ namespace Tichu.Presentation
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
-            var canvas = CreateCanvas();
-            var vm = new TableViewModel(args.MySeat);
+            var canvas = CreateCanvas(gameObject.scene);
+            var vm = new TableViewModel(0);   // 뷰모델은 항상 "나 = 좌석 0" — 회전은 TichuClient 가 한다
             ITableView view = new RuntimeTableView(new DoTweenPlayAnimator());
             view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
 
             // 3) 매치 루프 기동(여러 라운드, 누적 점수, 목표 점수에서 종료).
-            RunMatchAsync(vm).Forget();
+            if (args.ServerAddress != null) RunNetworkMatchAsync(vm, canvas).Forget();
+            else RunMatchAsync(vm).Forget();
         }
 
         /// <summary>
@@ -85,7 +96,7 @@ namespace Tichu.Presentation
 
             var transport = new LoopbackTransport();
             MatchSummary? summary = null;
-            using var client = new TichuClient(transport, vm, _args.MySeat, s => summary = s);
+            using var client = new TichuClient(new LoopbackClient(transport, _args.MySeat), vm, _args.MySeat, s => summary = s);
 
             var session = new MatchSession(
                 agents, transport, masterSeed,
@@ -95,18 +106,7 @@ namespace Tichu.Presentation
 
             try
             {
-                while (!summary.HasValue && !client.Faulted && !ct.IsCancellationRequested)
-                {
-                    client.Pump();
-                    await UniTask.Yield(PlayerLoopTiming.Update, ct);
-                }
-                if (client.Faulted)
-                {
-                    Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
-                    _onFault?.Invoke();
-                }
-                else if (summary.HasValue)
-                    _onComplete?.Invoke(summary.Value);
+                await PumpUntilEndAsync(client, () => summary, ct);
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }
@@ -117,24 +117,122 @@ namespace Tichu.Presentation
             }
         }
 
-        /// <summary>난이도별 인게임 1수 시간예산(ms). 스펙 §5 시작값. 0=탐색 OFF(Easy).</summary>
-        internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d)
+        /// <summary>매치가 끝나거나 세션이 폴트날 때까지 펌프하고 결과를 셸에 알린다.</summary>
+        private async UniTask PumpUntilEndAsync(TichuClient client, Func<MatchSummary?> summary, System.Threading.CancellationToken ct)
         {
-            switch (d)
+            while (!summary().HasValue && !client.Faulted && !ct.IsCancellationRequested)
             {
-                case Tichu.GameFlow.Agents.Difficulty.Easy:   return 0;
-                // P2-G 정합성: 예산은 티어 오름차순 비감소. 탐색은 관전 딜레이(~900ms)와 겹쳐 돌아
-                // 900 이내는 체감 지연 0 → Hard/Expert 도 900으로 올려 예산 역전 제거(무지연).
-                case Tichu.GameFlow.Agents.Difficulty.Normal: return 900;
-                case Tichu.GameFlow.Agents.Difficulty.Hard:   return 900;
-                case Tichu.GameFlow.Agents.Difficulty.Expert: return 900;
-                default:                                       return 80;
+                client.Pump();
+                await UniTask.Yield(PlayerLoopTiming.Update, ct);
+            }
+            if (client.Faulted)
+            {
+                Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
+                InvokeFault(client.LastRejection);
+            }
+            else if (summary().HasValue)
+                _onComplete?.Invoke(summary().Value);
+        }
+
+        /// <summary>
+        /// 서버에 접속해 대기실에서 좌석을 받은 뒤 같은 펌프로 매치를 돈다. 로컬 세션·AI 는 없다 —
+        /// 권위와 AI 페이싱은 서버가 쥔다(빨리감기 무효는 의도된 동작).
+        /// </summary>
+        private async UniTaskVoid RunNetworkMatchAsync(TableViewModel vm, Canvas canvas)
+        {
+            var ct = this.GetCancellationTokenOnDestroy();
+            var overlay = CreateLobbyOverlay(canvas, out var status, out var cancel);
+            cancel.onClick.AddListener(() => InvokeFault(null));   // 사용자 취소 → 알림 없이 메뉴로
+
+            WebSocketClientTransport transport;
+            try
+            {
+                transport = await WebSocketClientTransport.ConnectAsync(_args.ServerAddress, TimeSpan.FromSeconds(5), ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+            catch (Exception e)
+            {
+                if (ct.IsCancellationRequested) return;   // 씬 종료 뒤 Mono 가 OCE 가 아닌 예외를 던질 수 있다
+                Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
+                InvokeFault("서버에 연결할 수 없습니다");
+                return;
+            }
+
+            using (transport)
+            {
+                try
+                {
+                    var lobby = new LobbyWaiter();
+                    while (!lobby.Started && lobby.FaultReason == null)
+                    {
+                        lobby.Feed(transport.Drain());
+                        if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
+                        status.text = lobby.StatusText;
+                        await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                    }
+                    if (lobby.FaultReason != null) { InvokeFault(lobby.FaultReason); return; }
+
+                    Destroy(overlay);
+                    MatchSummary? summary = null;
+                    using var client = new TichuClient(transport, vm, lobby.Seat, s => summary = s, lobby.Backlog);
+                    await PumpUntilEndAsync(client, () => summary, ct);
+                }
+                catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
+                catch (Exception e) { Debug.LogException(e); }
             }
         }
 
-        private static Canvas CreateCanvas()
+        /// <summary>대기실 오버레이(상태 문구 + 취소). 테이블 위 반투명 판.</summary>
+        private static GameObject CreateLobbyOverlay(Canvas canvas, out Text status, out Button cancel)
+        {
+            var root = new GameObject("LobbyOverlay", typeof(RectTransform), typeof(Image));
+            root.transform.SetParent(canvas.transform, false);
+            var rt = (RectTransform)root.transform;
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+            root.GetComponent<Image>().color = new Color(0.04f, 0.10f, 0.06f, 0.92f);
+
+            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+            var textGo = new GameObject("Status", typeof(RectTransform), typeof(Text));
+            textGo.transform.SetParent(root.transform, false);
+            status = textGo.GetComponent<Text>();
+            status.font = font; status.fontSize = 48; status.alignment = TextAnchor.MiddleCenter;
+            status.color = new Color(0.92f, 0.94f, 0.98f); status.text = "서버 접속 중…";
+            var trt = status.rectTransform;
+            trt.anchorMin = trt.anchorMax = trt.pivot = new Vector2(0.5f, 0.5f);
+            trt.sizeDelta = new Vector2(1200f, 120f); trt.anchoredPosition = new Vector2(0f, 60f);
+
+            var btnGo = new GameObject("Btn_취소", typeof(RectTransform), typeof(Image), typeof(Button));
+            btnGo.transform.SetParent(root.transform, false);
+            var brt = (RectTransform)btnGo.transform;
+            brt.anchorMin = brt.anchorMax = brt.pivot = new Vector2(0.5f, 0.5f);
+            brt.sizeDelta = new Vector2(360f, 96f); brt.anchoredPosition = new Vector2(0f, -100f);
+            btnGo.GetComponent<Image>().color = new Color(0.20f, 0.24f, 0.34f, 1f);
+            cancel = btnGo.GetComponent<Button>();
+
+            var lblGo = new GameObject("L", typeof(RectTransform), typeof(Text));
+            lblGo.transform.SetParent(btnGo.transform, false);
+            var lbl = lblGo.GetComponent<Text>();
+            lbl.font = font; lbl.fontSize = 36; lbl.alignment = TextAnchor.MiddleCenter;
+            lbl.color = new Color(0.92f, 0.94f, 0.98f); lbl.text = "취소";
+            var lrt = lbl.rectTransform;
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one; lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
+
+            return root;
+        }
+
+        /// <summary>난이도별 인게임 1수 시간예산(ms). 정본은 core 의 PimcBudget — 기존 테스트 호환용 위임.</summary>
+        internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d) => PimcBudget.For(d);
+
+        /// <summary>
+        /// 테이블 캔버스를 만들어 <paramref name="scene"/>(테이블 씬)에 둔다. new GameObject 는 활성 씬(App)에
+        /// 생기므로 옮기지 않으면 테이블 씬을 내려도 남아 매치마다 쌓이고, 정렬 순서가 같은 오래된
+        /// 캔버스가 위에 그려져 새 화면을 덮는다.
+        /// </summary>
+        internal static Canvas CreateCanvas(Scene scene)
         {
             var go = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            SceneManager.MoveGameObjectToScene(go, scene);
             var canvas = go.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 

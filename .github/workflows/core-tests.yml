@@ -14,7 +14,9 @@ jobs:
 
       - uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: "9.0.x"
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
       # 룰엔진과 AI 는 유니티 의존이 없는 순수 C# 이라 에디터 없이 그대로 돈다.
       # 10만 판 시뮬레이터와 벤치 하니스는 [Explicit] 이라 자동 실행에서 제외된다.

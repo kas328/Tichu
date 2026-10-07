@@ -66,8 +66,9 @@ namespace Tichu.Presentation.Shell
             await SceneManager.LoadSceneAsync(TableScene, LoadSceneMode.Additive);
             var rb = UnityEngine.Object.FindFirstObjectByType<RoundBootstrap>();
             if (rb == null) { Debug.LogError("[GameSession] Table 씬에 RoundBootstrap이 없습니다"); return; }
-            rb.Begin(new GameLaunchArgs { Difficulty = _settings.Difficulty }, OnMatchEnded,   // 메뉴에서 고른 난이도로 시작
-                () => _flow.Send(AppFlowEvent.ReturnToHub));                              // 세션 폴트 → 메뉴로
+            rb.Begin(new GameLaunchArgs { Difficulty = _settings.Difficulty, ServerAddress = _settings.ServerAddress },
+                OnMatchEnded,
+                reason => { _settings.PendingNotice = reason; _flow.Send(AppFlowEvent.ReturnToHub); });   // 폴트·접속 실패 → 메뉴 + 알림
         }
 
         void OnMatchEnded(MatchSummary summary)

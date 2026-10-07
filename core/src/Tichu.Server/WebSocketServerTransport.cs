@@ -67,6 +67,32 @@ namespace Tichu.Server
         }
 
         /// <summary>연결 하나를 끝날 때까지 처리한다. ASP.NET 핸들러가 await 한다.</summary>
+        /// <summary>
+        /// 좌석을 주지 않고 사유 하나(SessionFaulted)만 보낸 뒤 닫는다 — 프로토콜 버전 불일치(M2b §5.3).
+        /// 좌석표·대기실은 건드리지 않는다. 바로 끊으면 클라이언트가 아직 읽지 않은 사유가 버려질 수
+        /// 있으므로 상대의 닫기 응답을 최대 2초 기다린다.
+        /// </summary>
+        public async Task RejectAsync(WebSocket ws, string reason)
+        {
+            var conn = new Connection(ws);
+            conn.Enqueue(ProtocolJson.Serialize(ServerEvent.SessionFaulted(reason)));
+            conn.Complete(WebSocketCloseStatus.PolicyViolation, "protocol version");
+            await conn.WriterTask;
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            var buf = new byte[256];
+            try
+            {
+                while (ws.State == WebSocketState.CloseSent)
+                {
+                    var r = await ws.ReceiveAsync(new ArraySegment<byte>(buf), cts.Token);
+                    if (r.MessageType == WebSocketMessageType.Close) break;
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (WebSocketException) { }
+        }
+
         public async Task HandleAsync(WebSocket ws, CancellationToken ct)
         {
             var conn = new Connection(ws);

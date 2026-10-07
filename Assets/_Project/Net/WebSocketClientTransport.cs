@@ -37,14 +37,14 @@ namespace Tichu.Net
             Task.Run(SendLoop);
         }
 
-        /// <summary>접속한다. 시간 초과·거절·주소 오류는 예외로 올라온다.</summary>
+        /// <summary>접속한다. 접속 URI 에 프로토콜 버전(v)을 붙인다. 시간 초과·거절·주소 오류는 예외로 올라온다.</summary>
         public static async Task<WebSocketClientTransport> ConnectAsync(Uri uri, TimeSpan timeout, CancellationToken ct)
         {
             var ws = new ClientWebSocket();
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 linked.CancelAfter(timeout);
-                try { await ws.ConnectAsync(uri, linked.Token).ConfigureAwait(false); }
+                try { await ws.ConnectAsync(ProtocolVersion.Attach(uri), linked.Token).ConfigureAwait(false); }
                 catch { ws.Dispose(); throw; }
             }
             return new WebSocketClientTransport(ws);

@@ -23,7 +23,11 @@ namespace Tichu.Server.Tests
             Seats = new[] { 0, 2 }, Difficulty = Difficulty.Easy, AiDelayMs = 0, InterRoundPauseMs = 0, Seed = 1
         };
 
-        private static async Task<ClientWebSocket> Connect(Uri uri)
+        /// <summary>앱과 같은 정상 접속 — 현재 프로토콜 버전을 붙인다.</summary>
+        private static Task<ClientWebSocket> Connect(Uri uri) => ConnectRaw(ProtocolVersion.Attach(uri));
+
+        /// <summary>URI 를 그대로 쓴다(버전 관문 테스트용).</summary>
+        private static async Task<ClientWebSocket> ConnectRaw(Uri uri)
         {
             var ws = new ClientWebSocket();
             await ws.ConnectAsync(uri, CancellationToken.None);
@@ -354,6 +358,60 @@ namespace Tichu.Server.Tests
 
             Assert.That(log.Exists(l => l.Contains("ActionRejected") && l.Contains("x")), Is.True);
             Assert.That(log.Exists(l => l.Contains("SessionFaulted") && l.Contains("boom")), Is.True);
+        }
+
+        [TestCase("")]
+        [TestCase("?v=0")]
+        [TestCase("?v=999")]
+        [TestCase("?v=abc")]
+        public async Task Missing_wrong_or_garbage_version_gets_the_update_notice_and_is_closed(string query)
+        {
+            await using var server = await TestServer.StartAsync(Lobby2());
+            using var old = await ConnectRaw(new Uri(server.WsUri + query));
+
+            var ev = await Receive(old);
+
+            Assert.That(ev!.Kind, Is.EqualTo(ServerEventKind.SessionFaulted));
+            Assert.That(ev.Reason, Is.EqualTo(ProtocolVersion.UpdateRequiredReason));
+            Assert.That(await ReadUntilClosed(old), Is.EqualTo(WebSocketCloseStatus.PolicyViolation));
+            await server.WaitForLogAsync("프로토콜 버전 불일치");
+        }
+
+        [Test]
+        public async Task Rejected_connection_does_not_take_a_seat()
+        {
+            await using var server = await TestServer.StartAsync(Lobby2());
+            using (var old = await ConnectRaw(server.WsUri))   // 버전 없음 = 구 APK
+            {
+                await Receive(old);
+                await ReadUntilClosed(old);
+            }
+
+            using var a = await Connect(server.WsUri);
+            var ev = await Receive(a);
+
+            Assert.That(ev!.Kind, Is.EqualTo(ServerEventKind.Lobby));
+            Assert.That(ev.YourSeat, Is.EqualTo(0), "거절된 접속이 좌석 0 을 쓰면 안 된다");
+            Assert.That(ev.Connected, Is.EqualTo(1));
+        }
+
+        [Test]
+        public async Task Client_transport_attaches_the_current_version()
+        {
+            await using var server = await TestServer.StartAsync(Lobby2());
+            using var client = await WebSocketClientTransport.ConnectAsync(server.WsUri, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+            ServerEvent? first = null;
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            while (first == null && DateTime.UtcNow < deadline)
+            {
+                var got = client.Drain();
+                if (got.Count > 0) first = got[0];
+                else await Task.Delay(20);
+            }
+
+            Assert.That(first, Is.Not.Null, "5초 안에 아무 이벤트도 오지 않았다");
+            Assert.That(first!.Kind, Is.EqualTo(ServerEventKind.Lobby), "버전이 안 붙으면 SessionFaulted 가 온다");
         }
     }
 }

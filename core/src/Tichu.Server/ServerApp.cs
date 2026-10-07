@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Tichu.Net;
 
 namespace Tichu.Server
 {
@@ -34,7 +35,14 @@ namespace Tichu.Server
             app.Map("/ws", (RequestDelegate)(async ctx =>
             {
                 if (!ctx.WebSockets.IsWebSocketRequest) { ctx.Response.StatusCode = 400; return; }
+                string? version = ctx.Request.Query[ProtocolVersion.QueryKey];
                 using var ws = await ctx.WebSockets.AcceptWebSocketAsync();
+                if (!ProtocolVersion.Accepts(version))
+                {
+                    log($"프로토콜 버전 불일치 — 거절 (받은 값: {(string.IsNullOrEmpty(version) ? "없음" : version)}, 서버: {ProtocolVersion.Current})");
+                    await transport.RejectAsync(ws, ProtocolVersion.UpdateRequiredReason);
+                    return;
+                }
                 await transport.HandleAsync(ws, ctx.RequestAborted);
             }));
 

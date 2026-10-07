@@ -136,10 +136,10 @@ namespace Tichu.Server.Tests
             await using var server = await TestServer.StartAsync(Fast(target: 1));
             // 1판 좌석 0. 이후 수신을 하지 않으므로 서버의 닫기에 응답하지 않고 열린 채로 남는다.
             var stale = new ClientWebSocket();
-            await stale.ConnectAsync(server.WsUri, CancellationToken.None);
+            await stale.ConnectAsync(ProtocolVersion.Attach(server.WsUri), CancellationToken.None);
             await WaitForSeatLog(server, "좌석 0 접속");
             var leaver = new ClientWebSocket();
-            await leaver.ConnectAsync(server.WsUri, CancellationToken.None);
+            await leaver.ConnectAsync(ProtocolVersion.Attach(server.WsUri), CancellationToken.None);
             await WaitForSeatLog(server, "좌석 2 접속");    // 방이 찼다 → 1판 시작
             leaver.Abort();                                  // 1판 중 이탈 → 폴트 → 새 대기실
             leaver.Dispose();

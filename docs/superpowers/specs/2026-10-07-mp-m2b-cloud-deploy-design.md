@@ -32,7 +32,7 @@ M2 서버를 클라우드에 올려, 폰이 **어느 네트워크에서든** `ws
 | 3 | 프로세스가 죽으면 다시 뜬다 | 서버 프로세스 강제 종료 → 몇 초 안에 재기동, 새 대기실 접속 가능 |
 | 4 | VM 재부팅 후 다시 뜬다 | Lightsail 재부팅 → Caddy·서버 자동 시작, 접속 가능 |
 | 5 | 외부에서 7777 직접 접속 불가 | 외부에서 `<IP>:7777` 접속 시도 실패 |
-| 6 | 버전 불일치 시 안내 | 버전이 다른 클라이언트(테스트)와 **현재 폰에 깔린 구 APK**가 "앱을 업데이트해 주세요"를 보고 메뉴로 복귀 |
+| 6 | 버전 불일치 시 안내 | 버전이 다른 클라이언트(테스트·`smoke-server.ps1`)와 **현재 폰에 깔린 구 APK**가 "앱을 업데이트해 주세요"를 보고 메뉴로 복귀. 구 APK는 §5.1 포트 버그 때문에 클라우드(`wss`)에 닿지 못하므로 **같은 Wi-Fi의 로컬 서버(새 코드)** 로 확인한다(계획 수립 중 발견) |
 | 7 | 배포 스크립트 한 번으로 갱신 | 사소한 변경 → `deploy-server.ps1` → 재시작 → 접속 |
 | 8 | 밀린 실기 확인 3건 | M2b APK로 동시 결정(`d755eef`) · 스몰 티츄 즉시 적용(`2d30413`·`1afc015`) · 캔버스 누적(`2fe1ecc`) 확인 |
 | 9 | 자동 테스트 그린 | dotnet core · server 전체, Unity EditMode `Tichu.Presentation.Tests` 전체, `tools/sync-core-to-unity.ps1 -Check` 무드리프트 |
@@ -50,7 +50,7 @@ M2 서버를 클라우드에 올려, 폰이 **어느 네트워크에서든** `ws
 ```
 
 - **방화벽(Lightsail):** TCP 22(SSH) · 80(인증서 발급 HTTP 챌린지 + HTTPS 리다이렉트) · 443만 연다. 7777은 열지 않고, 서버도 루프백에서만 받는다(이중 방어).
-- **systemd 서비스 `tichu-server`:** 전용 계정 `tichu`로 실행, `Restart=always`, 부팅 시 자동 시작. 로그는 기존 콘솔 출력을 journald가 받는다(`journalctl -u tichu-server`). 종료 시간 제한은 서버의 기존 `ShutdownTimeout` 3초와 어울리게 둔다.
+- **systemd 서비스 `tichu-server`:** 전용 계정 `tichu`로 실행, `Restart=always`, 부팅 시 자동 시작. `--host 127.0.0.1 --port 7777`은 유닛에 고정하고, 게임 인자(`--seats 0,2 --difficulty Hard --target 1000`)는 `/etc/tichu/server.env`의 `TICHU_GAME_ARGS`로 둔다 — 실기 테스트 때 목표 점수를 낮추는 일을 재배포 없이 하기 위해서다(계획 수립 중 확정). 로그는 기존 콘솔 출력을 journald가 받는다(`journalctl -u tichu-server`). 종료 시간 제한은 서버의 기존 `ShutdownTimeout` 3초와 어울리게 둔다.
 - **배치 경로:** `/opt/tichu/server/`(publish 결과물). 배포 스크립트는 새 결과물을 옆 디렉터리에 올린 뒤 바꿔치기하고 재시작한다. 실패하면 이전 디렉터리로 되돌릴 수 있게 한 판 전 것은 남긴다.
 - **Caddyfile:** `play.<도메인> { reverse_proxy 127.0.0.1:7777 }` 수준. 사이트 루트 등 다른 경로는 두지 않는다.
 

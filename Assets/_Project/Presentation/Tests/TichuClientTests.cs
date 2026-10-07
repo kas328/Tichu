@@ -313,5 +313,54 @@ namespace Tichu.Presentation.Tests
             Assert.That(summary.HasValue, Is.True, "좌석 2 클라이언트도 매치를 끝까지 둬야 한다(회전된 액션이 서버에서 받아들여짐)");
             Assert.That(sawMyPrompt, Is.True, "내 차례 프롬프트가 로컬 좌석 0 으로 와야 한다");
         }
+
+        [Test]
+        public void Second_human_decides_grand_tichu_without_waiting_for_the_first()
+        {
+            // 서버는 큰 티츄를 좌석 순서(0→1→2→3)로 묻는다. 좌석 0 사람이 고민하는 동안에도
+            // 좌석 2 사람은 이미 답할 수 있어야 한다 — 실기에서 S23 이 에디터를 기다렸던 문제.
+            var transport = new LoopbackTransport();
+            var agents = new IAgent[] { null, new AiAgent(1UL, 1), null, new AiAgent(1UL, 3) };
+            var vm0 = new TableViewModel(0);
+            var vm2 = new TableViewModel(0);                    // 뷰모델은 항상 로컬 좌석 0
+            MatchSummary? summary = null;
+            bool seat2AnsweredGrand = false;
+            bool seat0Released = false;
+
+            using (var c0 = new TichuClient(new LoopbackClient(transport, 0), vm0, 0, s => summary = s))
+            using (var c2 = new TichuClient(new LoopbackClient(transport, 2), vm2, 2))
+            using (vm2.Submitted.Subscribe(a =>
+            {
+                if (a.Kind == ClientActionKind.CallGrandTichu || a.Kind == ClientActionKind.DeclineGrandTichu)
+                    seat2AnsweredGrand = true;
+            }))
+            {
+                var r0 = new AutoResponder(vm0);
+                var r2 = new AutoResponder(vm2);
+                var session = new MatchSession(agents, transport, masterSeed: 5150UL, targetScore: 1);
+                session.Start();
+                try
+                {
+                    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+                    while (!summary.HasValue && DateTime.UtcNow < deadline)
+                    {
+                        c0.Pump();
+                        c2.Pump();
+                        r2.Tick();
+                        if (seat2AnsweredGrand) seat0Released = true;   // 좌석 0 은 좌석 2 가 답한 뒤에야 움직인다
+                        if (seat0Released) r0.Tick();
+                        Thread.Sleep(2);
+                    }
+                }
+                finally
+                {
+                    session.Stop();
+                    session.Join(TimeSpan.FromSeconds(5));
+                }
+            }
+
+            Assert.That(seat2AnsweredGrand, Is.True, "좌석 2 가 좌석 0 보다 먼저 큰 티츄에 답할 수 있어야 한다");
+            Assert.That(summary.HasValue, Is.True, "두 사람이 모두 둔 매치가 끝까지 가야 한다");
+        }
     }
 }

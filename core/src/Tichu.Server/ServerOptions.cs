@@ -7,7 +7,7 @@ namespace Tichu.Server
 {
     /// <summary>
     /// 서버 실행 설정. 프로세스 하나 = 매치 하나(M2 스펙 §4.1).
-    /// CLI 로 받는 값: --seats --difficulty --target --port --ai-delay --seed.
+    /// CLI 로 받는 값: --seats --difficulty --target --host --port --ai-delay --seed.
     /// 나머지(라운드 사이 멈춤·레이트리밋)는 테스트가 코드로 바꾸는 값이다.
     /// </summary>
     public sealed class ServerOptions
@@ -16,6 +16,8 @@ namespace Tichu.Server
         public int[] Seats { get; set; } = { 0, 2 };
         public Difficulty Difficulty { get; set; } = Difficulty.Hard;
         public int Target { get; set; } = 1000;
+        /// <summary>바인딩 주소. 기본 0.0.0.0 = 같은 Wi-Fi 개발 테스트. 클라우드는 127.0.0.1(Caddy 뒤, M2b).</summary>
+        public string Host { get; set; } = "0.0.0.0";
         public int Port { get; set; } = 7777;
         /// <summary>AI 관전 지연(ms). 유니티 GameLaunchArgs.AiDelayMs 기본값과 같다.</summary>
         public int AiDelayMs { get; set; } = 900;
@@ -40,6 +42,7 @@ namespace Tichu.Server
                     case "--seats":      o.Seats = ParseSeats(value); break;
                     case "--difficulty": o.Difficulty = ParseDifficulty(value); break;
                     case "--target":     o.Target = ParseInt(key, value); break;
+                    case "--host":       o.Host = value; break;
                     case "--port":       o.Port = ParseInt(key, value); break;
                     case "--ai-delay":   o.AiDelayMs = ParseInt(key, value); break;
                     case "--seed":

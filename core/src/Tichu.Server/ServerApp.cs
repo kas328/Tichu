@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -29,7 +28,7 @@ namespace Tichu.Server
                 new SeatTable(opt.Seats),
                 () => new TokenBucket(opt.RateCapacity, opt.RatePerSecond, NowSeconds),
                 log);
-            _ = new MatchHost(opt, transport, () => { app.Lifetime.StopApplication(); return Task.CompletedTask; }, log);
+            _ = new MatchHost(opt, transport, log);
 
             app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15), KeepAliveTimeout = TimeSpan.FromSeconds(30) });
             app.Map("/ws", (RequestDelegate)(async ctx =>

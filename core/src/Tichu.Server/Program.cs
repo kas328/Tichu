@@ -13,5 +13,6 @@ catch (ArgumentException e)
 var app = ServerApp.Build(opt, $"http://0.0.0.0:{opt.Port}");
 Console.WriteLine($"Tichu 서버 — 인간 좌석 {string.Join(",", opt.Seats)} · {opt.Difficulty} · 목표 {opt.Target}");
 Console.WriteLine($"접속 주소: ws://<이 PC 의 IP>:{opt.Port}/ws  (같은 Wi-Fi)");
+Console.WriteLine("매치가 끝나면 새 대기실을 연다(Ctrl+C로 종료)");
 await app.RunAsync();
 return 0;

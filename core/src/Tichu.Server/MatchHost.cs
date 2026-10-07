@@ -7,10 +7,13 @@ using Tichu.Net;
 namespace Tichu.Server
 {
     /// <summary>
-    /// 매치 하나의 수명. 방이 차면 빈자리를 PIMC 로 채워 MatchSession 을 시작하고, 세션 스레드가
-    /// 끝나면(MatchEnded 또는 폴트) 연결을 정상 종료한 뒤 프로세스 종료를 요청한다.
+    /// 매치의 수명. 방이 차면 빈자리를 PIMC 로 채워 MatchSession 을 시작하고, 세션 스레드가
+    /// 끝나면(MatchEnded 또는 폴트) 연결을 정상 종료한 뒤 새 대기실을 연다(프로세스는 계속 돈다).
     /// 매치 중 인간이 끊기면 남은 연결에 SessionFaulted 를 보내고 세션을 멈춘다 — MatchSession.Stop()
     /// 은 아무것도 방송하지 않으므로(취소를 조용히 삼킨다) 방송은 여기 몫이다(스펙 §6.1).
+    ///
+    /// 매치 번호(_matchIndex)가 전송의 매치 세대다. 초기화 때 여기서 먼저 올린 뒤 전송에 넘기므로,
+    /// 잠금 밖에서 늦게 도착한 이전 매치의 SeatLeft 는 세대가 달라 무시된다.
     /// </summary>
     public sealed class MatchHost
     {
@@ -18,18 +21,17 @@ namespace Tichu.Server
 
         private readonly ServerOptions _opt;
         private readonly WebSocketServerTransport _transport;
-        private readonly Func<Task> _shutdown;
         private readonly Action<string> _log;
         private readonly object _gate = new object();
         private MatchSession? _session;     // Start() 이후에만 채워진다(_gate)
         private int _faultedSeat = -1;      // 먼저 이탈한 좌석(_gate)
+        private int _matchIndex;            // 지금 매치 번호 = 전송 세대(_gate)
         private int _ending;
 
-        public MatchHost(ServerOptions opt, WebSocketServerTransport transport, Func<Task> shutdown, Action<string> log)
+        public MatchHost(ServerOptions opt, WebSocketServerTransport transport, Action<string> log)
         {
             _opt = opt;
             _transport = transport;
-            _shutdown = shutdown;
             _log = log;
             transport.SeatsFilled += StartMatch;
             transport.SeatLeft += OnSeatLeft;
@@ -37,7 +39,10 @@ namespace Tichu.Server
 
         private void StartMatch()
         {
-            ulong seed = _opt.Seed ?? unchecked((ulong)DateTime.UtcNow.Ticks);
+            int index;
+            lock (_gate) index = _matchIndex;
+            // --seed 가 있으면 매치마다 결정적으로 바꾼다(첫 판은 seed 그대로).
+            ulong seed = _opt.Seed is ulong s ? unchecked(s + (ulong)index) : unchecked((ulong)DateTime.UtcNow.Ticks);
             var config = PolicyConfig.For(_opt.Difficulty);
             int budgetMs = PimcBudget.For(_opt.Difficulty);
 
@@ -65,11 +70,12 @@ namespace Tichu.Server
             }, TaskCreationOptions.LongRunning);
         }
 
-        private void OnSeatLeft(int seat)
+        private void OnSeatLeft(int seat, int generation)
         {
             if (Volatile.Read(ref _ending) == 1) return;   // 종료 중 우리가 닫은 연결
             lock (_gate)
             {
+                if (generation != _matchIndex) return;       // 이전 매치 연결이 늦게 끝났다
                 // 매치가 이미 정상 종료됐다면 늦은 끊김은 폴트가 아니다.
                 if (_session != null && _session.Join(TimeSpan.Zero)) return;
                 if (_faultedSeat < 0) _faultedSeat = seat;
@@ -88,9 +94,21 @@ namespace Tichu.Server
                 for (int s = 0; s < SeatCount; s++)
                     _transport.SendTo(s, ServerEvent.SessionFaulted($"좌석 {faulted} 연결 끊김"));
             }
-            _log("매치 종료 — 연결을 닫고 서버를 끝낸다");
+            _log("매치 종료 — 연결을 닫는다");
             await _transport.CloseAllAsync();
-            await _shutdown();
+
+            // 새 매치를 받을 초기 상태로. 세대를 여기서 먼저 올린다 — 그 뒤로 도착하는 이전 매치의
+            // SeatLeft 는 걸러진다. 전송 잠금은 이 잠금 밖에서 잡는다(잠금 순서 유지).
+            int next;
+            lock (_gate)
+            {
+                _session = null;
+                _faultedSeat = -1;
+                next = ++_matchIndex;
+                Volatile.Write(ref _ending, 0);
+            }
+            _transport.ResetForNextMatch(next);
+            _log("다음 매치 대기");
         }
     }
 }

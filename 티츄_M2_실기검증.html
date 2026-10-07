@@ -44,7 +44,7 @@ input[type=checkbox]{width:20px;height:20px;margin-top:3px;flex:none;accent-colo
 <li>S23에는 <b>새 Development Build APK</b>(<code>Build/TichuMaster-dev-arm64.apk</code>)를 설치한다. 예전 빌드는 접속 화면이 없다.</li>
 <li>서버 명령(레포 루트):
 <pre>dotnet run --project core/src/Tichu.Server -- --seats 0,2 --target 200</pre></li>
-<li>서버는 <b>매치당 1회용</b> — 매치가 끝나거나 누가 끊기면 종료되므로, 다음 항목 전에 다시 실행한다.</li>
+<li>서버는 <b>계속 켜 둔다</b> — 매치가 끝나거나 누가 끊기면 새 대기실을 연다(Ctrl+C로 종료). 다음 항목 전에 다시 실행할 필요가 없다.</li>
 <li>처음 실행하면 Windows 방화벽이 묻는다 → <b>개인 네트워크 허용</b>.</li>
 </ul>
 </section>
@@ -93,7 +93,7 @@ input[type=checkbox]{width:20px;height:20px;margin-top:3px;flex:none;accent-colo
 <section>
 <h2><span class="num">5</span>강제 종료 · 폴트 알림<span class="dod">DoD 3</span></h2>
 <ul class="steps">
-<li><label><input type="checkbox"><span>서버를 다시 띄우고 두 클라이언트가 재접속한다.</span></label></li>
+<li><label><input type="checkbox"><span>서버 콘솔에 "<b>다음 매치 대기</b>"가 나온 뒤(서버는 그대로 켜 둔다) 두 클라이언트가 재접속한다.</span></label></li>
 <li><label><input type="checkbox"><span>몇 수 진행한 뒤 <b>S23 앱을 강제 종료</b>한다.</span></label></li>
 <li><label><input type="checkbox"><span>에디터가 <b>메뉴로 돌아가고</b> "<b>좌석 2 연결 끊김</b>" 토스트가 뜬다.</span></label></li>
 </ul>
@@ -123,7 +123,7 @@ input[type=checkbox]{width:20px;height:20px;margin-top:3px;flex:none;accent-colo
 <h2><span class="num">8</span>접속 화면 오류 처리</h2>
 <ul class="steps">
 <li><label><input type="checkbox"><span>틀린 주소 <code>http://x</code> → "<b>형식이 올바르지 않습니다</b>".</span></label></li>
-<li><label><input type="checkbox"><span><b>서버를 끈 상태</b>(서버 프로세스가 실행 중이면 안 된다)에서 꺼진 서버 주소 → <b>5초 안에</b> "<b>서버에 연결할 수 없습니다</b>" 표시 후 메뉴로 돌아간다.</span></label></li>
+<li><label><input type="checkbox"><span><b>서버를 끈 상태</b>(서버 콘솔에서 Ctrl+C — 서버는 스스로 끝나지 않는다)에서 꺼진 서버 주소 → <b>5초 안에</b> "<b>서버에 연결할 수 없습니다</b>" 표시 후 메뉴로 돌아간다.</span></label></li>
 <li><label><input type="checkbox"><span>대기 화면에서 <b>취소</b> → 메뉴로 돌아간다.</span></label></li>
 </ul>
 <div class="rec"><span class="t">결과</span><label><input type="radio" name="r8"><span class="pass">Pass</span></label><label><input type="radio" name="r8"><span class="bad">이상함</span></label><input type="text" placeholder="메모"></div>

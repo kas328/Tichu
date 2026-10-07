@@ -40,5 +40,19 @@ namespace Tichu.Server.Tests
             t.Release(1);
             Assert.That(t.Connected, Is.EqualTo(0));
         }
+
+        [Test]
+        public void Clear_frees_every_seat_and_restarts_from_the_first()
+        {
+            var t = new SeatTable(new[] { 0, 2 });
+            t.TryTake(out _);
+            t.TryTake(out _);
+
+            t.Clear();
+
+            Assert.That(t.Connected, Is.EqualTo(0));
+            Assert.That(t.TryTake(out int first), Is.True);
+            Assert.That(first, Is.EqualTo(0));
+        }
     }
 }

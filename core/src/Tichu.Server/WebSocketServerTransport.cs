@@ -20,6 +20,8 @@ namespace Tichu.Server
     ///   송신 태스크 하나가 순서대로 보낸다 — WebSocket 은 한 소켓에 동시 전송이 금지다.
     /// - 수신: 16KB 초과·텍스트 아님·깨진 JSON·레이트리밋 초과는 연결을 닫는다.
     ///   받은 액션의 Seat 은 연결 좌석으로 덮어쓴다(사칭 방지).
+    /// - 매치 세대: 연결은 들어온 매치의 세대를 갖는다. ResetForNextMatch 가 세대를 바꾸면 이전 세대
+    ///   연결은 좌석표·SeatLeft·세션 핸들러에 더는 닿지 않는다(늦게 끝나도 새 매치를 건드리지 않는다).
     /// </summary>
     public sealed class WebSocketServerTransport : ITichuTransport
     {
@@ -33,12 +35,15 @@ namespace Tichu.Server
         private Action<ClientAction>? _handler;
         private bool _matchStarted;
         private bool _filledRaised;
+        private int _generation;            // 지금 받는 매치의 세대(_gate)
 
-        /// <summary>마지막 인간 좌석이 찬 순간 한 번 발생한다. 호출 스레드 = 그 연결의 처리 스레드.</summary>
+        /// <summary>마지막 인간 좌석이 찬 순간 매치당 한 번 발생한다. 호출 스레드 = 그 연결의 처리 스레드.</summary>
         public event Action? SeatsFilled;
 
-        /// <summary>방이 찬 뒤(매치 시작 후) 인간이 끊겼다. 시작 전 끊김은 좌석 반납으로 처리하고 알리지 않는다.</summary>
-        public event Action<int>? SeatLeft;
+        /// <summary>방이 찬 뒤(매치 시작 후) 인간이 끊겼다(좌석, 그 연결의 매치 세대). 시작 전 끊김은 좌석
+        /// 반납으로 처리하고 알리지 않는다. 이벤트는 잠금 밖에서 나가므로 그사이 초기화가 끼었을 수 있다 —
+        /// 받는 쪽이 세대로 걸러야 한다.</summary>
+        public event Action<int, int>? SeatLeft;
 
         public WebSocketServerTransport(SeatTable seats, Func<TokenBucket> newBucket, Action<string> log)
         {
@@ -66,10 +71,12 @@ namespace Tichu.Server
         {
             var conn = new Connection(ws);
             int seat;
+            int gen;
             bool raiseFilled = false;
 
             lock (_gate)
             {
+                gen = _generation;
                 if (_matchStarted || !_seats.TryTake(out seat))
                 {
                     seat = -1;
@@ -102,30 +109,55 @@ namespace Tichu.Server
 
             try
             {
-                await ReceiveLoop(conn, seat, ct);
+                await ReceiveLoop(conn, seat, gen, ct);
             }
             catch (WebSocketException) { /* 갑작스러운 끊김 */ }
             catch (OperationCanceledException) { /* 서버 종료 */ }
             finally
             {
-                bool started;
+                bool current;
+                bool started = false;
                 lock (_gate)
                 {
-                    _bySeat.Remove(seat);
-                    started = _matchStarted;
-                    if (!started)
+                    // 초기화 뒤에 끝난 이전 매치 연결이면 좌석표는 이미 새 매치 것이다 — 건드리지 않는다.
+                    current = gen == _generation && _bySeat.TryGetValue(seat, out var mine) && mine == conn;
+                    if (current)
                     {
-                        _seats.Release(seat);
-                        _filledRaised = false;
-                        EnqueueLobbyLocked();
+                        _bySeat.Remove(seat);
+                        started = _matchStarted;
+                        if (!started)
+                        {
+                            _seats.Release(seat);
+                            _filledRaised = false;
+                            EnqueueLobbyLocked();
+                        }
                     }
                 }
                 conn.Complete(WebSocketCloseStatus.NormalClosure, "bye");
-                _log($"좌석 {seat} 끊김");
-                if (started) SeatLeft?.Invoke(seat);
+                _log(current ? $"좌석 {seat} 끊김" : $"이전 매치 좌석 {seat} 연결 정리");
+                if (current && started) SeatLeft?.Invoke(seat, gen);
             }
 
             await conn.WriterTask;
+        }
+
+        /// <summary>
+        /// 매치가 끝났다 — 새 매치를 받을 초기 상태로 되돌린다. 좌석표를 비우고 시작 표시를 풀고 세션
+        /// 핸들러를 뗀다(새 MatchSession 생성자가 다시 단다). 세대를 바꿔 아직 안 끝난 이전 연결이
+        /// 늦게 정리돼도 새 매치를 건드리지 않게 한다. 한 잠금 안에서 한 번에 해서, 새 접속이 반쯤
+        /// 초기화된 상태를 보지 않는다. 연결은 닫지 않는다(CloseAllAsync 가 이미 했다).
+        /// </summary>
+        public void ResetForNextMatch(int generation)
+        {
+            lock (_gate)
+            {
+                _generation = generation;
+                _bySeat.Clear();
+                _seats.Clear();
+                _matchStarted = false;
+                _filledRaised = false;
+                _handler = null;
+            }
         }
 
         /// <summary>남은 메시지를 다 보낸 뒤 모든 연결을 정상 종료한다(매치 종료·폴트 후).</summary>
@@ -140,8 +172,9 @@ namespace Tichu.Server
             await Task.WhenAny(Task.WhenAll(writers), Task.Delay(TimeSpan.FromSeconds(2)));
         }
 
-        /// <summary>메시지 하나를 해석해 세션에 넘긴다. 해석 실패면 false(호출자가 연결을 닫는다).</summary>
-        internal bool Dispatch(int seat, string json)
+        /// <summary>메시지 하나를 해석해 세션에 넘긴다. 해석 실패면 false(호출자가 연결을 닫는다).
+        /// generation 은 보낸 연결의 매치 세대 — 지금 세대가 아니면 버린다.</summary>
+        internal bool Dispatch(int seat, string json, int generation = 0)
         {
             ClientAction a;
             try { a = ProtocolJson.DeserializeClientAction(json); }
@@ -154,12 +187,12 @@ namespace Tichu.Server
             a.Seat = seat;                    // 사칭 방지(스펙 §5.4) — 세션은 a.Seat 로 우편함을 고른다
 
             Action<ClientAction>? h;
-            lock (_gate) h = _handler;
-            h?.Invoke(a);                     // 매치 시작 전(핸들러 없음)에는 버린다
+            lock (_gate) h = generation == _generation ? _handler : null;
+            h?.Invoke(a);                     // 매치 시작 전(핸들러 없음)·이전 매치 연결이면 버린다
             return true;
         }
 
-        private async Task ReceiveLoop(Connection conn, int seat, CancellationToken ct)
+        private async Task ReceiveLoop(Connection conn, int seat, int gen, CancellationToken ct)
         {
             var bucket = _newBucket();
             var buf = new byte[4096];
@@ -193,7 +226,7 @@ namespace Tichu.Server
                 }
 
                 string json = Encoding.UTF8.GetString(message.GetBuffer(), 0, (int)message.Length);
-                if (!Dispatch(seat, json))
+                if (!Dispatch(seat, json, gen))
                 {
                     Abort(conn, seat, WebSocketCloseStatus.InvalidPayloadData, "bad message");
                     return;

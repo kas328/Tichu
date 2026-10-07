@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
+using NUnit.Framework;
 
 namespace Tichu.Server.Tests
 {
@@ -32,12 +33,24 @@ namespace Tichu.Server.Tests
             return new TestServer(app, new Uri(addr.Replace("http://", "ws://") + "/ws"), log);
         }
 
-        /// <summary>서버가 스스로 종료를 요청했는가(매치 종료·폴트 후 StopApplication).</summary>
-        public async Task<bool> WaitForStopAsync(TimeSpan timeout)
+        /// <summary>지금까지 쌓인 로그 줄 수. 이후 줄만 보고 기다릴 때 쓴다(두 번째 매치 등).</summary>
+        public int LogMark()
         {
-            var stopping = new TaskCompletionSource();
-            using var reg = App.Lifetime.ApplicationStopping.Register(() => stopping.TrySetResult());
-            return await Task.WhenAny(stopping.Task, Task.Delay(timeout)) == stopping.Task;
+            lock (Log) return Log.Count;
+        }
+
+        /// <summary>from 번째 줄 이후에 fragment 를 담은 로그가 나올 때까지 기다린다(10초 데드라인).</summary>
+        public async Task WaitForLogAsync(string fragment, int from = 0)
+        {
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            while (DateTime.UtcNow < deadline)
+            {
+                lock (Log)
+                    for (int i = from; i < Log.Count; i++)
+                        if (Log[i].Contains(fragment)) return;
+                await Task.Delay(5);
+            }
+            Assert.Fail($"서버 로그에 '{fragment}' 가 10초 안에 나타나지 않았다");
         }
 
         public async ValueTask DisposeAsync()

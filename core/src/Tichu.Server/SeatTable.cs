@@ -35,5 +35,8 @@ namespace Tichu.Server
         }
 
         public void Release(int seat) => _taken.Remove(seat);
+
+        /// <summary>모든 좌석을 비운다(다음 매치 대기실). 다음 접속자는 목록의 첫 좌석부터 받는다.</summary>
+        public void Clear() => _taken.Clear();
     }
 }

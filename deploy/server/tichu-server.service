@@ -1,0 +1,21 @@
+# Tichu 게임 서버(M2b). setup-server.sh 가 /etc/systemd/system 에 설치한다.
+# 바인딩은 여기 고정(루프백 = Caddy 뒤), 게임 인자는 /etc/tichu/server.env 의 TICHU_GAME_ARGS.
+[Unit]
+Description=Tichu game server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tichu
+Group=tichu
+EnvironmentFile=/etc/tichu/server.env
+WorkingDirectory=/opt/tichu/current
+ExecStart=/opt/tichu/current/Tichu.Server --host 127.0.0.1 --port 7777 $TICHU_GAME_ARGS
+Restart=always
+RestartSec=2
+TimeoutStopSec=10
+# 1GB 머신: 서버 GC 는 코어마다 힙을 잡아 메모리를 더 쓴다
+Environment=DOTNET_gcServer=0
+
+[Install]
+WantedBy=multi-user.target

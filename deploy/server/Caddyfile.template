@@ -1,0 +1,4 @@
+# M2b: TLS(wss) 종단 + 게임 서버 프록시. __DOMAIN__ 은 setup-server.sh 가 채운다.
+__DOMAIN__ {
+	reverse_proxy 127.0.0.1:7777
+}

@@ -12,6 +12,7 @@ using Tichu.Presentation.Visuals;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 [assembly: InternalsVisibleTo("Tichu.Presentation.Tests")]   // BudgetMsFor 정합성 테스트 접근용
@@ -59,7 +60,7 @@ namespace Tichu.Presentation
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             // 2) Screen-Space-Overlay 캔버스 + ViewModel + 뷰(한 번만 생성, 매치 내내 유지).
-            var canvas = CreateCanvas();
+            var canvas = CreateCanvas(gameObject.scene);
             var vm = new TableViewModel(0);   // 뷰모델은 항상 "나 = 좌석 0" — 회전은 TichuClient 가 한다
             ITableView view = new RuntimeTableView(new DoTweenPlayAnimator());
             view.Bind(vm, canvas, this.GetCancellationTokenOnDestroy());
@@ -223,9 +224,15 @@ namespace Tichu.Presentation
         /// <summary>난이도별 인게임 1수 시간예산(ms). 정본은 core 의 PimcBudget — 기존 테스트 호환용 위임.</summary>
         internal static int BudgetMsFor(Tichu.GameFlow.Agents.Difficulty d) => PimcBudget.For(d);
 
-        private static Canvas CreateCanvas()
+        /// <summary>
+        /// 테이블 캔버스를 만들어 <paramref name="scene"/>(테이블 씬)에 둔다. new GameObject 는 활성 씬(App)에
+        /// 생기므로 옮기지 않으면 테이블 씬을 내려도 남아 매치마다 쌓이고, 정렬 순서가 같은 오래된
+        /// 캔버스가 위에 그려져 새 화면을 덮는다.
+        /// </summary>
+        internal static Canvas CreateCanvas(Scene scene)
         {
             var go = new GameObject("Canvas", typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            SceneManager.MoveGameObjectToScene(go, scene);
             var canvas = go.GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
 

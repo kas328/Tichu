@@ -68,7 +68,9 @@ namespace Tichu.Net
                     OnAwait,
                     NextArrival,
                     timeout,
-                    _cts.Token);
+                    _cts.Token,
+                    WakeTurnsForTichu,
+                    AnyTichuPending);
                 _remote[seat] = remote;
                 _agents[seat] = remote;
             }
@@ -198,6 +200,26 @@ namespace Tichu.Net
 
         /// <summary>세션 스레드 전용. OnAwait 가 투영에 쓴다.</summary>
         private GameState? CurrentState { get; set; }
+
+        /// <summary>
+        /// 어느 좌석이든 작은 티츄를 예약하면 지금 차례를 기다리는 원격 좌석을 깨운다 — 콜이
+        /// 그 사람이 수를 낼 때까지 묶이지 않고 0단계에서 즉시 적용·방송되도록. Play 를
+        /// 기다리는 좌석은 많아야 하나이고 나머지에겐 무동작이다. 전송 스레드에서 잠금 없이
+        /// 불리며 좌석마다 자기 잠금 하나만 잡으므로 잠금이 중첩되지 않는다.
+        /// </summary>
+        private void WakeTurnsForTichu()
+        {
+            for (int seat = 0; seat < SeatCount; seat++)
+                _remote[seat]?.WakeTurnForTichu();
+        }
+
+        /// <summary>소비되지 않은 작은 티츄 예약이 한 좌석이라도 있는가.</summary>
+        private bool AnyTichuPending()
+        {
+            for (int seat = 0; seat < SeatCount; seat++)
+                if (_remote[seat] != null && _remote[seat]!.HasReservedTichu) return true;
+            return false;
+        }
 
         private int TakePendingTichu(GameState s)
         {

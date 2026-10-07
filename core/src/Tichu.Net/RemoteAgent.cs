@@ -45,7 +45,14 @@ namespace Tichu.Net
         private readonly Queue<ClientAction> _matched = new Queue<ClientAction>();
         private long _lastSeq;
         private bool _tichuReserved;
-        private bool _tichuWoke;   // 이번 라운드에 CallTichu 로 차례 대기를 이미 깨웠다
+        private bool _tichuCalledThisRound;   // 이번 라운드에 CallTichu 를 이미 받았다(이후 것은 무시)
+
+        // 작은 티츄 예약을 받았을 때 부른다(잠금 밖). 세션은 차례 대기 중인 좌석을 깨우도록
+        // 잇는다 — 콜한 좌석이 아니라 지금 Play 를 기다리는 좌석이 Yield 해야 드라이버가 돈다.
+        private readonly Action _onTichuReserved;
+        // Play 대기에 들어간 직후 부른다. 어느 좌석이든 소비되지 않은 예약이 있으면 스스로 깨운다
+        // — 0단계와 _awaiting 설정 사이에 도착한 콜을 놓치지 않기 위함. null 이면 확인하지 않는다.
+        private readonly Func<bool>? _anyTichuPending;
 
         /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
         private readonly struct OffTurnPlay
@@ -76,7 +83,9 @@ namespace Tichu.Net
             Action<int, Awaiting> onAwait,
             Func<long> nextArrival,
             TimeSpan timeout,
-            CancellationToken ct)
+            CancellationToken ct,
+            Action? onTichuReserved = null,
+            Func<bool>? anyTichuPending = null)
         {
             _seat = seat;
             _send = send;
@@ -84,6 +93,8 @@ namespace Tichu.Net
             _nextArrival = nextArrival;
             _timeout = timeout;
             _ct = ct;
+            _onTichuReserved = onTichuReserved ?? WakeTurnForTichu;
+            _anyTichuPending = anyTichuPending;
         }
 
         // ── 클라이언트 입구 ──────────────────────────────────────────────────────
@@ -96,6 +107,7 @@ namespace Tichu.Net
             // 거부는 잠금 안에서 결정만 하고 해제한 뒤에 보낸다 — _gate 를 쥔 채 콜백을
             // 부르면 재진입 틈이 생긴다. 이러면 좌석 불일치 거부와 위치가 같아진다.
             string? rejectReason = null;
+            bool tichuReserved = false;
             lock (_gate)
             {
                 if (a.ActionSeq <= _lastSeq)
@@ -117,34 +129,55 @@ namespace Tichu.Net
 
                     if (a.Kind == ClientActionKind.CallTichu)
                     {
-                        // 차례 대기 중이면 예약에 더해 대기를 깨운다 — 그 사람이 수를 낼 때까지
-                        // 콜이 묶이지 않도록. 액션 자체를 깨움 표식으로 _matched 에 넣어
-                        // (퍼밋 수 == _matched.Count) 불변식을 지킨다. 예약은 여전히 플래그 하나라
-                        // TakeReservedTichu 가 정확히 한 번 소비한다. 깨움은 라운드당 한 번 —
-                        // 연타로 드라이버 반복(MaxSteps)을 소모시킬 수 없게 한다.
-                        bool wake = _awaiting == StepKind.Play && !_tichuReserved && !_tichuWoke;
-                        _tichuReserved = true;
-                        if (wake)
+                        // 라운드당 예약은 한 번만 받는다. 작은 티츄의 합법성은 라운드 안에서 한
+                        // 방향으로만 변한다(적용됐거나 불법이 되면 이후 것도 불법) — 그래서 두 번째
+                        // 부터는 무시해도 정당한 콜을 잃지 않는다. 받아 주면 연타 한 번마다 드라이버
+                        // 0단계가 한 스텝씩 돌아(엔진 거부여도 return) MaxSteps 를 소모시킬 수 있다.
+                        if (!_tichuCalledThisRound)
                         {
-                            _tichuWoke = true;
-                            _matched.Enqueue(a);
-                            _signal.Release();
+                            _tichuCalledThisRound = true;
+                            _tichuReserved = true;
+                            tichuReserved = true;   // 대기 좌석 깨우기는 잠금을 푼 뒤에
                         }
-                        return;
                     }
-
-                    if (a.Kind == ClientActionKind.Play)
+                    else if (a.Kind == ClientActionKind.Play)
                     {
                         // 차례밖 폭탄 후보. 자기 차례가 되면 Await 가 여기서 꺼내 쓴다.
                         // 도착 순번은 제출 시점에 확정해 항목마다 들고 간다.
                         _offTurnPlays.Enqueue(new OffTurnPlay(a, _nextArrival()));
-                        return;
                     }
-
-                    _early.Add(a);
+                    else
+                    {
+                        _early.Add(a);
+                    }
                 }
             }
             if (rejectReason != null) Reject(a, rejectReason);
+            // 잠금 밖에서 부른다 — 콜백은 다른 좌석의 _gate 를 잡으므로, 쥔 채 부르면 잠금이 중첩된다.
+            if (tichuReserved) _onTichuReserved();
+        }
+
+        /// <summary>
+        /// 이 좌석이 차례(Play)를 기다리는 중이면 깨워 DecideTurn 이 Yield 를 돌려주게 한다.
+        /// 드라이버는 0단계에서 예약된 작은 티츄를 모두 적용·방송한 뒤 이 좌석에 다시 묻는다.
+        /// CallTichu 액션을 깨움 표식으로 _matched 에 넣고 Release 해 (퍼밋 수 == _matched.Count)
+        /// 불변식을 지킨다. 표식은 예약을 들고 있지 않다 — 예약 소비는 TakeReservedTichu 만 한다.
+        /// 표식이 여러 개 쌓여도 무해하다: 남은 것은 다음 Await 시작의 배수가 퍼밋과 함께 버린다.
+        /// </summary>
+        public void WakeTurnForTichu()
+        {
+            lock (_gate)
+            {
+                if (_awaiting != StepKind.Play) return;
+                _matched.Enqueue(ClientAction.CallTichu(_seat, 0L));
+                _signal.Release();
+            }
+        }
+
+        /// <summary>소비되지 않은 작은 티츄 예약이 있는가.</summary>
+        public bool HasReservedTichu
+        {
+            get { lock (_gate) return _tichuReserved; }
         }
 
         // ── 세션이 예약을 꺼내가는 입구 ─────────────────────────────────────────
@@ -198,7 +231,7 @@ namespace Tichu.Net
                 _early.Clear();
                 while (_offTurnPlays.Count > 0) discarded.Add(_offTurnPlays.Dequeue().Action);
                 _tichuReserved = false;
-                _tichuWoke = false;
+                _tichuCalledThisRound = false;
                 _awaiting = null;
                 while (_signal.Wait(0)) { }   // 남은 퍼밋 소각 — 퍼밋 수와 큐 길이를 함께 0으로
             }
@@ -316,6 +349,12 @@ namespace Tichu.Net
             bool got = false;
             try
             {
+                // _awaiting 을 세운 **뒤에** 예약을 확인한다. 콜 제출 쪽은 예약을 세운 뒤에
+                // _awaiting 을 보므로, 둘 중 적어도 한쪽은 상대의 쓰기를 본다 — 0단계와 여기
+                // 사이에 도착한 콜도 결정적으로 깨운다. 양쪽 다 깨워도 남는 표식은 버려진다.
+                if (kind == StepKind.Play && _anyTichuPending != null && _anyTichuPending())
+                    WakeTurnForTichu();
+
                 got = _signal.Wait(_timeout, _ct);
             }
             finally

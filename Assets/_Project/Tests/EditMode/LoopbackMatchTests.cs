@@ -153,5 +153,86 @@ namespace Tichu.Core.Tests
             Assert.That(released, Is.True);
             Assert.That(client.MatchEnded, Is.True, "콜 뒤 수를 내면 매치가 정상 진행돼야 한다");
         }
+
+        [Test]
+        public void Tichu_called_by_another_seat_while_a_turn_prompt_is_held_is_broadcast_immediately()
+        {
+            // 원격 좌석 X 가 차례 프롬프트를 쥐고 있는 동안 다른 원격 좌석 Y 가 작은 티츄를 누른다.
+            // 제3의 좌석(AI 좌석 3의 수신함)이 X 가 수를 내기 **전에** Calls[Y] == Tichu 를 봐야 한다.
+            // 좌석 0·1·2 를 원격으로 둔다 — 첫 Play 프롬프트를 받는 원격 좌석 X 앞에서 패를 낼 수
+            // 있는 건 AI 좌석 3뿐이므로, 나머지 원격 좌석 Y 는 아직 14장이라 콜이 합법이다.
+            var transport = new LoopbackTransport();
+            var seats = new IAgent?[] { null, null, null, new ScriptedAgent() };
+
+            var session = new MatchSession(
+                seats, transport, masterSeed: 42UL,
+                targetScore: 400,
+                turnTimeout: TimeSpan.FromSeconds(30));
+
+            var clients = new[]
+            {
+                new ScriptedClient(0, transport) { HoldFirstTurn = true },
+                new ScriptedClient(1, transport) { HoldFirstTurn = true },
+                new ScriptedClient(2, transport) { HoldFirstTurn = true },
+            };
+
+            ScriptedClient? holder = null, caller = null;
+            bool observerSaw = false, released = false;
+            session.Start();
+            try
+            {
+                var holdDeadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+                var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+                while (DateTime.UtcNow < deadline)
+                {
+                    foreach (var c in clients) c.Pump();
+                    foreach (var ev in transport.Drain(3))
+                        if (caller != null && ev.Kind == ServerEventKind.StateUpdate
+                            && ev.View!.Calls[caller.Seat] == TichuCall.Tichu)
+                            observerSaw = true;
+
+                    foreach (var c in clients)
+                        if (c.FaultReason != null) Assert.Fail($"세션이 실패했다: {c.FaultReason}");
+
+                    if (holder == null)
+                    {
+                        foreach (var c in clients) if (c.Holding) { holder = c; break; }
+                        if (holder != null)
+                        {
+                            foreach (var c in clients) c.HoldFirstTurn = false;   // 나머지는 평소대로
+                            caller = holder == clients[0] ? clients[1] : clients[0];
+                            caller.CallTichu();
+                        }
+                    }
+                    else if (!released)
+                    {
+                        if (observerSaw)
+                        {
+                            Assert.That(holder.Holding, Is.True, "테스트 전제: X 는 아직 수를 내지 않았다");
+                            holder.ReleaseHold();   // 이제서야 X 가 수를 낸다
+                            released = true;
+                        }
+                    }
+                    else if (clients[0].MatchEnded)
+                    {
+                        break;
+                    }
+
+                    if (!released && DateTime.UtcNow > holdDeadline)
+                        Assert.Fail($"X 가 차례를 쥔 동안 Y 의 티츄가 방송되지 않았다 " +
+                                    $"(X={holder?.Seat}, Y={caller?.Seat}, 관찰자 뷰={observerSaw})");
+
+                    Thread.Sleep(2);
+                }
+            }
+            finally
+            {
+                session.Stop();
+                session.Join(TimeSpan.FromSeconds(5));
+            }
+
+            Assert.That(released, Is.True);
+            Assert.That(clients[0].MatchEnded, Is.True, "X 가 수를 내면 매치가 정상 진행돼야 한다");
+        }
     }
 }

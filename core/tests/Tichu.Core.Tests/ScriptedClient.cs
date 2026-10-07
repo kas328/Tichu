@@ -34,7 +34,13 @@ namespace Tichu.Core.Tests
         /// </summary>
         public bool HoldFirstTurnWithTichu { get; set; }
 
-        /// <summary>티츄만 외치고 수를 쥐고 있는 중인가.</summary>
+        /// <summary>
+        /// true 면 첫 차례 프롬프트(손패 14장)에서 아무것도 보내지 않고 <see cref="ReleaseHold"/>
+        /// 까지 수를 쥔다 — 사람이 차례 프롬프트를 띄워 둔 채 고민하는 상황.
+        /// </summary>
+        public bool HoldFirstTurn { get; set; }
+
+        /// <summary>수를 쥐고 있는 중인가.</summary>
         public bool Holding { get; private set; }
 
         /// <summary>마지막으로 받은 StateUpdate 의 좌석별 콜.</summary>
@@ -95,13 +101,13 @@ namespace Tichu.Core.Tests
                     break;
 
                 case StepKind.Play:
-                    if (HoldFirstTurnWithTichu && !_holdUsed
+                    if ((HoldFirstTurn || HoldFirstTurnWithTichu) && !_holdUsed
                         && view.MyHand.Count == 14 && view.Calls[_seat] == TichuCall.None)
                     {
                         _holdUsed = true;
                         Holding = true;
                         _held = awaiting;
-                        _transport.Submit(ClientAction.CallTichu(_seat, ++_seq));
+                        if (HoldFirstTurnWithTichu) CallTichu();
                         break;
                     }
                     if (Holding) { _held = awaiting; break; }   // 다시 물어도 아직 쥐고 있다
@@ -113,6 +119,9 @@ namespace Tichu.Core.Tests
                     break;
             }
         }
+
+        /// <summary>작은 티츄 버튼을 누른다(차례와 무관).</summary>
+        public void CallTichu() => _transport.Submit(ClientAction.CallTichu(_seat, ++_seq));
 
         /// <summary>쥐고 있던 차례에 마지막으로 받은 프롬프트로 수를 낸다.</summary>
         public void ReleaseHold()

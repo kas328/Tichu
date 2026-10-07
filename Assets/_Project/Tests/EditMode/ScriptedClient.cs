@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Tichu.Core.Cards;
+using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.Net;
 
@@ -19,11 +20,25 @@ namespace Tichu.Core.Tests
 
         private long _seq;
         private bool _illegalSent;
+        private bool _holdUsed;
+        private Awaiting? _held;
 
         /// <summary>true 면 첫 차례에 불법 액션을 한 번 보내 거부 경로를 태운다.</summary>
         public bool SubmitOneIllegalAction { get; set; }
 
         public int RejectionsSeen { get; private set; }
+
+        /// <summary>
+        /// true 면 첫 차례 프롬프트(손패 14장)에서 수 대신 작은 티츄만 외치고, <see cref="ReleaseHold"/>
+        /// 를 부를 때까지 수를 내지 않는다 — 사람이 프롬프트를 띄워 둔 채 티츄 버튼만 누른 상황.
+        /// </summary>
+        public bool HoldFirstTurnWithTichu { get; set; }
+
+        /// <summary>티츄만 외치고 수를 쥐고 있는 중인가.</summary>
+        public bool Holding { get; private set; }
+
+        /// <summary>마지막으로 받은 StateUpdate 의 좌석별 콜.</summary>
+        public TichuCall[]? LastCalls { get; private set; }
 
         /// <summary>MatchEnded 를 받았는가.</summary>
         public bool MatchEnded { get; private set; }
@@ -58,6 +73,7 @@ namespace Tichu.Core.Tests
                 }
 
                 var view = ev.View!;
+                LastCalls = view.Calls;
                 var awaiting = view.Awaiting;
                 if (awaiting == null || awaiting.Seat != _seat) continue;
 
@@ -79,6 +95,16 @@ namespace Tichu.Core.Tests
                     break;
 
                 case StepKind.Play:
+                    if (HoldFirstTurnWithTichu && !_holdUsed
+                        && view.MyHand.Count == 14 && view.Calls[_seat] == TichuCall.None)
+                    {
+                        _holdUsed = true;
+                        Holding = true;
+                        _held = awaiting;
+                        _transport.Submit(ClientAction.CallTichu(_seat, ++_seq));
+                        break;
+                    }
+                    if (Holding) { _held = awaiting; break; }   // 다시 물어도 아직 쥐고 있다
                     SubmitPlay(awaiting);
                     break;
 
@@ -86,6 +112,13 @@ namespace Tichu.Core.Tests
                     _transport.Submit(ClientAction.GiveDragon(_seat, ++_seq, (_seat + 1) % 4));
                     break;
             }
+        }
+
+        /// <summary>쥐고 있던 차례에 마지막으로 받은 프롬프트로 수를 낸다.</summary>
+        public void ReleaseHold()
+        {
+            Holding = false;
+            SubmitPlay(_held!);
         }
 
         private void SubmitPlay(Awaiting awaiting)

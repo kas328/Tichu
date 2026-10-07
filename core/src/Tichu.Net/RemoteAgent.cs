@@ -45,6 +45,7 @@ namespace Tichu.Net
         private readonly Queue<ClientAction> _matched = new Queue<ClientAction>();
         private long _lastSeq;
         private bool _tichuReserved;
+        private bool _tichuWoke;   // 이번 라운드에 CallTichu 로 차례 대기를 이미 깨웠다
 
         /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
         private readonly struct OffTurnPlay
@@ -114,7 +115,23 @@ namespace Tichu.Net
                         return;
                     }
 
-                    if (a.Kind == ClientActionKind.CallTichu) { _tichuReserved = true; return; }
+                    if (a.Kind == ClientActionKind.CallTichu)
+                    {
+                        // 차례 대기 중이면 예약에 더해 대기를 깨운다 — 그 사람이 수를 낼 때까지
+                        // 콜이 묶이지 않도록. 액션 자체를 깨움 표식으로 _matched 에 넣어
+                        // (퍼밋 수 == _matched.Count) 불변식을 지킨다. 예약은 여전히 플래그 하나라
+                        // TakeReservedTichu 가 정확히 한 번 소비한다. 깨움은 라운드당 한 번 —
+                        // 연타로 드라이버 반복(MaxSteps)을 소모시킬 수 없게 한다.
+                        bool wake = _awaiting == StepKind.Play && !_tichuReserved && !_tichuWoke;
+                        _tichuReserved = true;
+                        if (wake)
+                        {
+                            _tichuWoke = true;
+                            _matched.Enqueue(a);
+                            _signal.Release();
+                        }
+                        return;
+                    }
 
                     if (a.Kind == ClientActionKind.Play)
                     {
@@ -172,11 +189,16 @@ namespace Tichu.Net
             var discarded = new List<ClientAction>();
             lock (_gate)
             {
-                while (_matched.Count > 0) discarded.Add(_matched.Dequeue());
+                while (_matched.Count > 0)
+                {
+                    var m = _matched.Dequeue();
+                    if (m.Kind != ClientActionKind.CallTichu) discarded.Add(m);   // 깨움 표식은 거부 대상이 아니다
+                }
                 discarded.AddRange(_early);
                 _early.Clear();
                 while (_offTurnPlays.Count > 0) discarded.Add(_offTurnPlays.Dequeue().Action);
                 _tichuReserved = false;
+                _tichuWoke = false;
                 _awaiting = null;
                 while (_signal.Wait(0)) { }   // 남은 퍼밋 소각 — 퍼밋 수와 큐 길이를 함께 0으로
             }
@@ -216,6 +238,9 @@ namespace Tichu.Net
             while (true)
             {
                 var a = Await(StepKind.Play, state, seat);
+
+                // CallTichu 로 깨어났다 — 드라이버가 예약을 먼저 적용하고 다시 묻게 한다.
+                if (a.Kind == ClientActionKind.CallTichu) return TurnDecision.Yield;
 
                 if (a.Kind == ClientActionKind.Pass)
                 {
@@ -265,10 +290,13 @@ namespace Tichu.Net
                 // 배수를 _early 스캔보다 **먼저** 두어야 같은 종류의 잔여물이 스캔 대상에 들어온다.
                 // 이 배수 덕분에 대기 시작 시 _matched 가 비고, _awaiting 이 설정된 동안
                 // Submit 은 매칭 종류만 넣으므로 대기 후 Dequeue 에는 종류 필터가 필요 없다.
+                // CallTichu 깨움 표식은 예약과 별개라 되돌리지 않고 버린다 — 선행 큐에 넣으면 어떤
+                // 질문과도 매칭되지 않은 채 남아 라운드 경계에서 엉뚱한 거부 통보가 된다.
                 while (_matched.Count > 0)
                 {
-                    _early.Add(_matched.Dequeue());
+                    var leftover = _matched.Dequeue();
                     _signal.Wait(0);
+                    if (leftover.Kind != ClientActionKind.CallTichu) _early.Add(leftover);
                 }
 
                 for (int i = 0; i < _early.Count; i++)
@@ -299,8 +327,8 @@ namespace Tichu.Net
             if (!got) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
 
             // _matched 는 이 대기가 시작되기 전에 이미 비워졌고(위의 배수), _awaiting 이
-            // 설정된 동안 Submit 은 매칭하는 종류의 액션만 여기에 넣는다. 그래서 종류
-            // 필터 없이 그대로 꺼내도 안전하다.
+            // 설정된 동안 Submit 은 매칭하는 종류의 액션(Play 대기라면 CallTichu 깨움 표식 포함)만
+            // 여기에 넣는다. 그래서 종류 필터 없이 그대로 꺼내도 안전하다.
             lock (_gate) return _matched.Dequeue();
         }
 

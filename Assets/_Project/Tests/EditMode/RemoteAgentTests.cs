@@ -286,6 +286,110 @@ namespace Tichu.Core.Tests
                 "잔여 매칭 액션이 다른 종류의 질문에 답으로 쓰였다");
         }
 
+        /// <summary>대기에 들어간 뒤 delayMs 후에 액션을 제출하는 스레드.</summary>
+        private static Thread SubmitLater(RemoteAgent agent, ClientAction a, int delayMs = 120)
+        {
+            var t = new Thread(() =>
+            {
+                Thread.Sleep(delayMs);
+                agent.Submit(a);
+            }) { IsBackground = true };
+            t.Start();
+            return t;
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_the_turn_wakes_DecideTurn_with_Yield()
+        {
+            // 자기 차례 프롬프트가 떠 있는 동안 외친 작은 티츄는 그 사람이 수를 낼 때까지
+            // 기다리면 안 된다. 대기를 깨워 Yield 를 돌려주면 드라이버가 예약을 먼저 적용한다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            var submitter = SubmitLater(agent, ClientAction.CallTichu(0, 1L));
+            var d = agent.DecideTurn(ctx);   // 블로킹 → CallTichu 로 깨어난다
+
+            Assert.That(submitter.Join(TimeSpan.FromSeconds(5)), Is.True, "제출 스레드가 끝나지 않았다");
+            Assert.That(d.IsYield, Is.True, "CallTichu 가 차례 대기를 깨워 Yield 로 돌아와야 한다");
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(d.Move, Is.Null);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 그대로 남아 있어야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False, "예약은 한 번만 소비된다");
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void After_a_Yield_the_turn_is_answered_by_the_next_move()
+        {
+            // Yield 로 깨운 표식이 다음 질문의 답으로 남거나 거부 통보로 새어 나가면 안 된다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10));
+            var ctx = LeadContext(out _);
+
+            var t1 = SubmitLater(agent, ClientAction.CallTichu(0, 1L));
+            Assert.That(agent.DecideTurn(ctx).IsYield, Is.True, "테스트 전제: 첫 대기는 Yield");
+            Assert.That(t1.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True);
+
+            var t2 = SubmitLater(agent, ClientAction.Play(0, 2L,
+                new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null));
+            var d = agent.DecideTurn(ctx);
+            Assert.That(t2.Join(TimeSpan.FromSeconds(5)), Is.True);
+
+            Assert.That(d.IsYield, Is.False);
+            Assert.That(d.Move!.Cards, Is.EquivalentTo(new[] { Card.Normal(5, Suit.Jade) }));
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Repeated_CallTichu_does_not_wake_the_turn_wait_again()
+        {
+            // 한 번 깨우면 충분하다. 매번 깨우면 클라이언트가 CallTichu 를 연타하는 것만으로
+            // 드라이버 반복 수를 소모시켜(MaxSteps) 매치를 죽일 수 있다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = LeadContext(out _);
+
+            SubmitLater(agent, ClientAction.CallTichu(0, 1L));
+            Assert.That(agent.DecideTurn(ctx).IsYield, Is.True, "테스트 전제: 첫 CallTichu 는 깨운다");
+            Assert.That(agent.TakeReservedTichu(), Is.True);
+
+            var t = SubmitLater(agent, ClientAction.CallTichu(0, 2L));
+            Assert.Throws<TimeoutException>(() => agent.DecideTurn(ctx), "두 번째 CallTichu 가 다시 깨웠다");
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "깨우지 않아도 예약은 받아야 한다");
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_grand_tichu_only_reserves()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+
+            var t = SubmitLater(agent, ClientAction.CallTichu(0, 1L));
+            Assert.Throws<TimeoutException>(() => agent.CallGrandTichu(ctx), "큰 티츄 대기가 CallTichu 로 깨어났다");
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 받아야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False);
+        }
+
+        [Test]
+        public void CallTichu_while_awaiting_exchange_only_reserves()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(400));
+            var ctx = new DecisionContext(GameEngine.NewRound(42UL), 0);
+
+            var t = SubmitLater(agent, ClientAction.CallTichu(0, 1L));
+            Assert.Throws<TimeoutException>(() => agent.ChooseExchange(ctx), "교환 대기가 CallTichu 로 깨어났다");
+            Assert.That(t.Join(TimeSpan.FromSeconds(5)), Is.True);
+            Assert.That(agent.TakeReservedTichu(), Is.True, "예약은 받아야 한다");
+            Assert.That(agent.TakeReservedTichu(), Is.False);
+        }
+
         [Test]
         public void ResetForNewRound_discards_early_buffered_action_and_rejects_it()
         {

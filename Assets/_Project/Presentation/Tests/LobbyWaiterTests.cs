@@ -44,5 +44,51 @@ namespace Tichu.Presentation.Tests
             Assert.That(w.FaultReason, Is.EqualTo("서버 연결 끊김"));
             Assert.That(w.Started, Is.False);
         }
+
+        [Test]
+        public void Queued_shows_a_countdown_from_when_it_arrived()
+        {
+            double now = 100;
+            var w = new LobbyWaiter(() => now);
+            w.Feed(new[] { ServerEvent.Queued(2, 18, false, 0) });
+
+            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 18초 뒤 AI와 시작"));
+            now = 105.2;
+            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 13초 뒤 AI와 시작"));
+            now = 200;
+            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 0초 뒤 AI와 시작"));
+        }
+
+        [Test]
+        public void Busy_shows_the_position()
+        {
+            var w = new LobbyWaiter(() => 0);
+            w.Feed(new[] { ServerEvent.Queued(5, null, true, 3) });
+
+            Assert.That(w.Busy, Is.True);
+            Assert.That(w.StatusText, Is.EqualTo("서버가 붐빕니다 · 대기 순번 3"));
+        }
+
+        [Test]
+        public void Queued_does_not_start_the_match()
+        {
+            var w = new LobbyWaiter(() => 0);
+            w.Feed(new[] { ServerEvent.Queued(1, 30, false, 0) });
+
+            Assert.That(w.Started, Is.False);
+            Assert.That(w.Backlog, Is.Empty);
+        }
+
+        [Test]
+        public void Queued_then_lobby_then_state_starts_with_the_seat()
+        {
+            var w = new LobbyWaiter(() => 0);
+            var first = ServerEvent.StateUpdate(new PlayerView { Viewer = 3 }, null);
+            w.Feed(new List<ServerEvent> { ServerEvent.Queued(1, 30, false, 0), ServerEvent.Lobby(3, 2, 2), first });
+
+            Assert.That(w.Started, Is.True);
+            Assert.That(w.Seat, Is.EqualTo(3));
+            Assert.That(w.Backlog, Is.EqualTo(new[] { first }));
+        }
     }
 }

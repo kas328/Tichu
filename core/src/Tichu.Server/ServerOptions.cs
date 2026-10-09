@@ -19,6 +19,10 @@ namespace Tichu.Server
         /// <summary>바인딩 주소. 기본 0.0.0.0 = 같은 Wi-Fi 개발 테스트. 클라우드는 127.0.0.1(Caddy 뒤, M2b).</summary>
         public string Host { get; set; } = "0.0.0.0";
         public int Port { get; set; } = 7777;
+        /// <summary>대기열에서 가장 오래 기다린 사람이 이 초를 채우면 빈자리를 AI 로 채워 시작한다(M3 스펙 §1).</summary>
+        public int FillAfterSeconds { get; set; } = 30;
+        /// <summary>동시에 도는 방 상한. 꽉 차면 대기열에서 순번을 안내한다. 확정은 Lightsail 실측 후.</summary>
+        public int MaxRooms { get; set; } = 2;
         /// <summary>AI 관전 지연(ms). 유니티 GameLaunchArgs.AiDelayMs 기본값과 같다.</summary>
         public int AiDelayMs { get; set; } = 900;
         /// <summary>라운드 결과를 읽을 시간(ms). 유니티 싱글플레이와 같은 3.5초.</summary>
@@ -45,6 +49,8 @@ namespace Tichu.Server
                     case "--host":       o.Host = value; break;
                     case "--port":       o.Port = ParseInt(key, value); break;
                     case "--ai-delay":   o.AiDelayMs = ParseInt(key, value); break;
+                    case "--fill-after": o.FillAfterSeconds = ParseMin(key, value, 0); break;
+                    case "--max-rooms":  o.MaxRooms = ParseMin(key, value, 1); break;
                     case "--seed":
                         if (!ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
                             throw new ArgumentException($"--seed 값이 올바르지 않습니다: {value}");
@@ -59,6 +65,12 @@ namespace Tichu.Server
         private static int ParseInt(string key, string value) =>
             int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v)
                 ? v : throw new ArgumentException($"{key} 값이 올바르지 않습니다: {value}");
+
+        private static int ParseMin(string key, string value, int min)
+        {
+            int v = ParseInt(key, value);
+            return v >= min ? v : throw new ArgumentException($"{key} 는 {min} 이상: {value}");
+        }
 
         private static Difficulty ParseDifficulty(string value)
         {

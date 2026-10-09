@@ -20,6 +20,8 @@ namespace Tichu.Server.Tests
             Assert.That(o.Seed, Is.Null);
             Assert.That(o.RateCapacity, Is.EqualTo(20));
             Assert.That(o.RatePerSecond, Is.EqualTo(10));
+            Assert.That(o.FillAfterSeconds, Is.EqualTo(30));
+            Assert.That(o.MaxRooms, Is.EqualTo(2));
         }
 
         [Test]
@@ -28,7 +30,8 @@ namespace Tichu.Server.Tests
             var o = ServerOptions.Parse(new[]
             {
                 "--seats", "0,1", "--difficulty", "expert", "--target", "200",
-                "--port", "9000", "--ai-delay", "0", "--seed", "42", "--host", "127.0.0.1"
+                "--port", "9000", "--ai-delay", "0", "--seed", "42", "--host", "127.0.0.1",
+                "--fill-after", "5", "--max-rooms", "3"
             });
             Assert.That(o.Seats, Is.EqualTo(new[] { 0, 1 }));
             Assert.That(o.Difficulty, Is.EqualTo(Difficulty.Expert));
@@ -37,6 +40,8 @@ namespace Tichu.Server.Tests
             Assert.That(o.AiDelayMs, Is.EqualTo(0));
             Assert.That(o.Seed, Is.EqualTo(42UL));
             Assert.That(o.Host, Is.EqualTo("127.0.0.1"));
+            Assert.That(o.FillAfterSeconds, Is.EqualTo(5));
+            Assert.That(o.MaxRooms, Is.EqualTo(3));
         }
 
         [TestCase("--seats", "0,0")]
@@ -47,6 +52,10 @@ namespace Tichu.Server.Tests
         [TestCase("--difficulty", "7")]
         [TestCase("--target", "abc")]
         [TestCase("--bogus", "1")]
+        [TestCase("--fill-after", "-1")]
+        [TestCase("--fill-after", "x")]
+        [TestCase("--max-rooms", "0")]
+        [TestCase("--max-rooms", "x")]
         public void Bad_arguments_throw(string key, string value)
         {
             Assert.Throws<ArgumentException>(() => ServerOptions.Parse(new[] { key, value }));

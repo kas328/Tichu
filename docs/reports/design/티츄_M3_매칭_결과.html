@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 M3 매칭 결과</title>
+<style>
+  :root { --bg:#f6f5f1; --card:#fff; --ink:#1f2421; --mute:#5d6660; --line:#dcdcd3; --jade:#1f7a5c; --jade-bg:#e4f2ec; --blue:#2d5f9a; --blue-bg:#e5edf7; --warn:#a4561a; --warn-bg:#fbeee2; --code:#ecebe4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161a18; --card:#1f2421; --ink:#e7e9e4; --mute:#9aa39d; --line:#343b37; --jade:#5cc59c; --jade-bg:#1d3329; --blue:#86b2e6; --blue-bg:#1c2a3b; --warn:#e2a066; --warn-bg:#3a2a1b; --code:#2a302c; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.7 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; }
+  main { max-width:940px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 6px; }
+  .sub { color:var(--mute); margin:0 0 24px; }
+  h2 { font-size:21px; margin:44px 0 12px; padding-top:10px; border-top:1px solid var(--line); }
+  h3 { font-size:17px; margin:22px 0 6px; }
+  p { margin:8px 0; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 20px; margin:12px 0; }
+  .ok { background:var(--jade-bg); border-left:4px solid var(--jade); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .warn { background:var(--warn-bg); border-left:4px solid var(--warn); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+  .stat b { display:block; font-size:24px; color:var(--jade); }
+  .stat span { color:var(--mute); font-size:14px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; font-size:15px; margin:10px 0; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--jade-bg); color:var(--jade); font-size:14px; }
+  code { font-size:14px; background:var(--code); padding:0 5px; border-radius:4px; }
+  ol li, ul li { margin-bottom:5px; }
+  .wrap { overflow-x:auto; }
+  svg { width:100%; height:auto; display:block; min-width:640px; }
+  svg text { font-family:inherit; }
+  .n { fill:var(--card); stroke:var(--line); stroke-width:1.5; }
+  .q { fill:var(--blue-bg); stroke:var(--blue); stroke-width:1.5; }
+  .r { fill:var(--jade-bg); stroke:var(--jade); stroke-width:1.5; }
+  .t { fill:var(--ink); font-size:14px; font-weight:700; }
+  .m { fill:var(--mute); font-size:12px; }
+  .a { stroke:var(--jade); stroke-width:2.2; fill:none; }
+  .ab { stroke:var(--blue); stroke-width:2; fill:none; stroke-dasharray:6 4; }
+</style>
+</head>
+<body>
+<main>
+  <h1>티츄 M3 — 랜덤 매칭 · 다중 방 결과</h1>
+  <p class="sub">2026-10-08 ~ 10-09 · main 머지 <code>ca634a9</code>(origin 푸시) · 스펙 <code>docs/superpowers/specs/2026-10-08-mp-m3-matchmaking-design.md</code></p>
+
+  <div class="ok"><b>결론:</b> 서버 한 대가 랜덤 매칭으로 여러 판을 동시에 돌립니다. 테스트와 실기 확인(에디터 + S23)을 모두 통과해 main에 들어갔습니다. 남은 일은 클라우드 배포(M2b, AWS 답변 대기)와 이탈·타이머 처리(M5)입니다.</div>
+
+  <h2>1. 무엇이 바뀌었나</h2>
+  <div class="wrap">
+  <svg viewBox="0 0 900 300" role="img" aria-label="M2와 M3 서버 구조 비교">
+    <text x="20" y="28" class="t">M2 — 서버 하나 = 대기실 하나 = 판 하나</text>
+    <rect x="20" y="44" width="110" height="44" rx="8" class="n"/><text x="75" y="71" text-anchor="middle" class="t">사람 A</text>
+    <rect x="20" y="98" width="110" height="44" rx="8" class="n"/><text x="75" y="125" text-anchor="middle" class="t">사람 B</text>
+    <rect x="20" y="152" width="110" height="44" rx="8" class="n"/><text x="75" y="179" text-anchor="middle" class="t">사람 C</text>
+    <rect x="200" y="60" width="170" height="80" rx="10" class="r"/><text x="285" y="94" text-anchor="middle" class="t">대기실 = 판</text><text x="285" y="114" text-anchor="middle" class="m">좌석이 차면 시작</text>
+    <path d="M130 66 L200 90" class="a"/><path d="M130 120 L200 110" class="a"/>
+    <path d="M130 174 L200 130" class="ab"/><text x="150" y="222" class="m">판 진행 중엔 C는 거절("room full")</text>
+
+    <text x="470" y="28" class="t">M3 — 대기열 → 여러 방</text>
+    <rect x="470" y="60" width="120" height="120" rx="10" class="q"/><text x="530" y="98" text-anchor="middle" class="t">대기열</text><text x="530" y="118" text-anchor="middle" class="m">4명 → 즉시</text><text x="530" y="136" text-anchor="middle" class="m">아니면 30초 뒤</text><text x="530" y="154" text-anchor="middle" class="m">AI로 채워 시작</text>
+    <rect x="680" y="44" width="200" height="56" rx="10" class="r"/><text x="780" y="68" text-anchor="middle" class="t">방 0</text><text x="780" y="88" text-anchor="middle" class="m">사람 2 · AI 2</text>
+    <rect x="680" y="112" width="200" height="56" rx="10" class="r"/><text x="780" y="136" text-anchor="middle" class="t">방 1</text><text x="780" y="156" text-anchor="middle" class="m">사람 1 · AI 3</text>
+    <rect x="680" y="196" width="200" height="56" rx="10" class="n"/><text x="780" y="220" text-anchor="middle" class="t">방 상한(기본 2)</text><text x="780" y="240" text-anchor="middle" class="m">넘치면 "붐빔 · 순번 N"</text>
+    <path d="M590 100 L680 72" class="a"/><path d="M590 130 L680 140" class="a"/><path d="M590 160 L680 224" class="ab"/>
+    <text x="470" y="280" class="m">한 방에서 사람이 나가면 그 방만 끝나고, 다른 방은 영향이 없습니다.</text>
+  </svg>
+  </div>
+
+  <h3>플레이어가 보는 흐름</h3>
+  <ol>
+    <li>메뉴 → <b>온라인 대전</b> → 주소 입력(출시 빌드 주소 고정은 M4) → 접속</li>
+    <li>대기 화면: <code>상대를 찾는 중 · 2명 대기 · 18초 뒤 AI와 시작</code>(초는 앱이 직접 줄여 셉니다)</li>
+    <li>방이 꽉 찼을 때: <code>서버가 붐빕니다 · 대기 순번 1</code> → 자리가 나면 자동 입장</li>
+    <li>방이 만들어지면 좌석이 무작위로 정해지고(사람끼리 같은 팀일 수도 상대일 수도 있음), 테이블로 들어갑니다.</li>
+  </ol>
+
+  <h3>정한 규칙</h3>
+  <table>
+    <tr><th>항목</th><th>값</th><th>바꾸는 곳</th></tr>
+    <tr><td>입장 방식</td><td>랜덤 매칭만(초대 코드 없음)</td><td>—</td></tr>
+    <tr><td>AI 충원</td><td>가장 오래 기다린 사람 기준 30초</td><td><code>--fill-after</code></td></tr>
+    <tr><td>AI 난이도</td><td>Hard 고정</td><td><code>--difficulty</code></td></tr>
+    <tr><td>목표 점수</td><td>1000</td><td><code>--target</code></td></tr>
+    <tr><td>방 상한</td><td>2(잠정, 클라우드 실측 후 확정)</td><td><code>--max-rooms</code></td></tr>
+    <tr><td>프로토콜</td><td>v2 — 대기 상태 이벤트 <code>Queued</code> 추가. v1 앱은 "앱을 업데이트해 주세요"</td><td>—</td></tr>
+    <tr><td>삭제된 옵션</td><td><code>--seats</code>(넘기면 서버가 시작하지 않음)</td><td>운영 안내에 마이그레이션 메모</td></tr>
+  </table>
+
+  <h2>2. 검증</h2>
+  <div class="grid">
+    <div class="stat"><b>546</b><span>core 테스트 (dotnet)</span></div>
+    <div class="stat"><b>60</b><span>서버 테스트 (단위 + 실제 WebSocket E2E)</span></div>
+    <div class="stat"><b>200</b><span>Unity Presentation (머지 후)</span></div>
+    <div class="stat"><b>75</b><span>Unity 미러 core 테스트</span></div>
+  </div>
+
+  <h3>실기 확인 (2026-10-09, 에디터 + S23, 같은 Wi-Fi LAN 서버)</h3>
+  <table>
+    <tr><th>항목</th><th>결과</th><th>서버 로그</th></tr>
+    <tr><td>혼자 접속 → 30초 뒤 AI 3명과 시작</td><td>✅</td><td>22:17:31 입장 → 22:18:02 방 0 시작(사람 1 · AI 3)</td></tr>
+    <tr><td>두 기기가 같은 방</td><td>✅</td><td>22:21:17·19 입장 → 22:21:48 방 1 시작(사람 2 · AI 2)</td></tr>
+    <tr><td>한 명이 나가면 그 방만 끝남</td><td>✅</td><td>22:22:19 좌석 이탈 → 방 1 종료</td></tr>
+    <tr><td>방 상한 → 붐빔 순번 → 자동 입장 (<code>--max-rooms 1 --fill-after 5</code>)</td><td>✅</td><td>22:30:18 "방 상한 1 도달 — 대기 1명" → 22:30:24 방 1 종료와 동시에 방 2 시작</td></tr>
+  </table>
+  <p>폰의 첫 접속 실패("서버에 연결할 수 없습니다")는 폰이 Wi-Fi에 연결돼 있지 않아서였습니다. 앱 문제가 아닙니다.</p>
+
+  <h2>3. 어떻게 만들었나</h2>
+  <div class="card">
+    <p>8개 태스크를 <b>태스크마다 새 구현 에이전트 + 독립 리뷰</b>로 진행했고, 마지막에 브랜치 전체 리뷰를 한 번 더 했습니다. 동시성이 걸린 대기열·방·연결 태스크는 가장 강한 모델이 리뷰했습니다.</p>
+    <table>
+      <tr><th>구성 요소</th><th>역할</th></tr>
+      <tr><td><code>Connection</code></td><td>소켓 하나: 송신 큐, 수신, 크기·형식·레이트 검사. 받은 액션을 지금 소속(대기열 또는 방)에 넘김</td></tr>
+      <tr><td><code>Matchmaker</code></td><td>대기열, 30초 충원, 방 상한, 순번 안내. 판단은 잠금 하나 안에서(묶인 연결은 같은 순간 방 소속으로 바뀜)</td></tr>
+      <tr><td><code>Room</code></td><td>판 하나의 수명: 무작위 좌석, Hard AI, 매치 세션, 이탈 시 그 방만 종료</td></tr>
+    </table>
+    <p>예전 단일 방 전송(<code>WebSocketServerTransport</code>·<code>MatchHost</code>·<code>SeatTable</code>)은 지웠습니다. 이전 판의 늦은 연결을 거르던 "세대 번호"가 필요 없어져 코드가 단순해졌습니다.</p>
+  </div>
+
+  <h3>진행 중 내린 결정</h3>
+  <table>
+    <tr><th>결정</th><th>틀렸을 때 비용</th></tr>
+    <tr><td>서버 1초 타이머에 예외 처리 추가(계획 밖) — 타이머 안 예외는 서버 프로세스를 죽이므로</td><td>방어 코드 몇 줄</td></tr>
+    <tr><td>"매치가 끝난 직후의 이탈"을 폴트로 보지 않는 가드는 코드 검토로만 검증(단위 테스트로 닿지 않는 구간). 실제 흐름은 E2E가 덮음</td><td>회귀가 생기면 정상 종료 뒤 "연결 끊김"이 잘못 뜰 수 있음</td></tr>
+    <tr><td>테스트 시계를 틱 단위로 보정(29.9초 + 0.1초가 30초에 1틱 모자람). 단언은 그대로</td><td>없음</td></tr>
+    <tr><td>최종 수정은 문서만(운영 안내의 "판 진행 중 확인법"이 옛 로그 문구라 운영자가 진행 중인 판을 재시작할 위험)</td><td>—</td></tr>
+    <tr><td>방 시작 실패 시 슬롯 누수 가드는 M5로 이월</td><td>스레드 생성 실패 같은 드문 경우 방 자리 하나가 재시작 전까지 묶임</td></tr>
+  </table>
+
+  <h2>4. 남은 일</h2>
+  <div class="warn">
+    <b>출시 전 반드시:</b> 낯선 사람과 매칭되므로 <b>M5(턴 타이머·재접속·AI 인계)</b>가 필요합니다. 지금은 잠수한 사람이 방 하나를 끝없이 붙잡을 수 있고, 한 명이 나가면 판 전체가 끝납니다.
+  </div>
+  <ul>
+    <li><b>M2b 클라우드 배포</b>: Lightsail 서울 할당량 케이스에 10/09 회신 완료(AWS가 연구용 GPU 양식을 잘못 보내 정정). 도메인 케이스는 미배정. 할당량이 풀리면 인스턴스 → 배포 → 폰 LTE 접속 확인.</li>
+    <li><b>방 상한 실측</b>: 배포 뒤 Lightsail에서 부하를 한 번 재서 <code>--max-rooms</code> 기본값을 확정합니다(버스트형 CPU라 AI가 많으면 크레딧이 떨어짐).</li>
+    <li><b>M5로 넘긴 것</b>: 방 시작 실패 가드, 대기열 카운트다운이 동시 입·퇴장 때 드물게 어긋나는 문제(표시만), 폴트 로그가 AI 좌석까지 찍히는 잡음.</li>
+    <li><b>M4</b>: 출시 빌드에 주소 고정, 로비 UI.</li>
+    <li><b>출시 전 신고</b>: 온라인 대전 추가에 따른 Data safety·등급·개인정보처리방침 재신고.</li>
+  </ul>
+
+  <h2>5. 커밋</h2>
+  <table>
+    <tr><th>커밋</th><th>내용</th></tr>
+    <tr><td><code>9a27564</code></td><td>프로토콜 v2 — <code>Queued</code></td></tr>
+    <tr><td><code>e8e9fe6</code></td><td>충원 대기·방 상한 옵션, 무작위 좌석</td></tr>
+    <tr><td><code>1d54309</code></td><td>대기열(Matchmaker)</td></tr>
+    <tr><td><code>3b7a0e9</code> · <code>770a706</code></td><td>방(Room) · 테스트 범위 주석 정정</td></tr>
+    <tr><td><code>8f1d76f</code></td><td>연결 계층 분리 + 서버 조립 교체, 배포 env·스모크 갱신</td></tr>
+    <tr><td><code>7073b0a</code></td><td>매칭 E2E</td></tr>
+    <tr><td><code>2c98941</code></td><td>대기 화면 카운트다운·붐빔 순번, 메뉴 "온라인 대전"</td></tr>
+    <tr><td><code>4e86897</code></td><td>운영 안내·README</td></tr>
+    <tr><td><code>ca634a9</code></td><td>main 머지(M2b 코드 포함)</td></tr>
+  </table>
+</main>
+</body>
+</html>

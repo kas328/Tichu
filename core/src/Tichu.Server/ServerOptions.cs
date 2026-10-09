@@ -1,19 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using Tichu.GameFlow.Agents;
 
 namespace Tichu.Server
 {
     /// <summary>
-    /// 서버 실행 설정. 프로세스 하나 = 매치 하나(M2 스펙 §4.1).
-    /// CLI 로 받는 값: --seats --difficulty --target --host --port --ai-delay --seed.
+    /// 서버 실행 설정. 프로세스 하나가 랜덤 매칭으로 여러 방을 돌린다(M3 스펙 §2.3).
+    /// CLI: --difficulty --target --host --port --fill-after --max-rooms --ai-delay --seed.
     /// 나머지(라운드 사이 멈춤·레이트리밋)는 테스트가 코드로 바꾸는 값이다.
     /// </summary>
     public sealed class ServerOptions
     {
-        /// <summary>인간 좌석 목록. 접속 순서대로 이 순서로 배정한다. 기본 0,2 = 친구와 같은 팀.</summary>
-        public int[] Seats { get; set; } = { 0, 2 };
         public Difficulty Difficulty { get; set; } = Difficulty.Hard;
         public int Target { get; set; } = 1000;
         /// <summary>바인딩 주소. 기본 0.0.0.0 = 같은 Wi-Fi 개발 테스트. 클라우드는 127.0.0.1(Caddy 뒤, M2b).</summary>
@@ -43,7 +40,6 @@ namespace Tichu.Server
                 string value = args[++i];
                 switch (key)
                 {
-                    case "--seats":      o.Seats = ParseSeats(value); break;
                     case "--difficulty": o.Difficulty = ParseDifficulty(value); break;
                     case "--target":     o.Target = ParseInt(key, value); break;
                     case "--host":       o.Host = value; break;
@@ -78,19 +74,6 @@ namespace Tichu.Server
             foreach (Difficulty d in Enum.GetValues(typeof(Difficulty)))
                 if (string.Equals(d.ToString(), value, StringComparison.OrdinalIgnoreCase)) return d;
             throw new ArgumentException($"--difficulty 는 Easy/Normal/Hard/Expert 중 하나: {value}");
-        }
-
-        private static int[] ParseSeats(string value)
-        {
-            var seats = new List<int>();
-            foreach (var part in value.Split(','))
-            {
-                if (!int.TryParse(part, NumberStyles.None, CultureInfo.InvariantCulture, out int s) || s < 0 || s > 3)
-                    throw new ArgumentException($"--seats 의 좌석은 0~3: {value}");
-                if (seats.Contains(s)) throw new ArgumentException($"--seats 에 중복 좌석: {value}");
-                seats.Add(s);
-            }
-            return seats.ToArray();
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Threading;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -25,11 +26,20 @@ namespace Tichu.Server
             var app = builder.Build();
 
             static double NowSeconds() => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
-            var transport = new WebSocketServerTransport(
-                new SeatTable(opt.Seats),
-                () => new TokenBucket(opt.RateCapacity, opt.RatePerSecond, NowSeconds),
+            // --seed 가 있으면 좌석 배정도 결정적이다(테스트·재현). SeatPicker 는 매치메이커 잠금 안에서만 불린다.
+            var rng = opt.Seed is ulong seed ? new Random(unchecked((int)seed)) : new Random();
+            Matchmaker? matchmaker = null;
+            matchmaker = new Matchmaker(
+                opt.FillAfterSeconds, opt.MaxRooms, () => DateTime.UtcNow,
+                (index, humans) => new Room(index, humans, SeatPicker.Pick(humans.Count, rng), opt, log,
+                    () => matchmaker!.RoomClosed()),
                 log);
-            _ = new MatchHost(opt, transport, log);
+            var tick = new Timer(_ =>
+            {
+                try { matchmaker.Tick(); }
+                catch (Exception e) { log($"매치메이커 틱 오류: {e}"); }
+            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+            app.Lifetime.ApplicationStopping.Register(() => tick.Dispose());
 
             app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15), KeepAliveTimeout = TimeSpan.FromSeconds(30) });
             app.Map("/ws", (RequestDelegate)(async ctx =>
@@ -40,10 +50,13 @@ namespace Tichu.Server
                 if (!ProtocolVersion.Accepts(version))
                 {
                     log($"프로토콜 버전 불일치 — 거절 (받은 값: {(string.IsNullOrEmpty(version) ? "없음" : version)}, 서버: {ProtocolVersion.Current})");
-                    await transport.RejectAsync(ws, ProtocolVersion.UpdateRequiredReason);
+                    await Connection.RejectAsync(ws, ProtocolVersion.UpdateRequiredReason);
                     return;
                 }
-                await transport.HandleAsync(ws, ctx.RequestAborted);
+                var conn = new Connection(ws, new TokenBucket(opt.RateCapacity, opt.RatePerSecond, NowSeconds), log);
+                log($"연결 #{conn.Id} 접속");
+                matchmaker.Enqueue(conn);
+                await conn.RunAsync(ctx.RequestAborted);
             }));
 
             return app;

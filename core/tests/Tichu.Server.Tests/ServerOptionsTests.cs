@@ -10,7 +10,6 @@ namespace Tichu.Server.Tests
         public void Defaults_match_the_spec()
         {
             var o = ServerOptions.Parse(Array.Empty<string>());
-            Assert.That(o.Seats, Is.EqualTo(new[] { 0, 2 }));
             Assert.That(o.Difficulty, Is.EqualTo(Difficulty.Hard));
             Assert.That(o.Target, Is.EqualTo(1000));
             Assert.That(o.Port, Is.EqualTo(7777));
@@ -29,11 +28,10 @@ namespace Tichu.Server.Tests
         {
             var o = ServerOptions.Parse(new[]
             {
-                "--seats", "0,1", "--difficulty", "expert", "--target", "200",
+                "--difficulty", "expert", "--target", "200",
                 "--port", "9000", "--ai-delay", "0", "--seed", "42", "--host", "127.0.0.1",
                 "--fill-after", "5", "--max-rooms", "3"
             });
-            Assert.That(o.Seats, Is.EqualTo(new[] { 0, 1 }));
             Assert.That(o.Difficulty, Is.EqualTo(Difficulty.Expert));
             Assert.That(o.Target, Is.EqualTo(200));
             Assert.That(o.Port, Is.EqualTo(9000));
@@ -44,10 +42,7 @@ namespace Tichu.Server.Tests
             Assert.That(o.MaxRooms, Is.EqualTo(3));
         }
 
-        [TestCase("--seats", "0,0")]
-        [TestCase("--seats", "4")]
-        [TestCase("--seats", "")]
-        [TestCase("--seats", "0,1,2,3,0")]
+        [TestCase("--seats", "0,2")]   // M3 에서 삭제된 인자 — 알 수 없는 인자로 거절
         [TestCase("--difficulty", "Godlike")]
         [TestCase("--difficulty", "7")]
         [TestCase("--target", "abc")]

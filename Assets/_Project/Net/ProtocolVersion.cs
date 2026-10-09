@@ -10,7 +10,7 @@ namespace Tichu.Net
     /// </summary>
     public static class ProtocolVersion
     {
-        public const int Current = 1;
+        public const int Current = 2;
         public const string QueryKey = "v";
 
         /// <summary>접속 URI 에 v=Current 를 붙인다. 이미 다른 쿼리가 있으면 &amp; 로 잇는다.</summary>

@@ -41,6 +41,10 @@ namespace Tichu.Net
                 YourSeat = ev.YourSeat,     // 회전하지 않는다 — 클래스 주석 참고
                 Connected = ev.Connected,
                 Required = ev.Required,
+                Waiting = ev.Waiting,
+                FillInSeconds = ev.FillInSeconds,
+                Busy = ev.Busy,
+                Position = ev.Position,
             };
         }
 

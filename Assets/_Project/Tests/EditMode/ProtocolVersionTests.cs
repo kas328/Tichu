@@ -43,6 +43,14 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Matchmaking_protocol_is_version_2()
+        {
+            // M3 가 Queued 를 더했다 — v1 앱은 관문에서 업데이트 안내를 받아야 한다.
+            Assert.That(ProtocolVersion.Current, Is.EqualTo(2));
+            Assert.That(ProtocolVersion.Accepts("1"), Is.False);
+        }
+
+        [Test]
         public void Update_reason_names_the_server_version()
         {
             Assert.That(ProtocolVersion.UpdateRequiredReason, Is.EqualTo("앱을 업데이트해 주세요 (서버 프로토콜 v" + V + ")"));

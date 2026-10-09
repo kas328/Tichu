@@ -10,7 +10,8 @@ namespace Tichu.Net
         RoundScored,
         MatchEnded,
         SessionFaulted,
-        Lobby
+        Lobby,
+        Queued
     }
 
     /// <summary>
@@ -49,6 +50,18 @@ namespace Tichu.Net
         public int Connected { get; set; }
         public int Required { get; set; }
 
+        /// <summary>Queued: 지금 대기열에 있는 사람 수(나 포함).</summary>
+        public int Waiting { get; set; }
+
+        /// <summary>Queued: 내 묶음이 AI 충원으로 시작하기까지 남은 초. Busy 면 null.</summary>
+        public int? FillInSeconds { get; set; }
+
+        /// <summary>Queued: 방 상한에 걸려 기다리는 중인가.</summary>
+        public bool Busy { get; set; }
+
+        /// <summary>Queued: Busy 일 때 내 대기 순번(1부터). 아니면 0.</summary>
+        public int Position { get; set; }
+
         public static ServerEvent StateUpdate(PlayerView view, Awaiting? awaiting, AppliedAction? applied = null)
         {
             view.Awaiting = awaiting;
@@ -73,5 +86,12 @@ namespace Tichu.Net
 
         public static ServerEvent Lobby(int yourSeat, int connected, int required) =>
             new ServerEvent { Kind = ServerEventKind.Lobby, YourSeat = yourSeat, Connected = connected, Required = required };
+
+        public static ServerEvent Queued(int waiting, int? fillInSeconds, bool busy, int position) =>
+            new ServerEvent
+            {
+                Kind = ServerEventKind.Queued,
+                Waiting = waiting, FillInSeconds = fillInSeconds, Busy = busy, Position = position
+            };
     }
 }

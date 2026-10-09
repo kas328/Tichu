@@ -659,5 +659,60 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
             Assert.That(vm.Prompt.CurrentValue, Is.Not.SameAs(round1), "라운드마다 새 질문이다");
         }
+
+        // ── 차례 중 작은 티츄 ──────────────────────────────────────────────────
+        // 콜이 적용되면 서버는 질문 없는 갱신을 보낸 뒤 같은 질문을 다시 묻는다(GameDriver Yield).
+
+        /// <summary>내 차례 Play 단계 뷰 — awaiting 이 null 이면 "질문 없는" 갱신.</summary>
+        private static PlayerView MyTurnView(GameState s, int turn, Awaiting awaiting)
+        {
+            var view = ViewOf(s, 0);
+            view.Phase = RoundPhase.Play;
+            view.Turn = turn;
+            view.Awaiting = awaiting;
+            return view;
+        }
+
+        private static Awaiting AskPlay(Card legal) => new Awaiting
+        {
+            Kind = StepKind.Play,
+            Seat = 0,
+            CanPass = true,
+            LegalMoves = new List<Combination> { CombinationRecognizer.Recognize(new[] { legal }, TrickContext.Lead) },
+        };
+
+        [Test]
+        public void A_tichu_call_during_my_turn_keeps_the_same_prompt()
+        {
+            // 프롬프트가 내려갔다 새 인스턴스로 다시 오면 뷰가 다시 그린다 — 차례 창이 깜빡이고
+            // 고르던 마작 소원이 풀린다.
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal)));
+            var asked = vm.Prompt.CurrentValue;
+            int notified = 0;
+            using var sub = vm.Prompt.Skip(1).Subscribe(_ => notified++);
+
+            vm.Apply(MyTurnView(s, 0, null));            // 콜 적용 방송
+            Assert.That(vm.Prompt.CurrentValue, Is.SameAs(asked), "차례는 여전히 내게 있다");
+
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal)));  // 같은 질문 재질의
+            Assert.That(vm.Prompt.CurrentValue, Is.SameAs(asked));
+            Assert.That(notified, Is.EqualTo(0), "뷰가 다시 그려지면 안 된다");
+            Assert.That(vm.SubmitPass(), Is.True, "유지된 프롬프트로 그대로 답할 수 있다");
+        }
+
+        [Test]
+        public void The_turn_prompt_drops_when_the_turn_moves_away()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0])));
+
+            vm.Apply(MyTurnView(s, 1, null));            // 차례밖 폭탄 등으로 차례가 넘어갔다
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Null);
+        }
     }
 }

@@ -102,6 +102,8 @@ namespace Tichu.Presentation.ViewModel
         private bool _grandAnswered;
         private bool _exchangeAnswered;
         private Awaiting _earlyPrompt;
+        // 질문 없는 갱신 동안 내 차례 프롬프트를 붙들고 있다(TurnPrompt).
+        private bool _turnPromptHeld;
 
         /// <summary>차례밖 폭탄 전송 상태(뷰 표시용).</summary>
         public bool HasPendingBomb { get { return _bombSent; } }
@@ -164,13 +166,36 @@ namespace Tichu.Presentation.ViewModel
             else
             {
                 _earlyPrompt = null;
-                return (v.Awaiting != null && v.Awaiting.Seat == _mySeat) ? v.Awaiting : null;
+                return TurnPrompt(v);
             }
 
             if (answered) return null;
             if (_earlyPrompt == null || _earlyPrompt.Kind != early)
                 _earlyPrompt = new Awaiting { Kind = early, Seat = _mySeat };
             return _earlyPrompt;
+        }
+
+        /// <summary>
+        /// 내 차례 중 작은 티츄가 적용되면 서버는 질문 없는 갱신을 보낸 뒤 같은 질문을 다시
+        /// 묻는다(GameDriver Yield). 그 사이 프롬프트를 내리거나 새 인스턴스로 바꾸면 뷰가 다시
+        /// 그려 차례 창이 깜빡이고 고르던 마작 소원이 풀린다 — 차례가 내게 남아 있는 동안은
+        /// 같은 질문으로 보고 인스턴스를 유지한다. 콜은 손패·트릭을 바꾸지 않아 합법수가 같다.
+        /// </summary>
+        private Awaiting TurnPrompt(PlayerView v)
+        {
+            var current = Prompt.CurrentValue;
+            bool stillMyTurn = current != null && current.Kind == StepKind.Play
+                && v.Phase == RoundPhase.Play && v.Turn == _mySeat;
+            bool held = _turnPromptHeld;
+            _turnPromptHeld = false;
+
+            if (v.Awaiting == null || v.Awaiting.Seat != _mySeat)
+            {
+                _turnPromptHeld = stillMyTurn && v.Awaiting == null;
+                return _turnPromptHeld ? current : null;
+            }
+            if (held && stillMyTurn && v.Awaiting.Kind == StepKind.Play) return current;
+            return v.Awaiting;
         }
 
         /// <summary>
@@ -218,6 +243,7 @@ namespace Tichu.Presentation.ViewModel
             _grandAnswered = false;
             _exchangeAnswered = false;
             _earlyPrompt = null;
+            _turnPromptHeld = false;
             RoundResult.Value = null;
             FastForward = false;
             _cleared.OnNext(default);

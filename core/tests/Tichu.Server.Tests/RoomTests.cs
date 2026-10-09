@@ -86,6 +86,9 @@ namespace Tichu.Server.Tests
             Assert.That(closed(), Is.EqualTo(1), "onClosed 는 한 번만");
         }
 
+        // 세션 스레드 종료 → End() 사이의 좁은 틈(Room.Left 의 _ending·Join(TimeSpan.Zero) 가드가 막는 구간)은
+        // 훅 없이는 결정적으로 재현할 수 없다 — 그 가드는 코드 검토로 확인한다. 실제 종료 경로는
+        // EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 끝에서 끝까지 덮는다.
         [Test]
         public async Task Normal_end_closes_links_without_fault()
         {
@@ -96,7 +99,7 @@ namespace Tichu.Server.Tests
             await Until(() => { client.Pump(); return client.MatchEnded; }, 60);
             await Until(() => closed() == 1);
 
-            room.Left(a);                                    // 서버가 닫은 연결의 끊김 통보가 늦게 온다
+            room.Left(a);                                    // 방이 이미 닫힌 뒤의 이탈 통보 — 폴트도 재방송도 없다
             client.Pump();
 
             Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted), Is.False);

@@ -156,5 +156,16 @@ namespace Tichu.Core.Tests
             var pass = SeatRotation.ToServer(ClientAction.Pass(0, 7), 1);
             Assert.That(pass.RecipientSeat, Is.EqualTo(0), "GiveDragon 이 아니면 RecipientSeat 을 건드리지 않는다");
         }
+
+        [Test]
+        public void Queued_fields_survive_rotation()
+        {
+            var local = SeatRotation.ToLocal(ServerEvent.Queued(3, 12, true, 2), 1);
+            Assert.That(local.Kind, Is.EqualTo(ServerEventKind.Queued));
+            Assert.That(local.Waiting, Is.EqualTo(3));
+            Assert.That(local.FillInSeconds, Is.EqualTo(12));
+            Assert.That(local.Busy, Is.True);
+            Assert.That(local.Position, Is.EqualTo(2));
+        }
     }
 }

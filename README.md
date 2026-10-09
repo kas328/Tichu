@@ -146,15 +146,15 @@ pwsh tools/sync-core-to-unity.ps1          # -Check 를 붙이면 비교만
 
 ---
 
-## 친구방 개발 서버 (M2 · 같은 Wi-Fi)
+## 온라인 대전(랜덤 매칭) 개발 서버 (같은 Wi-Fi)
 
 ```bash
-dotnet run --project core/src/Tichu.Server -- --seats 0,2 --difficulty Hard --target 1000
+dotnet run --project core/src/Tichu.Server -- --fill-after 30
 ```
 
-- 콘솔에 나온 대로 클라이언트에서 `ws://<이 PC 의 IP>:7777/ws`(또는 IP만)로 접속한다. 친구방 버튼은 개발 빌드·에디터에서만 접속 화면을 연다.
-- `--seats` = 인간 좌석(접속 순서대로 배정, `0,2` = 같은 팀). 빈자리는 서버 PIMC가 채운다.
-- 한 번에 매치 하나. 매치가 끝나거나 누가 끊기면 새 대기실을 연다(Ctrl+C로 종료).
+- 콘솔에 나온 대로 클라이언트에서 `ws://<이 PC 의 IP>:7777/ws`(또는 IP만)로 접속한다. 메뉴 '온라인 대전'은 개발 빌드·에디터에서만 개발 서버 접속 화면을 연다.
+- 접속하면 대기열에 들어간다. 4명이 모이면 바로 방이 열리고, 아니면 가장 오래 기다린 사람이 `--fill-after`초(기본 30) 기다린 뒤 대기 중인 사람들로 방을 열고 빈자리는 서버 PIMC(AI)가 채운다. 빠른 로컬 테스트는 `--fill-after 5`.
+- 방은 여러 개 동시에 돈다(`--max-rooms`, 기본 2). 상한을 넘으면 "서버가 붐빕니다 · 대기 순번 N"이 뜬다 — `--max-rooms 1`로 Busy 화면을 볼 수 있다. 매치 중 사람이 나가면 그 방만 끝난다(Ctrl+C로 종료).
 - 처음 실행할 때 Windows 방화벽이 묻는다 → **개인 네트워크 허용**.
 
 ---

@@ -87,7 +87,7 @@ namespace Tichu.Presentation.Shell
             Wire(ScreenState.MainHub,    "설정",      () => _flow.Send(AppFlowEvent.OpenSettings));
             Wire(ScreenState.ModeSelect, "AI 대전",   () => _flow.Send(AppFlowEvent.OpenDifficultySelect));   // → 난이도 선택
             Wire(ScreenState.ModeSelect, "랭킹",      () => { _flow.Send(AppFlowEvent.SelectRankingStub);    ShowToast("랭킹은 Phase 3에서 제공됩니다"); });
-            Wire(ScreenState.ModeSelect, "친구방",    OnFriendRoom);
+            Wire(ScreenState.ModeSelect, "온라인 대전", OnFriendRoom);
             Wire(ScreenState.ModeSelect, "뒤로",      () => _flow.Send(AppFlowEvent.Back));
             Wire(ScreenState.DifficultySelect, "쉬움",   () => StartAt(Difficulty.Easy));
             Wire(ScreenState.DifficultySelect, "보통",   () => StartAt(Difficulty.Normal));
@@ -115,13 +115,13 @@ namespace Tichu.Presentation.Shell
             _flow.Send(AppFlowEvent.StartAiMatch);
         }
 
-        // 친구방: 개발 빌드(에디터 포함)에서만 M2 접속 화면을 연다. 릴리스는 기존 스텁 안내 유지.
+        // 온라인 대전: 개발 빌드(에디터 포함)에서만 접속 화면을 연다. 릴리스는 스텁 안내(출시 주소 고정은 M4).
         void OnFriendRoom()
         {
             if (!Debug.isDebugBuild)
             {
                 _flow.Send(AppFlowEvent.SelectFriendRoomStub);
-                ShowToast("친구방은 Phase 3에서 제공됩니다");
+                ShowToast("온라인 대전은 준비 중입니다");
                 return;
             }
             _flow.Send(AppFlowEvent.OpenNetJoin);

@@ -189,7 +189,7 @@ namespace Tichu.Presentation.Shell
             ScreenState.DifficultySelect => "난이도 선택",
             ScreenState.HowTo      => "게임 방법",
             ScreenState.Settings   => "설정",
-            ScreenState.NetJoin    => "친구방 (개발용)",
+            ScreenState.NetJoin    => "온라인 대전 (개발용)",
             _                      => s.ToString(),
         };
 

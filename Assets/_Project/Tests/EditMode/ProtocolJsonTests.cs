@@ -145,6 +145,18 @@ namespace Tichu.Core.Tests
             Assert.That(lobby.YourSeat, Is.EqualTo(2));
             Assert.That(lobby.Connected, Is.EqualTo(1));
             Assert.That(lobby.Required, Is.EqualTo(2));
+
+            var waiting = RoundTrip(ServerEvent.Queued(2, 18, false, 0));
+            Assert.That(waiting.Kind, Is.EqualTo(ServerEventKind.Queued));
+            Assert.That(waiting.Waiting, Is.EqualTo(2));
+            Assert.That(waiting.FillInSeconds, Is.EqualTo(18));
+            Assert.That(waiting.Busy, Is.False);
+            Assert.That(waiting.Position, Is.EqualTo(0));
+
+            var busy = RoundTrip(ServerEvent.Queued(5, null, true, 3));
+            Assert.That(busy.FillInSeconds, Is.Null, "Busy 면 카운트다운이 없다");
+            Assert.That(busy.Busy, Is.True);
+            Assert.That(busy.Position, Is.EqualTo(3));
         }
 
         [TestCase("not json")]

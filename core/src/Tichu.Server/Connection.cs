@@ -28,8 +28,9 @@ namespace Tichu.Server
         private WebSocketCloseStatus _closeStatus = WebSocketCloseStatus.NormalClosure;
         private string _closeReason = "bye";
 
-        public Connection(WebSocket socket, TokenBucket? bucket, Action<string> log)
+        public Connection(WebSocket socket, TokenBucket? bucket, Action<string> log, string deviceId = "")
         {
+            DeviceId = deviceId;
             Socket = socket;
             _bucket = bucket;
             _log = log;
@@ -37,6 +38,7 @@ namespace Tichu.Server
         }
 
         public int Id { get; } = Interlocked.Increment(ref _nextId);
+        public string DeviceId { get; }
         public WebSocket Socket { get; }
         public Task WriterTask { get; }
 

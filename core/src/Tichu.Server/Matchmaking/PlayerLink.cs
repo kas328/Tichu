@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Tichu.Net;
 
 namespace Tichu.Server
@@ -5,6 +7,8 @@ namespace Tichu.Server
     public interface IPlayerLink
     {
         int Id { get; }
+        /// <summary>기기 식별자(접속 쿼리 id). 재접속 라우팅 키. 없으면 "".</summary>
+        string DeviceId { get; }
         /// <summary>지금 이 연결의 메시지를 받는 곳(대기열 또는 방). 스레드 간 읽기 — 구현은 volatile.</summary>
         ILinkOwner? Owner { get; set; }
         /// <summary>큐에 넣기만 하고 막히지 않는다(잠금 안에서 불려도 된다).</summary>
@@ -21,5 +25,14 @@ namespace Tichu.Server
     {
         /// <summary>AI 생성·Lobby 송신·세션 시작. 매치메이커 잠금 밖에서 한 번 불린다.</summary>
         void Start();
+
+        /// <summary>이 방 사람 좌석들의 기기 식별자(재접속 라우팅용). 생성 후 불변.</summary>
+        IReadOnlyList<string> DeviceIds { get; }
+
+        /// <summary>같은 기기의 새 연결을 그 좌석에 다시 붙인다. 매치메이커 잠금 밖에서 불린다.</summary>
+        void Rejoin(IPlayerLink link);
+
+        /// <summary>서버 1초 틱 — 빈 방 유예 시간을 잰다.</summary>
+        void Tick(DateTime now);
     }
 }

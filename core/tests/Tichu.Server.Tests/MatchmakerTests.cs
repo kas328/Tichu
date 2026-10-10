@@ -163,7 +163,7 @@ namespace Tichu.Server.Tests
             foreach (var l in waiting) mm.Enqueue(l);        // 4명이 모였지만 상한
             Assert.That(_rooms.Count, Is.EqualTo(1));
 
-            mm.RoomClosed();
+            mm.RoomClosed(_rooms[0]);
 
             Assert.That(_rooms.Count, Is.EqualTo(2));
             Assert.That(_rooms[1].Humans, Is.EqualTo(waiting));

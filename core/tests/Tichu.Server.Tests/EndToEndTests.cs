@@ -172,36 +172,6 @@ namespace Tichu.Server.Tests
         }
 
         [Test]
-        public async Task Leaving_mid_match_faults_only_that_room()
-        {
-            var opt = Fast(target: 1000);
-            opt.AiDelayMs = 50;                               // 끊기 전에 매치가 끝나지 않게
-            await using var server = await TestServer.StartAsync(opt);
-            using var t1 = await Connect(server);
-            var t2 = await Connect(server);
-            var j1 = await AwaitLobby(t1);
-            await AwaitLobby(t2);
-            await server.WaitForLogAsync("방 0 시작");
-
-            using var t3 = await Connect(server);             // 방 1(혼자)
-            var j3 = await AwaitLobby(t3);
-            await server.WaitForLogAsync("방 1 시작");
-
-            var c1 = new ScriptedClient(j1.Seat, j1);
-            var c3 = new ScriptedClient(j3.Seat, j3);
-            t2.Dispose();                                     // 방 0 의 한 사람이 사라진다
-
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
-            while (DateTime.UtcNow < deadline && c1.FaultReason == null) { c1.Pump(); c3.Pump(); await Task.Delay(5); }
-            Assert.That(c1.FaultReason, Does.Contain("연결 끊김"), "남은 사람에게 누가 끊겼는지 알려야 한다");
-
-            var watch = DateTime.UtcNow + TimeSpan.FromSeconds(1);
-            while (DateTime.UtcNow < watch) { c3.Pump(); await Task.Delay(5); }
-            Assert.That(c3.FaultReason, Is.Null, "다른 방은 영향이 없다");
-            Assert.That(Count(server, "방 1 종료"), Is.EqualTo(0));
-        }
-
-        [Test]
         public async Task No_fault_is_raised_when_server_closes_connections_after_match_end()
         {
             await using var server = await TestServer.StartAsync(Fast());

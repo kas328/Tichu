@@ -31,8 +31,8 @@ namespace Tichu.Server
             Matchmaker? matchmaker = null;
             matchmaker = new Matchmaker(
                 opt.FillAfterSeconds, opt.MaxRooms, () => DateTime.UtcNow,
-                (index, humans) => new Room(index, humans, SeatPicker.Pick(humans.Count, rng), opt, log,
-                    () => matchmaker!.RoomClosed()),
+                (index, humans) => new Room(index, humans, SeatPicker.Pick(humans.Count, rng), opt,
+                    () => DateTime.UtcNow, log, r => matchmaker!.RoomClosed(r)),
                 log);
             var tick = new Timer(_ =>
             {

@@ -65,7 +65,7 @@ namespace Tichu.Server
         public void Tick() => Pump();
 
         /// <summary>방 하나가 끝났다(정상·폴트). 자리가 났으니 대기열을 다시 본다.</summary>
-        public void RoomClosed()
+        public void RoomClosed(IRoom room)
         {
             lock (_gate) _activeRooms--;
             Pump();

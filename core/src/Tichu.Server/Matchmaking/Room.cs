@@ -8,10 +8,11 @@ using Tichu.Net;
 namespace Tichu.Server
 {
     /// <summary>
-    /// 매치 하나(M3 스펙 §2.1). 빈자리를 PIMC 로 채워 MatchSession 을 돌리고, 세션이 끝나면(정상·폴트)
-    /// 자기 연결만 닫고 onClosed 로 매치메이커에 자리를 돌려준다. 매치 중 사람이 끊기면 그 방에만
-    /// SessionFaulted 를 보낸다 — MatchSession.Stop() 은 아무것도 방송하지 않으므로 방송은 여기 몫이다.
-    /// 연결은 이 방에만 속하므로 이전 매치 연결을 거르는 세대 번호가 필요 없다.
+    /// 매치 하나(M3 §2.1, M5). 빈자리는 PIMC, 사람 좌석은 원격 좌석 — 사람이 끊기면 그 좌석의 대리 AI 가
+    /// 둔다(판은 깨지지 않는다). 같은 기기가 다시 오면(Rejoin) 그 좌석에 다시 붙여 로비(+누적 점수)와
+    /// 마지막 상태 스냅샷을 보낸다. 방에 연결된 사람이 0명인 채 EmptyRoomSeconds 가 지나면 닫는다.
+    /// 링크 표·스냅샷 캐시·송신은 한 잠금(_gate) 안에서 — 재접속 스냅샷과 세션 방송의 순서가 뒤바뀌지 않는다.
+    /// 잠금 순서: 방(_gate) → 원격 좌석. 세션 메서드는 가능하면 _gate 밖에서 부른다.
     /// </summary>
     public sealed class Room : IRoom, ITichuTransport
     {
@@ -19,60 +20,84 @@ namespace Tichu.Server
 
         private readonly int _index;
         private readonly ServerOptions _opt;
+        private readonly Func<DateTime> _now;
         private readonly Action<string> _log;
-        private readonly Action _onClosed;
-        private readonly IPlayerLink?[] _bySeat = new IPlayerLink?[SeatCount];
+        private readonly Action<Room> _onClosed;
+        private readonly int _humans;
+        private readonly string?[] _deviceBySeat = new string?[SeatCount];       // 생성 후 불변
+        private readonly IPlayerLink?[] _bySeat = new IPlayerLink?[SeatCount];   // _gate
+        private readonly ServerEvent?[] _lastState = new ServerEvent?[SeatCount]; // _gate
         private readonly object _gate = new object();
         private Action<ClientAction>? _handler;   // _gate
         private MatchSession? _session;           // _gate, Start 이후
-        private int _faultedSeat = -1;            // _gate
+        private DateTime? _emptySince;            // _gate
         private int _ending;
+        private int _closing;
 
         /// <summary>가볍다 — 매치메이커 잠금 안에서 불린다. 좌석 배정과 소속 전환만 한다.</summary>
         public Room(int index, IReadOnlyList<IPlayerLink> humans, int[] seats, ServerOptions opt,
-            Action<string> log, Action onClosed)
+            Func<DateTime> now, Action<string> log, Action<Room> onClosed)
         {
             if (humans.Count != seats.Length) throw new ArgumentException("humans and seats differ in length");
             _index = index;
             _opt = opt;
+            _now = now;
             _log = log;
             _onClosed = onClosed;
+            _humans = humans.Count;
             for (int i = 0; i < humans.Count; i++)
             {
                 _bySeat[seats[i]] = humans[i];
+                _deviceBySeat[seats[i]] = humans[i].DeviceId;
                 humans[i].Owner = this;
+            }
+        }
+
+        public IReadOnlyList<string> DeviceIds
+        {
+            get
+            {
+                var ids = new List<string>();
+                foreach (var d in _deviceBySeat) if (!string.IsNullOrEmpty(d)) ids.Add(d!);
+                return ids;
             }
         }
 
         public void Start()
         {
-            ulong seed = _opt.Seed is ulong s ? unchecked(s + (ulong)_index) : unchecked((ulong)DateTime.UtcNow.Ticks);
+            ulong seed = _opt.Seed is ulong s ? unchecked(s + (ulong)_index) : unchecked((ulong)DateTime.UtcNow.Ticks + (ulong)_index);
             var config = PolicyConfig.For(_opt.Difficulty);
             int budgetMs = PimcBudget.For(_opt.Difficulty);
 
             var agents = new IAgent?[SeatCount];
-            int humans = 0;
             for (int seat = 0; seat < SeatCount; seat++)
-            {
-                if (_bySeat[seat] != null) { humans++; continue; }
-                agents[seat] = new PacedPimcAgent(seed, seat, config, budgetMs, _opt.AiDelayMs);
-            }
-
-            // Lobby 가 첫 StateUpdate 보다 먼저 큐에 들어가야 한다(클라이언트 LobbyWaiter) — 세션 시작 전에 보낸다.
-            for (int seat = 0; seat < SeatCount; seat++)
-                _bySeat[seat]?.Send(ServerEvent.Lobby(seat, humans, humans));
+                if (_deviceBySeat[seat] == null)
+                    agents[seat] = new PacedPimcAgent(seed, seat, config, budgetMs, _opt.AiDelayMs);
 
             var session = new MatchSession(
                 agents, this, seed,
                 targetScore: _opt.Target,
-                interRoundPause: TimeSpan.FromMilliseconds(_opt.InterRoundPauseMs));
-            session.Start();
+                turnTimeout: TimeSpan.FromSeconds(_opt.TurnSeconds),
+                interRoundPause: TimeSpan.FromMilliseconds(_opt.InterRoundPauseMs),
+                standInFor: st => new PacedPimcAgent(unchecked(seed + 0x9E3779B97F4A7C15UL + (ulong)st), st, config, budgetMs, _opt.AiDelayMs),
+                log: m => _log($"방 {_index} {m}"));
+
+            var gone = new List<int>();
             lock (_gate)
             {
                 _session = session;
-                if (_faultedSeat >= 0) session.Stop();   // 시작 전에 이미 누가 나갔다
+                // Lobby 가 첫 StateUpdate 보다 먼저 큐에 들어가야 한다(클라이언트 LobbyWaiter) — 세션 시작 전에 보낸다.
+                for (int seat = 0; seat < SeatCount; seat++)
+                {
+                    if (_deviceBySeat[seat] == null) continue;
+                    if (_bySeat[seat] == null) gone.Add(seat);
+                    else _bySeat[seat]!.Send(ServerEvent.Lobby(seat, _humans, _humans));
+                }
+                if (gone.Count == _humans) _emptySince = _now();
             }
-            _log($"방 {_index} 시작 — 사람 {humans} · AI {SeatCount - humans} · seed {seed} · {_opt.Difficulty} · 목표 {_opt.Target}");
+            foreach (int seat in gone) session.SetSeatConnected(seat, false);   // 시작 전에 끊긴 좌석
+            session.Start();
+            _log($"방 {_index} 시작 — 사람 {_humans} · AI {SeatCount - _humans} · seed {seed} · {_opt.Difficulty} · 목표 {_opt.Target}");
 
             Task.Factory.StartNew(() =>
             {
@@ -86,7 +111,11 @@ namespace Tichu.Server
             if (ev.Kind == ServerEventKind.ActionRejected || ev.Kind == ServerEventKind.SessionFaulted)
                 _log($"방 {_index} 좌석 {seat} {ev.Kind}: {ev.Reason}");
             if (seat < 0 || seat >= SeatCount) return;
-            _bySeat[seat]?.Send(ev);                    // AI 좌석은 연결이 없다 → 버린다
+            lock (_gate)
+            {
+                if (ev.Kind == ServerEventKind.StateUpdate) _lastState[seat] = ev;   // 재접속 스냅샷
+                _bySeat[seat]?.Send(ev);                                              // 끊긴·AI 좌석은 버린다
+            }
         }
 
         public void OnClientAction(Action<ClientAction> handler)
@@ -96,48 +125,104 @@ namespace Tichu.Server
 
         public void Receive(IPlayerLink from, ClientAction a)
         {
-            int seat = SeatOf(from);
-            if (seat < 0) return;
-            a.Seat = seat;                              // 사칭 방지 — 세션은 a.Seat 로 우편함을 고른다
             Action<ClientAction>? h;
-            lock (_gate) h = _handler;
+            lock (_gate)
+            {
+                int seat = SeatOfLocked(from);
+                if (seat < 0) return;                        // 교체된 옛 연결
+                a.Seat = seat;                               // 사칭 방지
+                h = _handler;
+            }
             h?.Invoke(a);
         }
 
         public void Left(IPlayerLink who)
         {
-            if (Volatile.Read(ref _ending) == 1) return;   // 종료 중 우리가 닫은 연결
-            int seat = SeatOf(who);
-            if (seat < 0) return;
+            if (Volatile.Read(ref _ending) == 1) return;     // 종료 중 우리가 닫은 연결
+            int seat;
+            bool empty;
+            MatchSession? session;
             lock (_gate)
             {
-                if (_session != null && _session.Join(TimeSpan.Zero)) return;   // 이미 정상 종료 — 폴트 아님
-                if (_faultedSeat < 0) _faultedSeat = seat;
-                _session?.Stop();   // 방송은 세션 스레드가 끝난 뒤 End 가 한다
+                seat = SeatOfLocked(who);
+                if (seat < 0) return;                        // 이미 새 연결로 교체됨
+                _bySeat[seat] = null;
+                empty = ConnectedLocked() == 0;
+                if (empty) _emptySince = _now();
+                session = _session;
             }
+            _log($"방 {_index} 좌석 {seat} 연결 끊김 — AI 대행{(empty ? " · 사람 0명, 멈춤" : "")}");
+            session?.SetSeatConnected(seat, false);          // null = 시작 전 — Start 가 처리한다
         }
 
-        private int SeatOf(IPlayerLink link)
+        public void Rejoin(IPlayerLink link)
+        {
+            int seat;
+            IPlayerLink? old;
+            MatchSession? session;
+            lock (_gate)
+            {
+                seat = Array.IndexOf(_deviceBySeat, link.DeviceId);
+                if (seat < 0 || Volatile.Read(ref _ending) == 1)
+                {
+                    link.Close("match over");
+                    return;
+                }
+                old = _bySeat[seat];
+                _bySeat[seat] = link;
+                link.Owner = this;
+                _emptySince = null;
+                session = _session;
+
+                var lobby = ServerEvent.Lobby(seat, _humans, _humans);
+                if (session != null) { var sc = session.MatchScore; lobby.TeamA = sc.TeamA; lobby.TeamB = sc.TeamB; }
+                link.Send(lobby);
+                var last = _lastState[seat];
+                if (last?.View != null) link.Send(ServerEvent.StateUpdate(last.View, last.View.Awaiting));
+            }
+            old?.Close("다른 곳에서 접속");
+            _log($"방 {_index} 좌석 {seat} 재접속 (연결 #{link.Id})");
+            if (session == null) return;
+            session.ResetSeatSequence(seat);                  // 새 앱은 ActionSeq 1 부터 — 수신 루프 시작 전에
+            session.SetSeatConnected(seat, true);             // 멈춰 있었으면 다시 묻는다
+        }
+
+        public void Tick(DateTime now)
+        {
+            MatchSession? session;
+            lock (_gate)
+            {
+                if (_emptySince == null || now - _emptySince.Value < TimeSpan.FromSeconds(_opt.EmptyRoomSeconds)) return;
+                _emptySince = null;
+                session = _session;
+            }
+            if (Interlocked.Exchange(ref _closing, 1) == 1) return;
+            _log($"방 {_index} 사람 0명 {_opt.EmptyRoomSeconds}초 — 방 종료");
+            session?.Stop();                                  // 세션 스레드가 끝나면 End 가 정리한다
+        }
+
+        private int SeatOfLocked(IPlayerLink link)
         {
             for (int s = 0; s < SeatCount; s++)
                 if (_bySeat[s] == link) return s;
             return -1;
         }
 
+        private int ConnectedLocked()
+        {
+            int n = 0;
+            for (int s = 0; s < SeatCount; s++) if (_bySeat[s] != null) n++;
+            return n;
+        }
+
         private void End()
         {
             if (Interlocked.Exchange(ref _ending, 1) == 1) return;
-            int faulted;
-            lock (_gate) faulted = _faultedSeat;
-            if (faulted >= 0)
-            {
-                _log($"방 {_index} 좌석 {faulted} 이탈 — 매치 중단");
-                for (int s = 0; s < SeatCount; s++)
-                    SendTo(s, ServerEvent.SessionFaulted($"좌석 {faulted} 연결 끊김"));
-            }
             _log($"방 {_index} 종료");
-            for (int s = 0; s < SeatCount; s++) _bySeat[s]?.Close("match over");
-            _onClosed();
+            IPlayerLink?[] links;
+            lock (_gate) links = (IPlayerLink?[])_bySeat.Clone();
+            foreach (var l in links) l?.Close("match over");
+            _onClosed(this);
         }
     }
 }

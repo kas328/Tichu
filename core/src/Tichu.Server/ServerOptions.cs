@@ -6,7 +6,7 @@ namespace Tichu.Server
 {
     /// <summary>
     /// 서버 실행 설정. 프로세스 하나가 랜덤 매칭으로 여러 방을 돌린다(M3 스펙 §2.3).
-    /// CLI: --difficulty --target --host --port --fill-after --max-rooms --ai-delay --seed.
+    /// CLI: --difficulty --target --host --port --fill-after --max-rooms --ai-delay --seed --turn-seconds --empty-room-seconds.
     /// 나머지(라운드 사이 멈춤·레이트리밋)는 테스트가 코드로 바꾸는 값이다.
     /// </summary>
     public sealed class ServerOptions
@@ -30,6 +30,11 @@ namespace Tichu.Server
         public int RateCapacity { get; set; } = 20;
         public double RatePerSecond { get; set; } = 10;
 
+        /// <summary>결정 한 번의 시간 제한(초). 넘으면 그 한 수는 대리 AI(M5).</summary>
+        public int TurnSeconds { get; set; } = 30;
+        /// <summary>방에 연결된 사람이 0명인 채 이 초가 지나면 방을 닫는다(M5).</summary>
+        public int EmptyRoomSeconds { get; set; } = 120;
+
         public static ServerOptions Parse(string[] args)
         {
             var o = new ServerOptions();
@@ -47,6 +52,8 @@ namespace Tichu.Server
                     case "--ai-delay":   o.AiDelayMs = ParseInt(key, value); break;
                     case "--fill-after": o.FillAfterSeconds = ParseMin(key, value, 0); break;
                     case "--max-rooms":  o.MaxRooms = ParseMin(key, value, 1); break;
+                    case "--turn-seconds": o.TurnSeconds = ParseMin(key, value, 1); break;
+                    case "--empty-room-seconds": o.EmptyRoomSeconds = ParseMin(key, value, 1); break;
                     case "--seed":
                         if (!ulong.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var seed))
                             throw new ArgumentException($"--seed 값이 올바르지 않습니다: {value}");

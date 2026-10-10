@@ -24,6 +24,8 @@ namespace Tichu.Server
         private readonly Action<string> _log;
         private readonly object _gate = new object();
         private readonly List<Entry> _queue = new List<Entry>();
+        private readonly Dictionary<string, IRoom> _byDevice = new Dictionary<string, IRoom>();
+        private readonly HashSet<IRoom> _rooms = new HashSet<IRoom>();
         private int _activeRooms;
         private int _nextRoom;
         private bool _busyLogged;
@@ -50,24 +52,67 @@ namespace Tichu.Server
 
         public void Enqueue(IPlayerLink link)
         {
-            int count;
+            IRoom? rejoin = null;
+            IPlayerLink? replaced = null;
+            int count = 0;
             lock (_gate)
             {
-                link.Owner = this;
-                _queue.Add(new Entry { Link = link, Since = _now() });
-                count = _queue.Count;
+                if (link.DeviceId.Length > 0 && _byDevice.TryGetValue(link.DeviceId, out var room))
+                {
+                    rejoin = room;
+                }
+                else
+                {
+                    link.Owner = this;
+                    int i = link.DeviceId.Length > 0 ? _queue.FindIndex(e => e.Link.DeviceId == link.DeviceId) : -1;
+                    if (i >= 0)
+                    {
+                        // 같은 기기가 다시 줄을 섰다 — 자리와 입장 시각을 그대로 이어받는다.
+                        replaced = _queue[i].Link;
+                        _queue[i] = new Entry { Link = link, Since = _queue[i].Since };
+                    }
+                    else
+                    {
+                        _queue.Add(new Entry { Link = link, Since = _now() });
+                    }
+                    count = _queue.Count;
+                }
+            }
+            if (rejoin != null)
+            {
+                _log($"연결 #{link.Id} 진행 중인 방으로 복귀");
+                rejoin.Rejoin(link);
+                return;
+            }
+            if (replaced != null)
+            {
+                _log($"연결 #{replaced.Id} 같은 기기의 새 접속으로 교체");
+                replaced.Close("다른 곳에서 접속");
             }
             _log($"연결 #{link.Id} 대기열 입장 ({count}명)");
             Pump();
         }
 
-        /// <summary>1초마다 서버 타이머가 부른다 — 충원 시각이 된 묶음을 연다.</summary>
-        public void Tick() => Pump();
+        /// <summary>1초마다 서버 타이머가 부른다 — 충원 시각이 된 묶음을 열고, 방들에 시계를 넘긴다(빈 방 유예).</summary>
+        public void Tick()
+        {
+            Pump();
+            List<IRoom> rooms;
+            DateTime now;
+            lock (_gate) { rooms = new List<IRoom>(_rooms); now = _now(); }
+            foreach (var r in rooms) r.Tick(now);
+        }
 
         /// <summary>방 하나가 끝났다(정상·폴트). 자리가 났으니 대기열을 다시 본다.</summary>
         public void RoomClosed(IRoom room)
         {
-            lock (_gate) _activeRooms--;
+            lock (_gate)
+            {
+                _activeRooms--;
+                _rooms.Remove(room);
+                foreach (var id in room.DeviceIds)
+                    if (_byDevice.TryGetValue(id, out var r) && r == room) _byDevice.Remove(id);
+            }
             Pump();
         }
 
@@ -122,6 +167,9 @@ namespace Tichu.Server
                     int index = _nextRoom++;
                     _activeRooms++;
                     rooms.Add(_openRoom(index, humans));   // 반환 전에 humans 의 Owner 가 방으로 바뀐다
+                    var opened = rooms[rooms.Count - 1];
+                    _rooms.Add(opened);
+                    foreach (var h in humans) if (h.DeviceId.Length > 0) _byDevice[h.DeviceId] = opened;
                     _log($"방 {index} 배정 — 사람 {take}명");
                 }
 

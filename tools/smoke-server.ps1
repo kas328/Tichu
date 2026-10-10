@@ -21,7 +21,7 @@ if ($Version -eq 0) {
     $m = Select-String -Path (Join-Path $root "core/src/Tichu.Net/ProtocolVersion.cs") -Pattern 'const int Current = (\d+)'
     $Version = [int]$m.Matches[0].Groups[1].Value
 }
-$uri = if ($NoVersion) { [Uri]$Url } else { [Uri]("$Url" + "?v=$Version") }
+$uri = if ($NoVersion) { [Uri]$Url } else { [Uri]("$Url" + "?v=$Version&id=$([guid]::NewGuid().ToString('N'))") }
 
 $ws = [System.Net.WebSockets.ClientWebSocket]::new()
 $cts = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(10))

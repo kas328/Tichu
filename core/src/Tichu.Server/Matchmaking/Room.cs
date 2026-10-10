@@ -12,7 +12,8 @@ namespace Tichu.Server
     /// 둔다(판은 깨지지 않는다). 같은 기기가 다시 오면(Rejoin) 그 좌석에 다시 붙여 로비(+누적 점수)와
     /// 마지막 상태 스냅샷을 보낸다. 방에 연결된 사람이 0명인 채 EmptyRoomSeconds 가 지나면 닫는다.
     /// 링크 표·스냅샷 캐시·송신은 한 잠금(_gate) 안에서 — 재접속 스냅샷과 세션 방송의 순서가 뒤바뀌지 않는다.
-    /// 잠금 순서: 방(_gate) → 원격 좌석. 세션 메서드는 가능하면 _gate 밖에서 부른다.
+    /// 잠금 순서: 방(_gate) → RemoteAgent 잠금. 연결 상태 갱신(SetSeatConnected·ResetSeatSequence)은 _gate 안에서 해야 Left/Rejoin/Start 갱신이 뒤섞이지 않는다.
+    /// RemoteAgent 는 자기 잠금을 쥔 채 Room 을 부르면 안 된다(교착).
     /// </summary>
     public sealed class Room : IRoom, ITichuTransport
     {
@@ -94,8 +95,8 @@ namespace Tichu.Server
                     else _bySeat[seat]!.Send(ServerEvent.Lobby(seat, _humans, _humans));
                 }
                 if (gone.Count == _humans) _emptySince = _now();
+                foreach (int seat in gone) session.SetSeatConnected(seat, false);   // 시작 전에 끊긴 좌석
             }
-            foreach (int seat in gone) session.SetSeatConnected(seat, false);   // 시작 전에 끊긴 좌석
             session.Start();
             _log($"방 {_index} 시작 — 사람 {_humans} · AI {SeatCount - _humans} · seed {seed} · {_opt.Difficulty} · 목표 {_opt.Target}");
 
@@ -150,9 +151,9 @@ namespace Tichu.Server
                 empty = ConnectedLocked() == 0;
                 if (empty) _emptySince = _now();
                 session = _session;
+                session?.SetSeatConnected(seat, false);      // null = 시작 전 — Start 가 처리한다
             }
             _log($"방 {_index} 좌석 {seat} 연결 끊김 — AI 대행{(empty ? " · 사람 0명, 멈춤" : "")}");
-            session?.SetSeatConnected(seat, false);          // null = 시작 전 — Start 가 처리한다
         }
 
         public void Rejoin(IPlayerLink link)
@@ -179,12 +180,14 @@ namespace Tichu.Server
                 link.Send(lobby);
                 var last = _lastState[seat];
                 if (last?.View != null) link.Send(ServerEvent.StateUpdate(last.View, last.View.Awaiting));
+                if (session != null)
+                {
+                    session.ResetSeatSequence(seat);          // 새 앱은 ActionSeq 1 부터 — 수신 루프 시작 전에
+                    session.SetSeatConnected(seat, true);     // 멈춰 있었으면 다시 묻는다
+                }
             }
             old?.Close("다른 곳에서 접속");
             _log($"방 {_index} 좌석 {seat} 재접속 (연결 #{link.Id})");
-            if (session == null) return;
-            session.ResetSeatSequence(seat);                  // 새 앱은 ActionSeq 1 부터 — 수신 루프 시작 전에
-            session.SetSeatConnected(seat, true);             // 멈춰 있었으면 다시 묻는다
         }
 
         public void Tick(DateTime now)

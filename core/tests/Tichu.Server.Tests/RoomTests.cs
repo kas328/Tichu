@@ -33,6 +33,8 @@ namespace Tichu.Server.Tests
             return (room, () => Volatile.Read(ref closed), log);
         }
 
+        private FakeLink Track(FakeLink l) { _links.Add(l); return l; }
+
         [TearDown]
         public async Task TearDown()
         {
@@ -90,9 +92,8 @@ namespace Tichu.Server.Tests
             Assert.That(closed(), Is.EqualTo(1), "onClosed 는 한 번만");
         }
 
-        // 세션 스레드 종료 → End() 사이의 좁은 틈(Room.Left 의 _ending·Join(TimeSpan.Zero) 가드가 막는 구간)은
-        // 훅 없이는 결정적으로 재현할 수 없다 — 그 가드는 코드 검토로 확인한다. 실제 종료 경로는
-        // EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 끝에서 끝까지 덮는다.
+        // 방이 닫힌 뒤 늦게 오는 Left 는 _ending 가드가 막는다(좌석 끊김 처리·로그 없음).
+        // 실제 종료 경로는 EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 덮는다.
         [Test]
         public async Task Normal_end_closes_links_without_fault()
         {
@@ -107,7 +108,7 @@ namespace Tichu.Server.Tests
             client.Pump();
 
             Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted), Is.False);
-            lock (log) Assert.That(log.Exists(m => m.Contains("이탈")), Is.False);
+            lock (log) Assert.That(log.Exists(m => m.Contains("연결 끊김")), Is.False);
         }
 
         [Test]
@@ -149,7 +150,7 @@ namespace Tichu.Server.Tests
 
             room.Receive(a, ClientAction.Pass(1, 50));       // 옛 앱이 ActionSeq 를 이미 올려 놨다
             room.Left(a);                                    // 유일한 사람 → 멈춤
-            var a2 = new FakeLink { DeviceId = a.DeviceId };
+            var a2 = Track(new FakeLink { DeviceId = a.DeviceId });
             room.Rejoin(a2);
 
             var first = a2.Received[0];
@@ -175,7 +176,7 @@ namespace Tichu.Server.Tests
             room.Start();
             await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
 
-            var a2 = new FakeLink { DeviceId = a.DeviceId };
+            var a2 = Track(new FakeLink { DeviceId = a.DeviceId });
             room.Rejoin(a2);
             room.Left(a);                                    // 옛 연결이 늦게 끊긴다
 
@@ -209,7 +210,7 @@ namespace Tichu.Server.Tests
             room.Start();
             await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
             room.Left(a);
-            room.Rejoin(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(Track(new FakeLink { DeviceId = a.DeviceId }));
 
             room.Tick(_clock.AddSeconds(500));
             await Task.Delay(300);

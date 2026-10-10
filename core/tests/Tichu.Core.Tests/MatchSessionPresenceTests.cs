@@ -105,5 +105,27 @@ namespace Tichu.Core.Tests
             }
             finally { session.Stop(); }
         }
+
+        [Test]
+        public void Session_paused_by_two_seats_resumes_when_a_different_seat_returns()
+        {
+            var t = new LoopbackTransport();
+            var session = Session(t, new IAgent?[] { null, new ScriptedAgent(), null, new ScriptedAgent() });
+            try
+            {
+                session.SetSeatConnected(0, false);
+                session.SetSeatConnected(2, false);               // 사람 둘 다 없다 → 멈춤
+                session.Start();
+
+                Thread.Sleep(300);
+                Assert.That(session.Join(TimeSpan.Zero), Is.False, "아무도 없으면 멈춰 있어야 한다");
+
+                session.SetSeatConnected(2, true);                // 다른 좌석의 사람이 먼저 돌아온다
+                var c2 = new ScriptedClient(2, t);
+                PumpUntil(() => c2.MatchEnded, 30000, c2);
+                Assert.That(c2.FaultReason, Is.Null);
+            }
+            finally { session.Stop(); }
+        }
     }
 }

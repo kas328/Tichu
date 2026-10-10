@@ -92,6 +92,23 @@ namespace Tichu.Server.Tests
             Assert.That(closed(), Is.EqualTo(1), "onClosed 는 한 번만");
         }
 
+        [Test]
+        public async Task Rejoin_after_the_room_ended_is_told_why()
+        {
+            var a = new FakeLink();
+            var (room, closed, _) = Make(Fast(), new[] { 2 }, a);
+            room.Start();
+            var client = new ScriptedClient(2, a);
+            await Until(() => { client.Pump(); return client.MatchEnded; }, 60);
+            await Until(() => closed() == 1);
+
+            var late = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(late);
+
+            Assert.That(late.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "진행 중인 판이 끝났습니다"), Is.True);
+            Assert.That(late.ClosedReason, Is.EqualTo("match over"));
+        }
+
         // 방이 닫힌 뒤 늦게 오는 Left 는 _ending 가드가 막는다(좌석 끊김 처리·로그 없음).
         // 실제 종료 경로는 EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 덮는다.
         [Test]
@@ -181,6 +198,8 @@ namespace Tichu.Server.Tests
             room.Left(a);                                    // 옛 연결이 늦게 끊긴다
 
             Assert.That(a.ClosedReason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "다른 곳에서 접속"), Is.True,
+                "밀려난 연결에 사유를 보낸다 — 클라이언트가 재접속해 자리를 되찾지 않게");
             lock (log) Assert.That(log.Exists(m => m.Contains("좌석 0 연결 끊김")), Is.False, "옛 연결의 끊김은 좌석에 닿지 않는다");
         }
 

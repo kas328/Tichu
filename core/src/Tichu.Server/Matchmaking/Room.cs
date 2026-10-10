@@ -166,6 +166,7 @@ namespace Tichu.Server
                 seat = Array.IndexOf(_deviceBySeat, link.DeviceId);
                 if (seat < 0 || Volatile.Read(ref _ending) == 1)
                 {
+                    link.Send(ServerEvent.SessionFaulted("진행 중인 판이 끝났습니다"));
                     link.Close("match over");
                     return;
                 }
@@ -186,7 +187,12 @@ namespace Tichu.Server
                     session.SetSeatConnected(seat, true);     // 멈춰 있었으면 다시 묻는다
                 }
             }
-            old?.Close("다른 곳에서 접속");
+            if (old != null)
+            {
+                // 사유를 먼저 보낸다 — 밀려난 연결이 끊김으로 보고 재접속해 자리를 되찾지 않게.
+                old.Send(ServerEvent.SessionFaulted("다른 곳에서 접속"));
+                old.Close("다른 곳에서 접속");
+            }
             _log($"방 {_index} 좌석 {seat} 재접속 (연결 #{link.Id})");
         }
 

@@ -284,9 +284,16 @@ namespace Tichu.Server.Tests
             var j2 = await AwaitLobby(second);
 
             Assert.That(j2.Seat, Is.EqualTo(j1.Seat));
+            // 옛 연결은 사유(SessionFaulted)를 받고 닫힌다 — 끊김이 아니므로 재접속하지 않는다.
+            string? reason = null;
             var lost = DateTime.UtcNow.AddSeconds(5);
-            while (DateTime.UtcNow < lost && !first.ConnectionLost) { first.Drain(); await Task.Delay(10); }
-            Assert.That(first.ConnectionLost, Is.True, "옛 연결은 닫힌다");
+            while (DateTime.UtcNow < lost && reason == null)
+            {
+                foreach (var e in first.Drain()) if (e.Kind == ServerEventKind.SessionFaulted) reason = e.Reason;
+                await Task.Delay(10);
+            }
+            Assert.That(reason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(first.ConnectionLost, Is.False, "서버가 사유를 보내고 닫은 것은 끊김이 아니다");
         }
 
         [Test]

@@ -87,6 +87,8 @@ namespace Tichu.Server
             if (replaced != null)
             {
                 _log($"연결 #{replaced.Id} 같은 기기의 새 접속으로 교체");
+                // 사유를 먼저 보낸다 — 클라이언트가 서버 종료로 보고 재접속해 자리를 되찾지 않게.
+                replaced.Send(ServerEvent.SessionFaulted("다른 곳에서 접속"));
                 replaced.Close("다른 곳에서 접속");
             }
             _log($"연결 #{link.Id} 대기열 입장 ({count}명)");

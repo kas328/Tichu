@@ -705,6 +705,41 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Early_grand_tichu_call_survives_a_disconnect_before_the_question()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, standIn: stub, anyConnected: () => true);
+            var s = GameEngine.NewRound(778UL);
+
+            agent.Submit(ClientAction.CallGrandTichu(0, 1));   // 아직 묻기 전에 먼저 낸 답
+            agent.SetConnected(false);
+
+            Assert.That(agent.CallGrandTichu(GameFlowHelpers.Context(s, 0)), Is.True, "미리 낸 큰 티츄 콜을 대리 AI 가 덮어쓰지 않는다");
+            Assert.That(stub.Grands, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Early_exchange_survives_a_disconnect_before_the_question()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, standIn: stub, anyConnected: () => true);
+            var state = GameFlowHelpers.PlayState(0,
+                Hand(Card.Normal(5, Suit.Jade), Card.Normal(9, Suit.Sword), Card.Normal(7, Suit.Star), Card.Normal(8, Suit.Pagoda)),
+                Hand(Card.Normal(4, Suit.Jade)),
+                Hand(Card.Normal(6, Suit.Jade)),
+                Hand(Card.Normal(7, Suit.Jade)));
+
+            agent.Submit(ClientAction.Exchange(0, 1, Card.Normal(9, Suit.Sword), Card.Normal(7, Suit.Star), Card.Normal(8, Suit.Pagoda)));
+            agent.SetConnected(false);
+
+            var choice = agent.ChooseExchange(GameFlowHelpers.Context(state, 0));
+            Assert.That(choice.ToLeft, Is.EqualTo(Card.Normal(9, Suit.Sword)), "사람이 고른 교환이 그대로 쓰인다");
+            Assert.That(stub.Exchanges, Is.EqualTo(0));
+        }
+
+        [Test]
         public void ResetActionSeq_lets_a_new_client_start_from_one()
         {
             var h = new Harness();

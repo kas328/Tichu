@@ -438,15 +438,32 @@ namespace Tichu.Net
                     ask = ++_askCounter;
                     _currentAsk = human ? ask : 0;
                 }
-                if (!human && !paused) return null;
+                if (!human && !paused)
+                {
+                    // 큰 티츄·교환은 미리 낸 답이 있으면 대리 AI 에게 넘기기 전에 먼저 쓴다 — 답을 내고 곧
+                    // 끊긴 사람의 결정이 사라지면 안 된다(재접속 뒤 다시 뜬 질문은 "already decided" 로 거부된다).
+                    ClientAction? early = null;
+                    List<ClientAction>? staleEarly = null;
+                    if (kind == StepKind.GrandTichu || kind == StepKind.Exchange)
+                        lock (_gate) early = TakeEarlyLocked(kind, ask, ref staleEarly);
+                    if (staleEarly != null) foreach (var st in staleEarly) Reject(st, "stale answer");
+                    return early;
+                }
 
                 int? secondsLeft = human && _timeout != Timeout.InfiniteTimeSpan
                     ? (int)Math.Ceiling(_timeout.TotalSeconds) : (int?)null;
-                // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다** — "지금 누구에게 무엇을 묻는지"의 유일한 신호다.
+                // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다.** 이 방송이 "지금 누구에게 무엇을 묻는지"의
+                // 유일한 신호라, 건너뛰면 아무도 차례를 알 수 없게 된다. (예외: 자리 비움 좌석은 묻지 않고
+                // 대리 AI 가 바로 둔다 — 위에서 이미 반환했다.)
                 _onAwait(_seat, BuildAwaiting(kind, state, seat, ask, secondsLeft));
 
-                // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다(기존 주석 참고). 깨움 표식
-                // (CallTichu·Resume)은 예약과 별개라 버린다. 번호 붙은 답은 지난 질문의 늦은 답이라 거부한다.
+                // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다. 선행 큐로 되돌리고 그 항목의
+                // 퍼밋을 함께 소각해 (퍼밋 수 == _matched.Count) 불변식을 복원한다. 배수를 _early 스캔보다
+                // **먼저** 두어야 같은 종류의 잔여물이 스캔 대상에 들어온다. 이 배수 덕분에 대기 시작 시
+                // _matched 가 비고, _awaiting 이 설정된 동안 Submit 은 매칭 종류만 넣으므로 대기 후 Dequeue 에는
+                // 종류 필터가 필요 없다. 깨움 표식(CallTichu·Resume)은 예약과 별개라 되돌리지 않고 버린다 —
+                // 선행 큐에 넣으면 어떤 질문과도 매칭되지 않은 채 남아 라운드 경계에서 엉뚱한 거부 통보가 된다.
+                // 번호 붙은 답은 지난 질문의 늦은 답이라 거부한다.
                 // _awaiting 이 null 인 동안 Submit 은 _matched 에 넣지 않으므로 별도 잠금이어도 안전하다.
                 List<ClientAction>? stale = null;
                 lock (_gate)
@@ -471,19 +488,12 @@ namespace Tichu.Net
                     // _awaiting 이 없어 유실됐으니 다시 묻는다.
                     if (_standIn != null && human != (_connected && !_afk)) continue;
 
+                    // 멈춤 중에도 큰 티츄·교환의 미리 낸 답은 쓴다(위 비사람 경로와 같은 이유).
+                    if (human || kind == StepKind.GrandTichu || kind == StepKind.Exchange)
+                        ready = TakeEarlyLocked(kind, ask, ref stale2);
+
                     if (human)
                     {
-                        for (int i = 0; i < _early.Count; i++)
-                        {
-                            if (!Matches(kind, _early[i].Kind)) continue;
-                            var buffered = _early[i];
-                            _early.RemoveAt(i);
-                            i--;
-                            if (buffered.AskId != 0 && buffered.AskId != ask) { (stale2 ??= new List<ClientAction>()).Add(buffered); continue; }
-                            ready = buffered;
-                            break;
-                        }
-
                         if (ready == null && kind == StepKind.Play)
                         {
                             while (_offTurnPlays.Count > 0)
@@ -513,7 +523,9 @@ namespace Tichu.Net
                 bool got = false;
                 try
                 {
-                    // _awaiting 을 세운 **뒤에** 예약을 확인한다(기존 주석 참고).
+                    // _awaiting 을 세운 **뒤에** 예약을 확인한다. 콜 제출 쪽은 예약을 세운 뒤에 _awaiting 을
+                    // 보므로, 둘 중 적어도 한쪽은 상대의 쓰기를 본다 — 0단계와 여기 사이에 도착한 콜도
+                    // 결정적으로 깨운다. 양쪽 다 깨워도 남는 표식은 버려진다.
                     if (human && kind == StepKind.Play && _anyTichuPending != null && _anyTichuPending())
                         WakeTurnForTichu();
 
@@ -527,6 +539,7 @@ namespace Tichu.Net
                 {
                     lock (_gate)
                     {
+                        // 취소는 두 lock 블록 사이에서 throw 되므로 여기서 정리해야 _awaiting 이 남지 않는다.
                         _awaiting = null;
                         _paused = false;
                         _currentAsk = 0;   // 질문이 끝났다
@@ -560,9 +573,26 @@ namespace Tichu.Net
             }
         }
 
+        /// <summary>선행 큐에서 이 질문의 답을 꺼낸다(_gate 안에서). 지난 질문의 번호 붙은 답은 stale 로 모은다.</summary>
+        private ClientAction? TakeEarlyLocked(StepKind kind, long ask, ref List<ClientAction>? stale)
+        {
+            for (int i = 0; i < _early.Count; i++)
+            {
+                if (!Matches(kind, _early[i].Kind)) continue;
+                var buffered = _early[i];
+                _early.RemoveAt(i);
+                i--;
+                if (buffered.AskId != 0 && buffered.AskId != ask) { (stale ??= new List<ClientAction>()).Add(buffered); continue; }
+                return buffered;
+            }
+            return null;
+        }
+
         private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat, long askId, int? secondsLeft)
         {
-            // (기존 좌석 일치 검사 그대로)
+            // Seat 은 _seat, LegalMoves/CanPass 는 seat 로 계산한다. 둘이 어긋나면 한 좌석의 신분에 다른 좌석의
+            // 합법수를 실어 보내는 은닉 정보 누출이 된다 — 이 마일스톤의 핵심 불변식이라 배선 오류를 조용히
+            // 넘기지 않고 크게 터뜨린다(클라이언트 입력이 아니라 프로그래머 오류이므로 세션을 죽이는 쪽이 맞다).
             if (seat != _seat)
                 throw new InvalidOperationException(
                     $"seat {_seat} 에이전트가 seat {seat} 으로 질의됐다 — 배선 오류");

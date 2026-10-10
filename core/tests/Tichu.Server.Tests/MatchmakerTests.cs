@@ -227,6 +227,7 @@ namespace Tichu.Server.Tests
             mm.Enqueue(a2);
 
             Assert.That(a.ClosedReason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "다른 곳에서 접속"), Is.True);
             Assert.That(mm.QueuedCount, Is.EqualTo(2));
             Assert.That(a2.QueuedEvents.Last().FillInSeconds, Is.EqualTo(15), "a 의 입장 시각을 이어받는다");
             Advance(15); mm.Tick();

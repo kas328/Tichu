@@ -24,6 +24,7 @@ namespace Tichu.Core.Tests
             public readonly List<Awaiting> Awaits = new List<Awaiting>();
             public readonly CancellationTokenSource Cts = new CancellationTokenSource();
             private long _arrival;
+            public Action<Awaiting>? OnAwait;   // 방송 콜백 안에서 끼어들기용
 
             /// <summary>
             /// anyTichuPending 을 주지 않으면 세션처럼 자기 예약을 확인하도록 잇는다(좌석 하나뿐인 세션).
@@ -36,7 +37,7 @@ namespace Tichu.Core.Tests
                 agent = new RemoteAgent(
                     seat,
                     (s, ev) => { lock (Sent) Sent.Add(ev); },
-                    (s, aw) => { lock (Awaits) Awaits.Add(aw); },
+                    (s, aw) => { lock (Awaits) Awaits.Add(aw); OnAwait?.Invoke(aw); },
                     () => Interlocked.Increment(ref _arrival),
                     timeout ?? TimeSpan.FromSeconds(5),
                     Cts.Token,
@@ -723,6 +724,41 @@ namespace Tichu.Core.Tests
             var h = new Harness();
             var agent = h.Create(0, TimeSpan.FromMilliseconds(80));
             Assert.Throws<TimeoutException>(() => agent.DecideTurn(LeadContext(out _)));
+        }
+
+        [Test]
+        public void Reconnect_inside_the_broadcast_window_still_wakes_a_paused_seat()
+        {
+            var h = new Harness();
+            bool anyone = false;
+            var agent = h.Create(0, TimeSpan.FromSeconds(2), standIn: new StubAgent(), anyConnected: () => anyone);
+            agent.SetConnected(false);
+            bool fired = false;
+            h.OnAwait = aw =>
+            {
+                if (fired) return;
+                fired = true;
+                anyone = true;
+                agent.SetConnected(true);   // 방송과 대기 공개 사이의 틈
+            };
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _)));
+            t.Start();
+
+            WaitUntil(() => h.AwaitCount >= 2, 2000);
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void Answer_with_current_ask_id_before_the_wait_is_published_is_accepted()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(5), standIn: new StubAgent());
+            h.OnAwait = aw => agent.Submit(PlayFive(1, aw.AskId));   // 대기 공개 전에 도착
+            var d = agent.DecideTurn(LeadContext(out _));
+
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(h.RejectCount, Is.EqualTo(0));
         }
     }
 }

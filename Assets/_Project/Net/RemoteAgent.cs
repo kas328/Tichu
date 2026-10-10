@@ -183,10 +183,11 @@ namespace Tichu.Net
                             tichuReserved = true;   // 대기 좌석 깨우기는 잠금을 푼 뒤에
                         }
                     }
-                    else if (a.AskId != 0)
+                    else if (a.AskId != 0 && a.AskId != _currentAsk)
                     {
                         // 지금 묻지 않는 질문을 향한 번호 붙은 답 = 시간 초과로 대리 AI 가 이미 둔 질문의 늦은 답.
-                        // 차례 밖 큐에 넣으면 다음 차례에 엉뚱하게 쓰인다.
+                        // 차례 밖 큐에 넣으면 다음 차례에 엉뚱하게 쓰인다. (현재 질문 번호면 대기가 막 공개되기
+                        // 직전에 온 정당한 답이라 아래에서 보관한다.)
                         rejectReason = "stale answer";
                     }
                     else if (DecidedLocked(a.Kind))
@@ -444,17 +445,28 @@ namespace Tichu.Net
                 // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다** — "지금 누구에게 무엇을 묻는지"의 유일한 신호다.
                 _onAwait(_seat, BuildAwaiting(kind, state, seat, ask, secondsLeft));
 
+                // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다(기존 주석 참고). 깨움 표식
+                // (CallTichu·Resume)은 예약과 별개라 버린다. 번호 붙은 답은 지난 질문의 늦은 답이라 거부한다.
+                // _awaiting 이 null 인 동안 Submit 은 _matched 에 넣지 않으므로 별도 잠금이어도 안전하다.
+                List<ClientAction>? stale = null;
                 lock (_gate)
                 {
-                    // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다(기존 주석 참고). 깨움 표식
-                    // (CallTichu·Resume)은 예약과 별개라 버린다.
                     while (_matched.Count > 0)
                     {
                         var leftover = _matched.Dequeue();
                         _signal.Wait(0);
-                        if (leftover.Kind != ClientActionKind.CallTichu && leftover.Kind != ClientActionKind.Resume)
-                            _early.Add(leftover);
+                        if (leftover.Kind == ClientActionKind.CallTichu || leftover.Kind == ClientActionKind.Resume) continue;
+                        if (leftover.AskId != 0) (stale ??= new List<ClientAction>()).Add(leftover);
+                        else _early.Add(leftover);
                     }
+                }
+                if (stale != null) foreach (var st in stale) Reject(st, "stale answer");
+
+                lock (_gate)
+                {
+                    // 위에서 상태를 읽은 뒤 방송하는 사이에 연결·복귀가 바뀌었을 수 있다 — 그 깨움은
+                    // _awaiting 이 없어 유실됐으니 다시 묻는다.
+                    if (_standIn != null && human != (_connected && !_afk)) continue;
 
                     if (human)
                     {
@@ -485,11 +497,21 @@ namespace Tichu.Net
                     if (human && kind == StepKind.Play && _anyTichuPending != null && _anyTichuPending())
                         WakeTurnForTichu();
 
+                    // 멈춤 공개 뒤에 다른 좌석이 돌아왔을 수 있다(WakeIfPaused 가 _paused 를 못 봄) — 스스로 깨운다.
+                    if (paused && (_anyConnected?.Invoke() ?? true))
+                        lock (_gate) WakeLocked();
+
                     got = _signal.Wait(human ? _timeout : Timeout.InfiniteTimeSpan, _ct);
                 }
                 finally
                 {
-                    lock (_gate) { _awaiting = null; _paused = false; }
+                    lock (_gate)
+                    {
+                        _awaiting = null;
+                        _paused = false;
+                        // 시간 초과 경계에 끼어든 답·표식은 이 대기가 소비한다(다음 질문으로 새지 않게).
+                        if (!got && _matched.Count > 0 && _signal.Wait(0)) got = true;
+                    }
                 }
 
                 if (!got)

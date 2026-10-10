@@ -462,6 +462,9 @@ namespace Tichu.Net
                 }
                 if (stale != null) foreach (var st in stale) Reject(st, "stale answer");
 
+                // 버퍼에서 꺼내는 시점에도 번호를 다시 본다 — 지난 질문의 번호 붙은 답은 쓰지 않고 거부한다.
+                ClientAction? ready = null;
+                List<ClientAction>? stale2 = null;
                 lock (_gate)
                 {
                     // 위에서 상태를 읽은 뒤 방송하는 사이에 연결·복귀가 바뀌었을 수 있다 — 그 깨움은
@@ -475,20 +478,37 @@ namespace Tichu.Net
                             if (!Matches(kind, _early[i].Kind)) continue;
                             var buffered = _early[i];
                             _early.RemoveAt(i);
-                            _timeouts = 0;
-                            return buffered;
+                            i--;
+                            if (buffered.AskId != 0 && buffered.AskId != ask) { (stale2 ??= new List<ClientAction>()).Add(buffered); continue; }
+                            ready = buffered;
+                            break;
                         }
 
-                        if (kind == StepKind.Play && _offTurnPlays.Count > 0)
+                        if (ready == null && kind == StepKind.Play)
                         {
-                            _timeouts = 0;
-                            return _offTurnPlays.Dequeue().Action;
+                            while (_offTurnPlays.Count > 0)
+                            {
+                                var o = _offTurnPlays.Dequeue().Action;
+                                if (o.AskId != 0 && o.AskId != ask) { (stale2 ??= new List<ClientAction>()).Add(o); continue; }
+                                ready = o;
+                                break;
+                            }
                         }
                     }
 
-                    _awaiting = kind;
-                    _paused = paused;
+                    if (ready != null)
+                    {
+                        _timeouts = 0;
+                        _currentAsk = 0;   // 질문이 끝났다 — 같은 번호의 중복·늦은 답은 거부된다
+                    }
+                    else
+                    {
+                        _awaiting = kind;
+                        _paused = paused;
+                    }
                 }
+                if (stale2 != null) foreach (var st in stale2) Reject(st, "stale answer");
+                if (ready != null) return ready;
 
                 bool got = false;
                 try
@@ -509,6 +529,7 @@ namespace Tichu.Net
                     {
                         _awaiting = null;
                         _paused = false;
+                        _currentAsk = 0;   // 질문이 끝났다
                         // 시간 초과 경계에 끼어든 답·표식은 이 대기가 소비한다(다음 질문으로 새지 않게).
                         if (!got && _matched.Count > 0 && _signal.Wait(0)) got = true;
                     }

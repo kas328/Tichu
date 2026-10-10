@@ -760,5 +760,26 @@ namespace Tichu.Core.Tests
             Assert.That(d.IsPass, Is.False);
             Assert.That(h.RejectCount, Is.EqualTo(0));
         }
+
+        [Test]
+        public void Duplicate_numbered_answer_after_the_turn_is_rejected_not_reused()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(150), standIn: stub);
+            var ctx = LeadContext(out _);
+            long x = 0;
+            h.OnAwait = aw => { x = aw.AskId; agent.Submit(PlayFive(1, x)); };
+            Assert.That(agent.DecideTurn(ctx).IsPass, Is.False);
+            h.OnAwait = null;
+
+            var dup = ClientAction.Pass(0, 2);
+            dup.AskId = x;
+            agent.Submit(dup);                              // 끝난 질문 번호의 중복 답
+
+            Assert.That(h.Rejected("stale answer"), Is.True);
+            Assert.That(agent.DecideTurn(ctx).IsPass, Is.True, "재사용되지 않고 시간 초과 → 대리 AI(Pass)");
+            Assert.That(stub.Turns, Is.EqualTo(1), "중복 Pass 가 답으로 쓰이지 않고 대리 AI 가 뒀다");
+        }
     }
 }

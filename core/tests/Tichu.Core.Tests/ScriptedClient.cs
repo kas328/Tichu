@@ -46,6 +46,9 @@ namespace Tichu.Core.Tests
         /// <summary>마지막으로 받은 StateUpdate 의 좌석별 콜.</summary>
         public TichuCall[]? LastCalls { get; private set; }
 
+        /// <summary>마지막 StateUpdate 의 좌석별 자리 비움.</summary>
+        public bool[]? LastAway { get; private set; }
+
         /// <summary>MatchEnded 를 받았는가.</summary>
         public bool MatchEnded { get; private set; }
 
@@ -79,6 +82,7 @@ namespace Tichu.Core.Tests
                 }
 
                 var view = ev.View!;
+                LastAway = view.Away;
                 LastCalls = view.Calls;
                 var awaiting = view.Awaiting;
                 if (awaiting == null || awaiting.Seat != _seat) continue;

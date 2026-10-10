@@ -733,6 +733,85 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void An_in_turn_play_carries_the_prompt_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 23)));
+
+            Assert.That(vm.SubmitPlay(new List<Card> { legal }), Is.True);
+
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.Play));
+            Assert.That(sent.Last().AskId, Is.EqualTo(23));
+        }
+
+        [Test]
+        public void A_small_tichu_call_has_no_ask_id_even_while_a_prompt_shows()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0], askId: 23)));
+
+            Assert.That(vm.DeclareSmallTichu(), Is.True);
+
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.CallTichu));
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void An_off_turn_bomb_has_no_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 1, null));   // 프롬프트 없음 = 차례밖
+
+            var bomb = new List<Card>
+            {
+                Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                Card.Normal(7, Suit.Sword), Card.Normal(7, Suit.Pagoda),
+            };
+            Assert.That(vm.SubmitPlay(bomb), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void A_dragon_gift_carries_the_prompt_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, new Awaiting { Kind = StepKind.DragonGift, Seat = 0, AskId = 31 }));
+
+            Assert.That(vm.SubmitDragonRecipient(1), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(31));
+        }
+
+        [Test]
+        public void An_early_grand_tichu_answer_has_no_ask_id()
+        {
+            // 스펙 §3.1: 큰 티츄·교환은 서버가 묻기 전에 미리 답한다 — 번호 0, 중복은 서버가 막는다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.SubmitGrandTichu(false), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
         public void A_held_turn_prompt_takes_the_new_ask_id()
         {
             // 작은 티츄 Yield 재질의: 깜빡임 방지로 인스턴스는 유지하지만 번호는 새 질문의 것이어야 한다.

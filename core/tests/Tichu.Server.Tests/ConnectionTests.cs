@@ -133,6 +133,7 @@ namespace Tichu.Server.Tests
 
         [TestCase("")]
         [TestCase("?v=1")]
+        [TestCase("?v=2")]
         [TestCase("?v=999")]
         [TestCase("?v=abc")]
         public async Task Missing_wrong_or_garbage_version_gets_the_update_notice_and_is_closed(string query)

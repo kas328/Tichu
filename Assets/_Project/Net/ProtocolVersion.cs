@@ -10,7 +10,7 @@ namespace Tichu.Net
     /// </summary>
     public static class ProtocolVersion
     {
-        public const int Current = 2;
+        public const int Current = 3;
         public const string QueryKey = "v";
 
         /// <summary>접속 URI 에 v=Current 를 붙인다. 이미 다른 쿼리가 있으면 &amp; 로 잇는다.</summary>
@@ -20,6 +20,17 @@ namespace Tichu.Net
             string head = uri.GetLeftPart(hasQuery ? UriPartial.Query : UriPartial.Path);
             return new Uri(head + (hasQuery ? "&" : "?") + QueryKey + "=" + Current.ToString(CultureInfo.InvariantCulture));
         }
+
+        /// <summary>접속 URI 의 기기 식별자 쿼리 키(M5). 같은 기기의 재접속을 그 좌석에 다시 붙이는 데 쓴다.</summary>
+        public const string DeviceIdKey = "id";
+
+        /// <summary>v=Current 와 id=deviceId 를 붙인다.</summary>
+        public static Uri Attach(Uri uri, string deviceId) =>
+            new Uri(Attach(uri).ToString() + "&" + DeviceIdKey + "=" + Uri.EscapeDataString(deviceId));
+
+        /// <summary>서버: 기기 식별자 형식 — Guid "N"(32자 16진). 그 밖은 전부 false.</summary>
+        public static bool IsValidDeviceId(string? value) =>
+            value != null && value.Length == 32 && Guid.TryParseExact(value, "N", out _);
 
         /// <summary>서버: 받은 쿼리 값이 지금 버전인가. 없음·부호·공백·소수·중복·다른 값은 전부 false.</summary>
         public static bool Accepts(string? value) =>

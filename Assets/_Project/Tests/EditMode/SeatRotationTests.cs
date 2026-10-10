@@ -167,5 +167,25 @@ namespace Tichu.Core.Tests
             Assert.That(local.Busy, Is.True);
             Assert.That(local.Position, Is.EqualTo(2));
         }
+
+        [Test]
+        public void Away_flags_and_ask_fields_follow_rotation()
+        {
+            var v = new PlayerView { Viewer = 1 };
+            v.Away[2] = true;   // 절대 좌석 2 = 좌석 1 에게는 오른쪽(로컬 1)
+            v.Awaiting = new Awaiting { Kind = StepKind.Play, Seat = 1, AskId = 5, SecondsLeft = 12 };
+            var local = SeatRotation.ToLocal(ServerEvent.StateUpdate(v, v.Awaiting), 1).View!;
+            Assert.That(local.Away, Is.EqualTo(new[] { false, true, false, false }));
+            Assert.That(local.Awaiting!.AskId, Is.EqualTo(5));
+            Assert.That(local.Awaiting.SecondsLeft, Is.EqualTo(12));
+        }
+
+        [Test]
+        public void Ask_id_survives_rotation_to_the_server()
+        {
+            var a = ClientAction.Pass(0, 1);
+            a.AskId = 99;
+            Assert.That(SeatRotation.ToServer(a, 3).AskId, Is.EqualTo(99));
+        }
     }
 }

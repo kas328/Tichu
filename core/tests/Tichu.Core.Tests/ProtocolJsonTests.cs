@@ -157,6 +157,25 @@ namespace Tichu.Core.Tests
             Assert.That(busy.FillInSeconds, Is.Null, "Busy 면 카운트다운이 없다");
             Assert.That(busy.Busy, Is.True);
             Assert.That(busy.Position, Is.EqualTo(3));
+
+            var view = new PlayerView { Viewer = 1 };
+            view.Away[2] = true;
+            var ask = ServerEvent.StateUpdate(view, new Awaiting { Kind = StepKind.Play, Seat = 1, AskId = 7, SecondsLeft = 30 });
+            var ask2 = RoundTrip(ask);
+            Assert.That(ask2.View!.Away, Is.EqualTo(new[] { false, false, true, false }));
+            Assert.That(ask2.View.Awaiting!.AskId, Is.EqualTo(7));
+            Assert.That(ask2.View.Awaiting.SecondsLeft, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void Resume_and_ask_id_round_trip()
+        {
+            var resume = ProtocolJson.DeserializeClientAction(ProtocolJson.Serialize(ClientAction.Resume(2, 9)));
+            Assert.That(resume.Kind, Is.EqualTo(ClientActionKind.Resume));
+            Assert.That(resume.ActionSeq, Is.EqualTo(9));
+            var answered = ClientAction.Pass(0, 3);
+            answered.AskId = 41;
+            Assert.That(ProtocolJson.DeserializeClientAction(ProtocolJson.Serialize(answered)).AskId, Is.EqualTo(41));
         }
 
         [TestCase("not json")]

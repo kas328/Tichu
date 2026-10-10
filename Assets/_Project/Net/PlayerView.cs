@@ -66,6 +66,9 @@ namespace Tichu.Net
 
         public TichuCall[] Calls { get; set; } = new TichuCall[4];
         public bool[] IsOut { get; set; } = new bool[4];
+
+        /// <summary>좌석별 자리 비움(AI 대행) 여부(M5).</summary>
+        public bool[] Away { get; set; } = new bool[4];
         public int[] FinishOrder { get; set; } = new int[4];
 
         /// <summary>전 좌석 획득 더미 — 이미 공개된 카드라 전체를 싣는다(카드 카운팅 근거).</summary>

@@ -28,7 +28,11 @@ namespace Tichu.Net
         private readonly SemaphoreSlim _outSignal = new SemaphoreSlim(0);
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private int _endedNormally;
+        private int _lost;
         private int _disposed;
+
+        /// <summary>서버의 정상 종료(MatchEnded·서버 SessionFaulted)가 아닌 끊김을 보고했다 — 재접속 대상.</summary>
+        public bool ConnectionLost => Volatile.Read(ref _lost) == 1;
 
         private WebSocketClientTransport(ClientWebSocket ws)
         {
@@ -37,18 +41,22 @@ namespace Tichu.Net
             Task.Run(SendLoop);
         }
 
-        /// <summary>접속한다. 접속 URI 에 프로토콜 버전(v)을 붙인다. 시간 초과·거절·주소 오류는 예외로 올라온다.</summary>
-        public static async Task<WebSocketClientTransport> ConnectAsync(Uri uri, TimeSpan timeout, CancellationToken ct)
+        /// <summary>접속한다. URI 에 프로토콜 버전(v)과 기기 식별자(id)를 붙인다. 시간 초과·거절·주소 오류는 예외로 올라온다.</summary>
+        public static async Task<WebSocketClientTransport> ConnectAsync(Uri uri, string deviceId, TimeSpan timeout, CancellationToken ct)
         {
             var ws = new ClientWebSocket();
             using (var linked = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 linked.CancelAfter(timeout);
-                try { await ws.ConnectAsync(ProtocolVersion.Attach(uri), linked.Token).ConfigureAwait(false); }
+                try { await ws.ConnectAsync(ProtocolVersion.Attach(uri, deviceId), linked.Token).ConfigureAwait(false); }
                 catch { ws.Dispose(); throw; }
             }
             return new WebSocketClientTransport(ws);
         }
+
+        /// <summary>식별자를 신경 쓰지 않는 호출부용 — 매번 새 기기로 접속한다(재접속 불가).</summary>
+        public static Task<WebSocketClientTransport> ConnectAsync(Uri uri, TimeSpan timeout, CancellationToken ct) =>
+            ConnectAsync(uri, Guid.NewGuid().ToString("N"), timeout, ct);
 
         public IReadOnlyList<ServerEvent> Drain()
         {
@@ -142,6 +150,7 @@ namespace Tichu.Net
         {
             if (Volatile.Read(ref _disposed) == 1) return;
             if (Interlocked.Exchange(ref _endedNormally, 1) == 1) return;   // 이미 정상 종료(또는 이미 보고)
+            Interlocked.Exchange(ref _lost, 1);
             _inbox.Enqueue(ServerEvent.SessionFaulted(reason));
         }
     }

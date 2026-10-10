@@ -43,11 +43,31 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void Matchmaking_protocol_is_version_2()
+        public void Reconnect_protocol_is_version_3()
         {
-            // M3 가 Queued 를 더했다 — v1 앱은 관문에서 업데이트 안내를 받아야 한다.
-            Assert.That(ProtocolVersion.Current, Is.EqualTo(2));
-            Assert.That(ProtocolVersion.Accepts("1"), Is.False);
+            // M5 가 질문 번호·자리 비움·Resume·기기 식별자를 더했다 — v2 앱은 업데이트 안내를 받아야 한다.
+            Assert.That(ProtocolVersion.Current, Is.EqualTo(3));
+            Assert.That(ProtocolVersion.Accepts("2"), Is.False);
+        }
+
+        [Test]
+        public void Attach_with_device_id_adds_both_queries()
+        {
+            var id = "0123456789abcdef0123456789abcdef";
+            var u = ProtocolVersion.Attach(new Uri("ws://192.168.0.5:7777/ws"), id);
+            Assert.That(u.ToString(), Is.EqualTo("ws://192.168.0.5:7777/ws?v=3&id=" + id));
+        }
+
+        [TestCase("0123456789abcdef0123456789abcdef", true)]
+        [TestCase("0123456789ABCDEF0123456789ABCDEF", true)]
+        [TestCase(null, false)]
+        [TestCase("", false)]
+        [TestCase("0123456789abcdef", false)]
+        [TestCase("01234567-89ab-cdef-0123-456789abcdef", false)]   // "N" 형식만
+        [TestCase("zz23456789abcdef0123456789abcdef", false)]
+        public void Device_id_must_be_a_32_hex_guid(string? id, bool ok)
+        {
+            Assert.That(ProtocolVersion.IsValidDeviceId(id), Is.EqualTo(ok));
         }
 
         [Test]

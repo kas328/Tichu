@@ -29,7 +29,8 @@ namespace Tichu.Core.Tests
             /// anyTichuPending 을 주지 않으면 세션처럼 자기 예약을 확인하도록 잇는다(좌석 하나뿐인 세션).
             /// </summary>
             public RemoteAgent Create(int seat, TimeSpan? timeout = null,
-                Action? onTichuReserved = null, Func<bool>? anyTichuPending = null)
+                Action? onTichuReserved = null, Func<bool>? anyTichuPending = null,
+                IAgent? standIn = null, Func<bool>? anyConnected = null, int maxTimeouts = 2)
             {
                 RemoteAgent agent = null!;
                 agent = new RemoteAgent(
@@ -40,8 +41,22 @@ namespace Tichu.Core.Tests
                     timeout ?? TimeSpan.FromSeconds(5),
                     Cts.Token,
                     onTichuReserved,
-                    anyTichuPending ?? (Func<bool>)(() => agent.HasReservedTichu));
+                    anyTichuPending ?? (Func<bool>)(() => agent.HasReservedTichu),
+                    standIn,
+                    anyConnected,
+                    null,
+                    maxTimeouts);
                 return agent;
+            }
+
+            public Awaiting LastAwait
+            {
+                get { lock (Awaits) return Awaits[Awaits.Count - 1]; }
+            }
+
+            public bool Rejected(string reason)
+            {
+                lock (Sent) return Sent.Exists(e => e.Kind == ServerEventKind.ActionRejected && e.Reason == reason);
             }
 
             public int AwaitCount
@@ -52,6 +67,40 @@ namespace Tichu.Core.Tests
             public int RejectCount
             {
                 get { lock (Sent) { int n = 0; foreach (var e in Sent) if (e.Kind == ServerEventKind.ActionRejected) n++; return n; } }
+            }
+        }
+
+        /// <summary>대리 AI 대역 — 불린 횟수만 센다. 결과의 합법성은 RemoteAgent 의 관심사가 아니다(드라이버가 검증).</summary>
+        private sealed class StubAgent : IAgent
+        {
+            public int Turns, Exchanges, Grands, Dragons;
+            public bool CallGrandTichu(in DecisionContext ctx) { Grands++; return true; }
+            public ExchangeChoice ChooseExchange(in DecisionContext ctx)
+            {
+                Exchanges++;
+                var h = ctx.State.Seats[ctx.Seat].Hand;
+                return new ExchangeChoice(h[0], h[1], h[2]);
+            }
+            public bool CallTichu(in DecisionContext ctx) => true;
+            public TurnDecision DecideTurn(in DecisionContext ctx) { Turns++; return TurnDecision.Pass; }
+            public Tichu.Core.Combinations.Combination? DecideBomb(in DecisionContext ctx) => null;
+            public int ChooseDragonRecipient(in DecisionContext ctx) { Dragons++; return (ctx.Seat + 1) % 4; }
+        }
+
+        private static ClientAction PlayFive(long seq, long askId = 0)
+        {
+            var a = ClientAction.Play(0, seq, new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null);
+            a.AskId = askId;
+            return a;
+        }
+
+        private static void WaitUntil(Func<bool> cond, int ms = 3000)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            while (!cond())
+            {
+                if (sw.ElapsedMilliseconds > ms) Assert.Fail("조건이 성립하지 않았다");
+                Thread.Sleep(5);
             }
         }
 
@@ -499,6 +548,181 @@ namespace Tichu.Core.Tests
                 "라운드 경계에서 폐기됐어야 할 잔여 액션이 여전히 답으로 쓰였다");
 
             Assert.That(h.RejectCount, Is.EqualTo(1), "폐기된 잔여 액션에 거부 통보가 가야 한다");
+        }
+
+        [Test]
+        public void Timeout_lets_the_stand_in_play_that_turn_only()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(80), standIn: stub);
+
+            var d = agent.DecideTurn(LeadContext(out _));
+
+            Assert.That(d.IsPass, Is.True, "대리 AI 의 결정이 돌아와야 한다");
+            Assert.That(stub.Turns, Is.EqualTo(1));
+            Assert.That(agent.IsAway, Is.False, "한 번 초과는 자리 비움이 아니다");
+        }
+
+        [Test]
+        public void Two_timeouts_make_the_seat_away_and_the_next_question_skips_the_wait()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(300), standIn: stub);
+            var ctx = LeadContext(out _);
+
+            agent.DecideTurn(ctx);
+            agent.DecideTurn(ctx);
+            Assert.That(agent.IsAway, Is.True);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            agent.DecideTurn(ctx);
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(250), "자리 비움이면 기다리지 않는다");
+            Assert.That(stub.Turns, Is.EqualTo(3));
+            Assert.That(h.LastAwait.SecondsLeft, Is.Not.Null, "마지막으로 사람에게 물은 질문엔 타이머가 있었다");
+        }
+
+        [Test]
+        public void Any_action_brings_an_away_seat_back()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(80), standIn: stub);
+            var ctx = LeadContext(out _);
+            agent.DecideTurn(ctx);
+            agent.DecideTurn(ctx);
+            Assert.That(agent.IsAway, Is.True);
+
+            agent.Submit(ClientAction.Resume(0, 1));
+            Assert.That(agent.IsAway, Is.False);
+            agent.Submit(PlayFive(2));                    // 차례 밖 → 차례가 오면 사람의 답
+
+            var d = agent.DecideTurn(ctx);
+            Assert.That(d.IsPass, Is.False);
+            Assert.That(stub.Turns, Is.EqualTo(2), "복귀 뒤엔 대리 AI 를 부르지 않는다");
+        }
+
+        [Test]
+        public void Answer_carrying_the_current_ask_id_is_accepted()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromSeconds(5), standIn: new StubAgent());
+            var ctx = LeadContext(out _);
+            TurnDecision? got = null;
+            var t = new Thread(() => got = agent.DecideTurn(ctx));
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+
+            var aw = h.LastAwait;
+            Assert.That(aw.AskId, Is.GreaterThan(0));
+            Assert.That(aw.SecondsLeft, Is.EqualTo(5));
+            agent.Submit(PlayFive(1, aw.AskId));
+            t.Join(3000);
+
+            Assert.That(got!.Value.IsPass, Is.False);
+            Assert.That(h.RejectCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Late_answer_to_a_timed_out_question_is_rejected()
+        {
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(80), standIn: new StubAgent());
+            agent.DecideTurn(LeadContext(out _));          // 사람이 못 답해 대리 AI 가 둠
+            long oldAsk = h.LastAwait.AskId;
+
+            agent.Submit(PlayFive(1, oldAsk));             // 늦게 도착한 답
+
+            Assert.That(h.Rejected("stale answer"), Is.True);
+            Assert.That(agent.PeekReservedBomb(), Is.Null, "늦은 답이 차례 밖 큐에 남으면 다음 차례에 쓰인다");
+        }
+
+        [Test]
+        public void Disconnect_while_waiting_hands_the_turn_to_the_stand_in_at_once()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromSeconds(10), standIn: stub, anyConnected: () => true);
+            var ctx = LeadContext(out _);
+            TurnDecision? got = null;
+            var t = new Thread(() => got = agent.DecideTurn(ctx));
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            agent.SetConnected(false);
+            Assert.That(t.Join(2000), Is.True);
+
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(1500));
+            Assert.That(stub.Turns, Is.EqualTo(1));
+            Assert.That(agent.IsAway, Is.True);
+        }
+
+        [Test]
+        public void With_no_one_connected_the_seat_waits_until_it_returns()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            bool anyone = false;
+            // 복귀 뒤 사람에게 다시 묻는 질문이 시간 초과되지 않도록 넉넉히(멈춤 대기 자체는 무기한).
+            var agent = h.Create(0, TimeSpan.FromSeconds(2), standIn: stub, anyConnected: () => anyone);
+            agent.SetConnected(false);
+            var ctx = LeadContext(out _);
+            TurnDecision? got = null;
+            var t = new Thread(() => got = agent.DecideTurn(ctx));
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.Null, "멈춤 중엔 타이머가 없다");
+            Assert.That(t.Join(400), Is.False, "아무도 없으면 대리 AI 로 넘기지 않고 기다린다");
+
+            anyone = true;
+            agent.SetConnected(true);                      // 재접속 → 사람에게 다시 묻는다
+            WaitUntil(() => h.AwaitCount == 2);
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+
+            Assert.That(got!.Value.IsPass, Is.False, "돌아온 사람이 둔다");
+            Assert.That(stub.Turns, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Grand_tichu_on_timeout_is_declined_and_a_late_answer_is_rejected()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(80), standIn: stub);
+            var s = GameEngine.NewRound(777UL);
+
+            bool called = agent.CallGrandTichu(GameFlowHelpers.Context(s, 0));
+
+            Assert.That(called, Is.False, "대리 AI 는 큰 티츄를 대신 부르지 않는다");
+            Assert.That(stub.Grands, Is.EqualTo(0));
+            agent.Submit(ClientAction.CallGrandTichu(0, 1));
+            Assert.That(h.Rejected("already decided this round"), Is.True);
+        }
+
+        [Test]
+        public void ResetActionSeq_lets_a_new_client_start_from_one()
+        {
+            var h = new Harness();
+            var agent = h.Create(0);
+            agent.Submit(ClientAction.Pass(0, 5));
+
+            agent.ResetActionSeq();
+            agent.Submit(ClientAction.Pass(0, 1));
+
+            Assert.That(h.Rejected("duplicate or out-of-order actionSeq"), Is.False);
+        }
+
+        [Test]
+        public void Without_a_stand_in_a_disconnected_seat_still_waits_for_its_human()
+        {
+            // 로컬 싱글플레이·기존 경로: 대리 AI 가 없으면 연결 상태가 바뀌어도 동작이 그대로다.
+            var h = new Harness();
+            var agent = h.Create(0, TimeSpan.FromMilliseconds(80));
+            Assert.Throws<TimeoutException>(() => agent.DecideTurn(LeadContext(out _)));
         }
     }
 }

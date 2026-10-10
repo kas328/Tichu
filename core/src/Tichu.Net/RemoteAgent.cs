@@ -27,6 +27,13 @@ namespace Tichu.Net
     /// 우편함 둘은 관문을 우회한다 — 드라이버는 티츄·폭탄 예약 훅에서 엔진이 거부한 액션을
     /// ActionRejected 없이 조용히 버린다. 그래서 작은 티츄 콜과 차례밖 폭탄은 실패해도
     /// 클라이언트가 통보를 받지 못한다. 이걸 표면화하는 일은 M1 범위가 아니다(M2/M5).
+    ///
+    /// M5: 대리 AI 를 받으면 사람이 없을 때 결정을 넘긴다. 연결이 끊기거나(SetConnected(false))
+    /// 연속 maxTimeouts 번 시간 초과면 "자리 비움" — 묻자마자 대리 AI 가 둔다. 그 좌석의 아무
+    /// 액션·Resume·재접속이 복귀다(다음 질문부터). 방에 연결된 원격 좌석이 하나도 없으면(anyConnected
+    /// == false) 대리 AI 로 넘기지 않고 무기한 기다린다 — 판을 멈추는 쪽은 방이고 종료도 방이 한다.
+    /// 질문마다 AskId 를 붙이고, 지난 질문을 향한 늦은 답은 거부한다. 대리 AI 는 큰 티츄·작은 티츄를
+    /// 대신 부르지 않는다. 대리 AI 가 없으면 M4 이전과 동작이 같다.
     /// </summary>
     public sealed class RemoteAgent : IAgent
     {
@@ -53,6 +60,19 @@ namespace Tichu.Net
         // Play 대기에 들어간 직후 부른다. 어느 좌석이든 소비되지 않은 예약이 있으면 스스로 깨운다
         // — 0단계와 _awaiting 설정 사이에 도착한 콜을 놓치지 않기 위함. null 이면 확인하지 않는다.
         private readonly Func<bool>? _anyTichuPending;
+
+        private readonly IAgent? _standIn;
+        private readonly Func<bool>? _anyConnected;
+        private readonly Action<string>? _log;
+        private readonly int _maxTimeouts;
+        private bool _connected = true;   // _gate — 방이 SetConnected 로 바꾼다
+        private bool _afk;                // _gate — 연속 시간 초과로 자리 비움
+        private int _timeouts;            // _gate — 연속 시간 초과 횟수
+        private long _askCounter;         // _gate
+        private long _currentAsk;         // _gate — 지금 사람에게 묻는 질문(0 = 없음)
+        private bool _paused;             // _gate — 아무도 연결돼 있지 않아 무기한 대기 중
+        private bool _grandDecided;       // _gate — 이번 라운드 결정 끝
+        private bool _exchangeDecided;    // _gate
 
         /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
         private readonly struct OffTurnPlay
@@ -85,7 +105,11 @@ namespace Tichu.Net
             TimeSpan timeout,
             CancellationToken ct,
             Action? onTichuReserved = null,
-            Func<bool>? anyTichuPending = null)
+            Func<bool>? anyTichuPending = null,
+            IAgent? standIn = null,
+            Func<bool>? anyConnected = null,
+            Action<string>? log = null,
+            int maxTimeouts = 2)
         {
             _seat = seat;
             _send = send;
@@ -95,6 +119,10 @@ namespace Tichu.Net
             _ct = ct;
             _onTichuReserved = onTichuReserved ?? WakeTurnForTichu;
             _anyTichuPending = anyTichuPending;
+            _standIn = standIn;
+            _anyConnected = anyConnected;
+            _log = log;
+            _maxTimeouts = maxTimeouts;
         }
 
         // ── 클라이언트 입구 ──────────────────────────────────────────────────────
@@ -118,16 +146,31 @@ namespace Tichu.Net
                 {
                     _lastSeq = a.ActionSeq;
 
-                    if (_awaiting.HasValue && Matches(_awaiting.Value, a.Kind))
-                    {
-                        // 큐로 받는다. 거부 뒤 재제출처럼 한 결정에 여러 액션이 연달아 올 수 있고,
-                        // 단일 슬롯이면 먼저 온 것이 덮어써져 거부 통보가 사라진다.
-                        _matched.Enqueue(a);
-                        _signal.Release();
-                        return;
-                    }
+                    // 그 좌석이 무언가 보냈다 = 자리에 있다. 자리 비움이었으면 대기를 깨워 다시 보게 한다
+                    // (멈춤 대기 중이면 사람에게 다시 묻는다).
+                    bool wasAfk = _afk;
+                    _afk = false;
+                    _timeouts = 0;
+                    if (wasAfk) WakeLocked();
 
-                    if (a.Kind == ClientActionKind.CallTichu)
+                    if (a.Kind == ClientActionKind.Resume)
+                    {
+                        // 복귀 표시만 — 적용할 것이 없다.
+                    }
+                    else if (_awaiting.HasValue && Matches(_awaiting.Value, a.Kind))
+                    {
+                        if (a.AskId != 0 && a.AskId != _currentAsk) rejectReason = "stale answer";
+                        else if (DecidedLocked(a.Kind)) rejectReason = "already decided this round";
+                        else
+                        {
+                            // 큐로 받는다. 거부 뒤 재제출처럼 한 결정에 여러 액션이 연달아 올 수 있고,
+                            // 단일 슬롯이면 먼저 온 것이 덮어써져 거부 통보가 사라진다.
+                            _matched.Enqueue(a);
+                            _signal.Release();
+                            return;
+                        }
+                    }
+                    else if (a.Kind == ClientActionKind.CallTichu)
                     {
                         // 라운드당 예약은 한 번만 받는다. 작은 티츄의 합법성은 라운드 안에서 한
                         // 방향으로만 변한다(적용됐거나 불법이 되면 이후 것도 불법) — 그래서 두 번째
@@ -139,6 +182,16 @@ namespace Tichu.Net
                             _tichuReserved = true;
                             tichuReserved = true;   // 대기 좌석 깨우기는 잠금을 푼 뒤에
                         }
+                    }
+                    else if (a.AskId != 0)
+                    {
+                        // 지금 묻지 않는 질문을 향한 번호 붙은 답 = 시간 초과로 대리 AI 가 이미 둔 질문의 늦은 답.
+                        // 차례 밖 큐에 넣으면 다음 차례에 엉뚱하게 쓰인다.
+                        rejectReason = "stale answer";
+                    }
+                    else if (DecidedLocked(a.Kind))
+                    {
+                        rejectReason = "already decided this round";
                     }
                     else if (a.Kind == ClientActionKind.Play)
                     {
@@ -173,6 +226,47 @@ namespace Tichu.Net
                 _signal.Release();
             }
         }
+
+        /// <summary>방이 연결해 둔 사람이 있는가(끊기면 false).</summary>
+        public bool IsConnected { get { lock (_gate) return _connected; } }
+
+        /// <summary>자리 비움 — 끊겼거나 연속 시간 초과. 뷰의 Away 로 다른 좌석에 보인다.</summary>
+        public bool IsAway { get { lock (_gate) return !_connected || _afk; } }
+
+        /// <summary>방이 연결/끊김을 알린다. 대기 중이면 깨워 다시 판단하게 한다(끊김 → 즉시 대리 AI).</summary>
+        public void SetConnected(bool connected)
+        {
+            lock (_gate)
+            {
+                _connected = connected;
+                if (connected) { _afk = false; _timeouts = 0; }
+                WakeLocked();
+            }
+        }
+
+        /// <summary>아무도 없어 멈춰 기다리는 중이면 깨운다 — 다른 좌석의 사람이 돌아왔다.</summary>
+        public void WakeIfPaused()
+        {
+            lock (_gate) { if (_paused) WakeLocked(); }
+        }
+
+        /// <summary>재접속: 새 앱은 ActionSeq 를 1 부터 센다.</summary>
+        public void ResetActionSeq()
+        {
+            lock (_gate) _lastSeq = 0;
+        }
+
+        /// <summary>대기 중이면 Resume 표식으로 깨운다 — Await 가 상태를 다시 보고 다시 묻는다. _gate 안에서.</summary>
+        private void WakeLocked()
+        {
+            if (!_awaiting.HasValue) return;
+            _matched.Enqueue(ClientAction.Resume(_seat, 0L));
+            _signal.Release();
+        }
+
+        private bool DecidedLocked(ClientActionKind k) =>
+            (_grandDecided && (k == ClientActionKind.CallGrandTichu || k == ClientActionKind.DeclineGrandTichu))
+            || (_exchangeDecided && k == ClientActionKind.Exchange);
 
         /// <summary>소비되지 않은 작은 티츄 예약이 있는가.</summary>
         public bool HasReservedTichu
@@ -225,13 +319,16 @@ namespace Tichu.Net
                 while (_matched.Count > 0)
                 {
                     var m = _matched.Dequeue();
-                    if (m.Kind != ClientActionKind.CallTichu) discarded.Add(m);   // 깨움 표식은 거부 대상이 아니다
+                    if (m.Kind != ClientActionKind.CallTichu && m.Kind != ClientActionKind.Resume) discarded.Add(m);   // 깨움 표식은 거부 대상이 아니다
                 }
                 discarded.AddRange(_early);
                 _early.Clear();
                 while (_offTurnPlays.Count > 0) discarded.Add(_offTurnPlays.Dequeue().Action);
                 _tichuReserved = false;
                 _tichuCalledThisRound = false;
+                _grandDecided = false;
+                _exchangeDecided = false;
+                _paused = false;
                 _awaiting = null;
                 while (_signal.Wait(0)) { }   // 남은 퍼밋 소각 — 퍼밋 수와 큐 길이를 함께 0으로
             }
@@ -244,7 +341,9 @@ namespace Tichu.Net
         public bool CallGrandTichu(in DecisionContext ctx)
         {
             var a = Await(StepKind.GrandTichu, ctx.State, ctx.Seat);
-            return a.Kind == ClientActionKind.CallGrandTichu;
+            lock (_gate) _grandDecided = true;
+            // 사람이 없으면 패스 — 대리 AI 가 큰 티츄를 대신 부르지 않는다(계획 Global Constraints).
+            return a != null && a.Kind == ClientActionKind.CallGrandTichu;
         }
 
         /// <inheritdoc/>
@@ -255,7 +354,13 @@ namespace Tichu.Net
             while (true)
             {
                 var a = Await(StepKind.Exchange, state, seat);
+                if (a == null)
+                {
+                    lock (_gate) _exchangeDecided = true;
+                    return _standIn!.ChooseExchange(ctx);
+                }
                 if (!IsLegalExchange(state, seat, a)) { Reject(a, "exchange cards must be three distinct cards from hand"); continue; }
+                lock (_gate) _exchangeDecided = true;
                 return new ExchangeChoice(a.ToLeft, a.ToPartner, a.ToRight);
             }
         }
@@ -271,6 +376,7 @@ namespace Tichu.Net
             while (true)
             {
                 var a = Await(StepKind.Play, state, seat);
+                if (a == null) return _standIn!.DecideTurn(ctx);
 
                 // CallTichu 로 깨어났다 — 드라이버가 예약을 먼저 적용하고 다시 묻게 한다.
                 if (a.Kind == ClientActionKind.CallTichu) return TurnDecision.Yield;
@@ -300,6 +406,7 @@ namespace Tichu.Net
             while (true)
             {
                 var a = Await(StepKind.DragonGift, state, seat);
+                if (a == null) return _standIn!.ChooseDragonRecipient(ctx);
                 int r = a.RecipientSeat;
                 bool isOpponent = r >= 0 && r < 4 && (r % 2) != (seat % 2);
                 if (!isOpponent) { Reject(a, "dragon recipient must be an opponent"); continue; }
@@ -309,79 +416,115 @@ namespace Tichu.Net
 
         // ── 내부 ────────────────────────────────────────────────────────────────
 
-        /// <summary>해당 종류의 액션이 올 때까지 기다린다. 선행 큐와 폭탄 예약을 먼저 확인한다.</summary>
-        private ClientAction Await(StepKind kind, GameState state, int seat)
+        /// <summary>
+        /// 해당 종류의 액션이 올 때까지 기다린다. null 이면 사람이 없다 — 호출자가 대리 AI 에게 넘긴다.
+        /// 사람 있음: 질문 번호·남은 초를 붙여 묻고 _timeout 까지 기다린다(초과 → null, 연속 _maxTimeouts 번이면 자리 비움).
+        /// 자리 비움: 묻지 않고 바로 null. 단 방에 연결된 사람이 아무도 없으면 멈춰 무기한 기다린다.
+        /// Resume 표식(연결·복귀 변화)으로 깨면 상태를 다시 보고 처음부터 다시 묻는다.
+        /// </summary>
+        private ClientAction? Await(StepKind kind, GameState state, int seat)
         {
-            // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다.** 이 방송이 "지금 누구에게
-            // 무엇을 묻는지"의 유일한 신호라, 건너뛰면 아무도 차례를 알 수 없게 된다.
-            _onAwait(_seat, BuildAwaiting(kind, state, seat));
-
-            lock (_gate)
+            while (true)
             {
-                // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다. 선행 큐로 되돌리고
-                // 그 항목의 퍼밋을 함께 소각해 (퍼밋 수 == _matched.Count) 불변식을 복원한다.
-                // 배수를 _early 스캔보다 **먼저** 두어야 같은 종류의 잔여물이 스캔 대상에 들어온다.
-                // 이 배수 덕분에 대기 시작 시 _matched 가 비고, _awaiting 이 설정된 동안
-                // Submit 은 매칭 종류만 넣으므로 대기 후 Dequeue 에는 종류 필터가 필요 없다.
-                // CallTichu 깨움 표식은 예약과 별개라 되돌리지 않고 버린다 — 선행 큐에 넣으면 어떤
-                // 질문과도 매칭되지 않은 채 남아 라운드 경계에서 엉뚱한 거부 통보가 된다.
-                while (_matched.Count > 0)
+                // 다른 좌석의 잠금을 잡는 콜백이라 _gate 밖에서 부른다(잠금 중첩 금지).
+                bool anyConnected = _standIn == null || (_anyConnected?.Invoke() ?? true);
+                bool human, paused;
+                long ask;
+                lock (_gate)
                 {
-                    var leftover = _matched.Dequeue();
-                    _signal.Wait(0);
-                    if (leftover.Kind != ClientActionKind.CallTichu) _early.Add(leftover);
+                    human = _standIn == null || (_connected && !_afk);
+                    paused = !human && !anyConnected;
+                    ask = ++_askCounter;
+                    _currentAsk = human ? ask : 0;
+                }
+                if (!human && !paused) return null;
+
+                int? secondsLeft = human && _timeout != Timeout.InfiniteTimeSpan
+                    ? (int)Math.Ceiling(_timeout.TotalSeconds) : (int?)null;
+                // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다** — "지금 누구에게 무엇을 묻는지"의 유일한 신호다.
+                _onAwait(_seat, BuildAwaiting(kind, state, seat, ask, secondsLeft));
+
+                lock (_gate)
+                {
+                    // 이전 질문에서 남은 매칭 큐 항목은 이 질문의 답이 아니다(기존 주석 참고). 깨움 표식
+                    // (CallTichu·Resume)은 예약과 별개라 버린다.
+                    while (_matched.Count > 0)
+                    {
+                        var leftover = _matched.Dequeue();
+                        _signal.Wait(0);
+                        if (leftover.Kind != ClientActionKind.CallTichu && leftover.Kind != ClientActionKind.Resume)
+                            _early.Add(leftover);
+                    }
+
+                    if (human)
+                    {
+                        for (int i = 0; i < _early.Count; i++)
+                        {
+                            if (!Matches(kind, _early[i].Kind)) continue;
+                            var buffered = _early[i];
+                            _early.RemoveAt(i);
+                            _timeouts = 0;
+                            return buffered;
+                        }
+
+                        if (kind == StepKind.Play && _offTurnPlays.Count > 0)
+                        {
+                            _timeouts = 0;
+                            return _offTurnPlays.Dequeue().Action;
+                        }
+                    }
+
+                    _awaiting = kind;
+                    _paused = paused;
                 }
 
-                for (int i = 0; i < _early.Count; i++)
+                bool got = false;
+                try
                 {
-                    if (!Matches(kind, _early[i].Kind)) continue;
-                    var buffered = _early[i];
-                    _early.RemoveAt(i);
-                    return buffered;
+                    // _awaiting 을 세운 **뒤에** 예약을 확인한다(기존 주석 참고).
+                    if (human && kind == StepKind.Play && _anyTichuPending != null && _anyTichuPending())
+                        WakeTurnForTichu();
+
+                    got = _signal.Wait(human ? _timeout : Timeout.InfiniteTimeSpan, _ct);
+                }
+                finally
+                {
+                    lock (_gate) { _awaiting = null; _paused = false; }
                 }
 
-                if (kind == StepKind.Play && _offTurnPlays.Count > 0)
-                    return _offTurnPlays.Dequeue().Action;
+                if (!got)
+                {
+                    if (_standIn == null) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
+                    bool nowAfk;
+                    lock (_gate)
+                    {
+                        _timeouts++;
+                        nowAfk = _timeouts >= _maxTimeouts;
+                        if (nowAfk) _afk = true;
+                        _currentAsk = 0;
+                    }
+                    _log?.Invoke(nowAfk
+                        ? $"좌석 {_seat} 시간 초과 {_maxTimeouts}회 — 자리 비움, 대리 AI"
+                        : $"좌석 {_seat} 시간 초과 — 대리 AI 가 한 수");
+                    return null;
+                }
 
-                _awaiting = kind;
+                ClientAction a;
+                lock (_gate) a = _matched.Dequeue();
+                if (a.Kind == ClientActionKind.Resume) continue;   // 연결·복귀 변화 — 다시 판단
+                lock (_gate) _timeouts = 0;
+                return a;
             }
-
-            bool got = false;
-            try
-            {
-                // _awaiting 을 세운 **뒤에** 예약을 확인한다. 콜 제출 쪽은 예약을 세운 뒤에
-                // _awaiting 을 보므로, 둘 중 적어도 한쪽은 상대의 쓰기를 본다 — 0단계와 여기
-                // 사이에 도착한 콜도 결정적으로 깨운다. 양쪽 다 깨워도 남는 표식은 버려진다.
-                if (kind == StepKind.Play && _anyTichuPending != null && _anyTichuPending())
-                    WakeTurnForTichu();
-
-                got = _signal.Wait(_timeout, _ct);
-            }
-            finally
-            {
-                // 취소는 두 lock 블록 사이에서 throw 되므로 여기서 정리해야 _awaiting 이 남지 않는다.
-                lock (_gate) _awaiting = null;
-            }
-
-            if (!got) throw new TimeoutException($"seat {_seat} did not act within {_timeout}");
-
-            // _matched 는 이 대기가 시작되기 전에 이미 비워졌고(위의 배수), _awaiting 이
-            // 설정된 동안 Submit 은 매칭하는 종류의 액션(Play 대기라면 CallTichu 깨움 표식 포함)만
-            // 여기에 넣는다. 그래서 종류 필터 없이 그대로 꺼내도 안전하다.
-            lock (_gate) return _matched.Dequeue();
         }
 
-        private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat)
+        private Awaiting BuildAwaiting(StepKind kind, GameState state, int seat, long askId, int? secondsLeft)
         {
-            // Seat 은 _seat, LegalMoves/CanPass 는 seat 로 계산한다. 둘이 어긋나면 한 좌석의
-            // 신분에 다른 좌석의 합법수를 실어 보내는 은닉 정보 누출이 된다 — 이 마일스톤의
-            // 핵심 불변식이라 배선 오류를 조용히 넘기지 않고 크게 터뜨린다(클라이언트 입력이
-            // 아니라 프로그래머 오류이므로 세션을 죽이는 쪽이 맞다).
+            // (기존 좌석 일치 검사 그대로)
             if (seat != _seat)
                 throw new InvalidOperationException(
                     $"seat {_seat} 에이전트가 seat {seat} 으로 질의됐다 — 배선 오류");
 
-            var aw = new Awaiting { Kind = kind, Seat = _seat };
+            var aw = new Awaiting { Kind = kind, Seat = _seat, AskId = askId, SecondsLeft = secondsLeft };
             if (kind == StepKind.Play)
             {
                 aw.LegalMoves = LegalMoveGenerator.LegalMoves(state, seat);

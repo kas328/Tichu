@@ -673,10 +673,12 @@ namespace Tichu.Presentation.Tests
             return view;
         }
 
-        private static Awaiting AskPlay(Card legal) => new Awaiting
+        private static Awaiting AskPlay(Card legal, long askId = 1, int? secs = 30) => new Awaiting
         {
             Kind = StepKind.Play,
             Seat = 0,
+            AskId = askId,
+            SecondsLeft = secs,
             CanPass = true,
             LegalMoves = new List<Combination> { CombinationRecognizer.Recognize(new[] { legal }, TrickContext.Lead) },
         };
@@ -713,6 +715,91 @@ namespace Tichu.Presentation.Tests
             vm.Apply(MyTurnView(s, 1, null));            // 차례밖 폭탄 등으로 차례가 넘어갔다
 
             Assert.That(vm.Prompt.CurrentValue, Is.Null);
+        }
+
+        [Test]
+        public void Answers_carry_the_prompt_ask_id_but_off_turn_calls_do_not()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 17)));
+
+            vm.SubmitPass();
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(17));
+        }
+
+        [Test]
+        public void A_held_turn_prompt_takes_the_new_ask_id()
+        {
+            // 작은 티츄 Yield 재질의: 깜빡임 방지로 인스턴스는 유지하지만 번호는 새 질문의 것이어야 한다.
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 5)));
+            var held = vm.Prompt.CurrentValue;
+            vm.Apply(MyTurnView(s, 0, null));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 6)));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.SameAs(held));
+            vm.SubmitPass();
+            Assert.That(sent.Last().AskId, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Turn_countdown_runs_from_the_time_the_question_arrived()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0], askId: 1, secs: 30)));
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(30));
+            now = 112.4;
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(18));
+            vm.SubmitPass();
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "답하면 타이머가 사라진다");
+        }
+
+        [Test]
+        public void Away_flags_and_resume()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            var v = MyTurnView(s, 1, null);
+            v.Away[0] = true; v.Away[2] = true;
+            vm.Apply(v);
+
+            Assert.That(vm.MyAway.CurrentValue, Is.True);
+            Assert.That(vm.SeatAway(2).CurrentValue, Is.True);
+            Assert.That(vm.SubmitResume(), Is.True);
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.Resume));
+        }
+
+        [Test]
+        public void Reconnect_resets_local_answers_and_sets_the_score()
+        {
+            var s = GameEngine.NewRound(777UL);           // 큰 티츄 단계
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            vm.SubmitGrandTichu(false);
+            vm.Apply(ViewOf(s, 0));
+            Assert.That(vm.Prompt.CurrentValue, Is.Null);
+
+            vm.ResetForReconnect();
+            vm.SetMatchScore(450, 300);
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null, "재접속하면 서버 상태로 다시 묻는다");
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(450));
+            Assert.That(vm.CumulativeB.CurrentValue, Is.EqualTo(300));
         }
     }
 }

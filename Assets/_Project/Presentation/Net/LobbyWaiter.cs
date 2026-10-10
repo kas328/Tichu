@@ -28,6 +28,8 @@ namespace Tichu.Presentation.Net
         public bool Busy { get; private set; }
         public int Position { get; private set; }
         public bool Started { get; private set; }
+        public int MatchTeamA { get; private set; }
+        public int MatchTeamB { get; private set; }
         public string FaultReason { get; private set; }
         public List<ServerEvent> Backlog { get; } = new List<ServerEvent>();
 
@@ -44,6 +46,14 @@ namespace Tichu.Presentation.Net
                 }
                 return "서버 접속 중…";
             }
+        }
+
+        /// <summary>내 팀 기준 누적 점수(뷰모델은 좌석 0 기준 — 홀수 좌석이면 B 가 내 팀).</summary>
+        public void LocalScore(out int mine, out int theirs)
+        {
+            bool odd = (Seat & 1) == 1;
+            mine = odd ? MatchTeamB : MatchTeamA;
+            theirs = odd ? MatchTeamA : MatchTeamB;
         }
 
         public void Feed(IReadOnlyList<ServerEvent> events)
@@ -65,6 +75,8 @@ namespace Tichu.Presentation.Net
                         Seat = ev.YourSeat;
                         Connected = ev.Connected;
                         Required = ev.Required;
+                        MatchTeamA = ev.TeamA;
+                        MatchTeamB = ev.TeamB;
                         break;
                     case ServerEventKind.SessionFaulted:
                         FaultReason = ev.Reason;

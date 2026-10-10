@@ -355,8 +355,9 @@ namespace Tichu.Presentation.Views
                 int seat = i;
                 _vm.SeatAway(seat).Subscribe(a => _seatTexts[seat].text = a ? $"{SeatNames[seat]} (AI 대행)" : SeatNames[seat]).AddTo(_subs);
             }
-            Observable.EveryUpdate().Subscribe(_ =>
+            Observable.EveryUpdate(_sceneCt).Subscribe(_ =>
             {
+                if (_timerText == null) return;
                 var left = _vm.TurnSecondsLeft;
                 _timerText.text = left.HasValue ? $"남은 시간 {left}초" : "";
             }).AddTo(_subs);

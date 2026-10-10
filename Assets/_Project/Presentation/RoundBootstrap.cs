@@ -153,6 +153,7 @@ namespace Tichu.Presentation
             {
                 while (true)
                 {
+                    if (_faulted) return;   // 재접속 대기 중 취소 — 더는 접속하지 않는다
                     WebSocketClientTransport transport;
                     try
                     {
@@ -180,6 +181,12 @@ namespace Tichu.Presentation
                             lobby.Feed(transport.Drain());
                             if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
                             if (retry == null) status.text = lobby.StatusText;
+                            else if (lobby.Waiting > 0 || lobby.Busy)
+                            {
+                                // 재접속인데 서버가 대기열에 넣었다 = 돌아갈 방이 없다(끝났거나 서버 재시작)
+                                InvokeFault("진행 중인 판이 끝났습니다");
+                                return;
+                            }
                             await UniTask.Yield(PlayerLoopTiming.Update, ct);
                         }
                         if (lobby.FaultReason != null)

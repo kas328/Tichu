@@ -238,9 +238,11 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>
         /// 서버가 내 액션을 거부했다. 미리 답한 큰 티츄·교환이 거부됐다면 서버가 다시 묻는다 —
         /// 답함 표시를 풀어야 그 질문이 다시 보인다(새 인스턴스로, 뷰가 다시 그리도록).
+        /// 단 "already decided this round" 는 이미 결정이 끝났다는 뜻이라 다시 묻지 않는다.
         /// </summary>
-        public void OnActionRejected()
+        public void OnActionRejected(string reason)
         {
+            if (reason == "already decided this round") return;
             _grandAnswered = false;
             _exchangeAnswered = false;
             _earlyPrompt = null;
@@ -369,6 +371,8 @@ namespace Tichu.Presentation.ViewModel
         public bool SubmitResume()
         {
             Send(ClientAction.Resume(_mySeat, NextSeq()));
+            _away[_mySeat].Value = false;   // 서버 갱신을 기다리지 않고 배너를 바로 걷는다
+            MyAway.Value = false;
             return true;
         }
 

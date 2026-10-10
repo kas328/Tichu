@@ -92,7 +92,7 @@ namespace Tichu.Presentation.Net
                     // 서버가 내 액션을 되돌렸다. 상태는 StateUpdate 가 진실이라 되돌릴 것이
                     // 없고, 사유만 남긴다(사용자 표면화는 M5 — 거부된 예약 관측 가능화와 함께).
                     LastRejection = ev.Reason;
-                    _vm.OnActionRejected();   // 미리 답한 큰 티츄·교환이 거부됐다면 다시 물을 수 있게
+                    _vm.OnActionRejected(ev.Reason);   // 미리 답한 큰 티츄·교환이 거부됐다면 다시 물을 수 있게
                     break;
 
                 case ServerEventKind.SessionFaulted:

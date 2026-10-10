@@ -142,7 +142,7 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.SubmitGrandTichu(false), Is.True);
 
             // 거부 뒤 재질의처럼 **새** Awaiting 이 오면 다시 답할 수 있다.
-            vm.OnActionRejected();
+            vm.OnActionRejected("illegal");
             var second = ViewOf(s, 0);
             second.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
             vm.Apply(second);
@@ -637,11 +637,25 @@ namespace Tichu.Presentation.Tests
             vm.Apply(ViewOf(s, 0));
             vm.SubmitGrandTichu(false);
 
-            vm.OnActionRejected();
+            vm.OnActionRejected("illegal");
             vm.Apply(ViewOf(s, 0));
 
             Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
             Assert.That(vm.Prompt.CurrentValue.Kind, Is.EqualTo(StepKind.GrandTichu));
+        }
+
+        [Test]
+        public void An_already_decided_rejection_does_not_bring_the_prompt_back()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            vm.SubmitGrandTichu(false);
+
+            vm.OnActionRejected("already decided this round");
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Null);
         }
 
         [Test]
@@ -860,6 +874,8 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.SeatAway(2).CurrentValue, Is.True);
             Assert.That(vm.SubmitResume(), Is.True);
             Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.Resume));
+            Assert.That(vm.MyAway.CurrentValue, Is.False, "돌아가기를 보내면 배너가 바로 걷힌다");
+            Assert.That(vm.SeatAway(0).CurrentValue, Is.False);
         }
 
         [Test]

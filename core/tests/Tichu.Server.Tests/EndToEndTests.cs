@@ -213,7 +213,7 @@ namespace Tichu.Server.Tests
             Assert.That(j2.Seat, Is.EqualTo(j1.Seat), "같은 자리로 돌아온다");
             await server.WaitForLogAsync($"좌석 {j2.Seat} 재접속");
             await PlayToEnd(new ScriptedClient(j2.Seat, j2));
-            Assert.That(Count(server, "시간 초과 2회"), Is.EqualTo(0), "재접속 뒤 액션이 받아들여져야 한다(거부되면 시간 초과로만 진행된다)");
+            Assert.That(Count(server, "시간 초과"), Is.EqualTo(0), "재접속 뒤 액션이 받아들여져야 한다(거부되면 시간 초과로만 진행된다)");
         }
 
         [Test]

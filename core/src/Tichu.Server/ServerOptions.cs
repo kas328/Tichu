@@ -31,7 +31,7 @@ namespace Tichu.Server
         public double RatePerSecond { get; set; } = 10;
 
         /// <summary>결정 한 번의 시간 제한(초). 넘으면 그 한 수는 대리 AI(M5).</summary>
-        public int TurnSeconds { get; set; } = 30;
+        public int TurnSeconds { get; set; } = 20;
         /// <summary>방에 연결된 사람이 0명인 채 이 초가 지나면 방을 닫는다(M5).</summary>
         public int EmptyRoomSeconds { get; set; } = 120;
 

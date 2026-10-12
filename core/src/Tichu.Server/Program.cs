@@ -6,7 +6,7 @@ try { opt = ServerOptions.Parse(args); }
 catch (ArgumentException e)
 {
     Console.Error.WriteLine(e.Message);
-    Console.Error.WriteLine("사용법: --difficulty Hard --target 1000 --port 7777 [--host 0.0.0.0] [--fill-after 30] [--max-rooms 2] [--turn-seconds 30] [--empty-room-seconds 120] [--ai-delay 900] [--seed N]");
+    Console.Error.WriteLine("사용법: --difficulty Hard --target 1000 --port 7777 [--host 0.0.0.0] [--fill-after 30] [--max-rooms 2] [--turn-seconds 20] [--empty-room-seconds 120] [--ai-delay 900] [--seed N]");
     return 2;
 }
 

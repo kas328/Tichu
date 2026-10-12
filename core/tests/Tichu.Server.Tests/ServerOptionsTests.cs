@@ -20,7 +20,7 @@ namespace Tichu.Server.Tests
             Assert.That(o.RateCapacity, Is.EqualTo(20));
             Assert.That(o.RatePerSecond, Is.EqualTo(10));
             Assert.That(o.FillAfterSeconds, Is.EqualTo(30));
-            Assert.That(o.TurnSeconds, Is.EqualTo(30));
+            Assert.That(o.TurnSeconds, Is.EqualTo(20));
             Assert.That(o.EmptyRoomSeconds, Is.EqualTo(120));
             Assert.That(o.MaxRooms, Is.EqualTo(2));
         }

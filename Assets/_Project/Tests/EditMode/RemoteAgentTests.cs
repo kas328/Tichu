@@ -31,7 +31,8 @@ namespace Tichu.Core.Tests
             /// </summary>
             public RemoteAgent Create(int seat, TimeSpan? timeout = null,
                 Action? onTichuReserved = null, Func<bool>? anyTichuPending = null,
-                IAgent? standIn = null, Func<bool>? anyConnected = null, int maxTimeouts = 2)
+                IAgent? standIn = null, Func<bool>? anyConnected = null, int maxTimeouts = 2,
+                Func<DateTime?>? phaseStartedUtc = null, Func<DateTime>? utcNow = null)
             {
                 RemoteAgent agent = null!;
                 agent = new RemoteAgent(
@@ -46,7 +47,9 @@ namespace Tichu.Core.Tests
                     standIn,
                     anyConnected,
                     null,
-                    maxTimeouts);
+                    maxTimeouts,
+                    phaseStartedUtc,
+                    utcNow);
                 return agent;
             }
 
@@ -702,6 +705,76 @@ namespace Tichu.Core.Tests
             Assert.That(stub.Grands, Is.EqualTo(0));
             agent.Submit(ClientAction.CallGrandTichu(0, 1));
             Assert.That(h.Rejected("already decided this round"), Is.True);
+        }
+
+        // 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유한다 — 늦게 물린 좌석은 남은 시간만 받는다.
+        // 시계는 고정: 단계 시작은 "지금"보다 pastSeconds 전.
+        private static readonly DateTime FixedNow = new DateTime(2026, 10, 12, 12, 0, 0, DateTimeKind.Utc);
+
+        private RemoteAgent SharedWindowAgent(Harness h, double timeoutSeconds, double pastSeconds, StubAgent stub) =>
+            h.Create(0, TimeSpan.FromSeconds(timeoutSeconds), standIn: stub,
+                phaseStartedUtc: () => FixedNow.AddMilliseconds(-pastSeconds * 1000),
+                utcNow: () => FixedNow);
+
+        [Test]
+        public void Grand_tichu_shares_the_phase_deadline_so_a_late_asked_seat_gets_only_the_remainder()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = SharedWindowAgent(h, 1.0, 0.8, stub);   // 남은 시간 0.2초
+            var s = GameEngine.NewRound(779UL);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            bool called = agent.CallGrandTichu(GameFlowHelpers.Context(s, 0));
+
+            Assert.That(called, Is.False, "시간 초과 = 거절");
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(600), "전체 1초가 아니라 남은 0.2초만 기다린다");
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(1), "ceil(0.2) = 1");
+        }
+
+        [Test]
+        public void Grand_tichu_asked_after_the_shared_deadline_does_not_wait_at_all()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = SharedWindowAgent(h, 5.0, 6.0, stub);   // 이미 1초 지났다
+            var s = GameEngine.NewRound(780UL);
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            bool called = agent.CallGrandTichu(GameFlowHelpers.Context(s, 0));
+
+            Assert.That(called, Is.False);
+            Assert.That(sw.ElapsedMilliseconds, Is.LessThan(500), "마감이 지났으면 기다리지 않는다");
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void Early_buffered_grand_answer_is_still_used_when_the_shared_deadline_has_passed()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = SharedWindowAgent(h, 5.0, 6.0, stub);
+            var s = GameEngine.NewRound(781UL);
+
+            agent.Submit(ClientAction.CallGrandTichu(0, 1));   // 마감 전에 미리 낸 답
+
+            Assert.That(agent.CallGrandTichu(GameFlowHelpers.Context(s, 0)), Is.True, "버퍼의 답을 먼저 쓴다");
+            Assert.That(agent.IsAway, Is.False, "답이 있었으니 시간 초과가 아니다");
+        }
+
+        [Test]
+        public void Play_question_keeps_the_full_timeout_even_with_a_phase_start()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var agent = SharedWindowAgent(h, 5.0, 4.0, stub);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _)));
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(5), "차례는 묻는 때부터 전체 시간");
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            t.Join(3000);
         }
 
         [Test]

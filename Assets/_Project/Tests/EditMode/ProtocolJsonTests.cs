@@ -160,9 +160,11 @@ namespace Tichu.Core.Tests
 
             var view = new PlayerView { Viewer = 1 };
             view.Away[2] = true;
+            view.PhaseSecondsLeft = 17;
             var ask = ServerEvent.StateUpdate(view, new Awaiting { Kind = StepKind.Play, Seat = 1, AskId = 7, SecondsLeft = 30 });
             var ask2 = RoundTrip(ask);
             Assert.That(ask2.View!.Away, Is.EqualTo(new[] { false, false, true, false }));
+            Assert.That(ask2.View.PhaseSecondsLeft, Is.EqualTo(17));
             Assert.That(ask2.View.Awaiting!.AskId, Is.EqualTo(7));
             Assert.That(ask2.View.Awaiting.SecondsLeft, Is.EqualTo(30));
         }

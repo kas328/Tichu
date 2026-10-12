@@ -173,9 +173,11 @@ namespace Tichu.Core.Tests
         {
             var v = new PlayerView { Viewer = 1 };
             v.Away[2] = true;   // 절대 좌석 2 = 좌석 1 에게는 오른쪽(로컬 1)
+            v.PhaseSecondsLeft = 9;
             v.Awaiting = new Awaiting { Kind = StepKind.Play, Seat = 1, AskId = 5, SecondsLeft = 12 };
             var local = SeatRotation.ToLocal(ServerEvent.StateUpdate(v, v.Awaiting), 1).View!;
             Assert.That(local.Away, Is.EqualTo(new[] { false, true, false, false }));
+            Assert.That(local.PhaseSecondsLeft, Is.EqualTo(9));
             Assert.That(local.Awaiting!.AskId, Is.EqualTo(5));
             Assert.That(local.Awaiting.SecondsLeft, Is.EqualTo(12));
         }

@@ -65,6 +65,8 @@ namespace Tichu.Net
         private readonly Func<bool>? _anyConnected;
         private readonly Action<string>? _log;
         private readonly int _maxTimeouts;
+        private readonly Func<DateTime?>? _phaseStartedUtc;
+        private readonly Func<DateTime> _utcNow;
         private bool _connected = true;   // _gate — 방이 SetConnected 로 바꾼다
         private bool _afk;                // _gate — 연속 시간 초과로 자리 비움
         private int _timeouts;            // _gate — 연속 시간 초과 횟수
@@ -109,7 +111,9 @@ namespace Tichu.Net
             IAgent? standIn = null,
             Func<bool>? anyConnected = null,
             Action<string>? log = null,
-            int maxTimeouts = 2)
+            int maxTimeouts = 1,
+            Func<DateTime?>? phaseStartedUtc = null,
+            Func<DateTime>? utcNow = null)
         {
             _seat = seat;
             _send = send;
@@ -123,6 +127,8 @@ namespace Tichu.Net
             _anyConnected = anyConnected;
             _log = log;
             _maxTimeouts = maxTimeouts;
+            _phaseStartedUtc = phaseStartedUtc;
+            _utcNow = utcNow ?? (() => DateTime.UtcNow);
         }
 
         // ── 클라이언트 입구 ──────────────────────────────────────────────────────
@@ -450,8 +456,21 @@ namespace Tichu.Net
                     return early;
                 }
 
+                // 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유한다 — 늦게 물린 좌석은 남은 시간만 받는다.
+                // 콜백은 잠금 밖에서 부른다(세션의 읽기 전용 값이라 잠금은 없다).
+                TimeSpan waitFor = _timeout;
+                if (human && _timeout != Timeout.InfiniteTimeSpan
+                    && (kind == StepKind.GrandTichu || kind == StepKind.Exchange))
+                {
+                    var phaseStart = _phaseStartedUtc?.Invoke();
+                    if (phaseStart.HasValue)
+                    {
+                        waitFor = _timeout - (_utcNow() - phaseStart.Value);
+                        if (waitFor < TimeSpan.Zero) waitFor = TimeSpan.Zero;
+                    }
+                }
                 int? secondsLeft = human && _timeout != Timeout.InfiniteTimeSpan
-                    ? (int)Math.Ceiling(_timeout.TotalSeconds) : (int?)null;
+                    ? (int)Math.Ceiling(waitFor.TotalSeconds) : (int?)null;
                 // 버퍼에 답이 이미 있든 없든 **항상 먼저 알린다.** 이 방송이 "지금 누구에게 무엇을 묻는지"의
                 // 유일한 신호라, 건너뛰면 아무도 차례를 알 수 없게 된다. (예외: 자리 비움 좌석은 묻지 않고
                 // 대리 AI 가 바로 둔다 — 위에서 이미 반환했다.)
@@ -533,7 +552,9 @@ namespace Tichu.Net
                     if (paused && (_anyConnected?.Invoke() ?? true))
                         lock (_gate) WakeLocked();
 
-                    got = _signal.Wait(human ? _timeout : Timeout.InfiniteTimeSpan, _ct);
+                    // 마감이 이미 지났으면(waitFor == 0) 기다리지 않고 시간 초과로 간다 — 미리 낸 답은 위 스캔에서 이미 썼다.
+                    // Wait(0) 이어도 취소는 확인된다.
+                    got = _signal.Wait(human ? waitFor : Timeout.InfiniteTimeSpan, _ct);
                 }
                 finally
                 {

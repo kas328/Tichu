@@ -66,6 +66,27 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Views_carry_the_shared_phase_countdown_only_during_grand_tichu_and_exchange()
+        {
+            var t = new LoopbackTransport();
+            var session = Session(t, new IAgent?[] { null, new ScriptedAgent(), new ScriptedAgent(), new ScriptedAgent() });
+            var c0 = new ScriptedClient(0, t);
+            try
+            {
+                session.Start();
+                PumpUntil(() => c0.MatchEnded, 30000, c0);
+
+                var grand = c0.PhaseSeconds.Where(p => p.Key == Tichu.Core.Game.RoundPhase.GrandTichuDecision).ToList();
+                Assert.That(grand, Is.Not.Empty);
+                Assert.That(grand.All(p => p.Value.HasValue && p.Value.Value >= 0 && p.Value.Value <= 30), Is.True);
+                var play = c0.PhaseSeconds.Where(p => p.Key == Tichu.Core.Game.RoundPhase.Play).ToList();
+                Assert.That(play, Is.Not.Empty);
+                Assert.That(play.All(p => !p.Value.HasValue), Is.True, "차례 단계엔 단계 카운트다운이 없다");
+            }
+            finally { session.Stop(); }
+        }
+
+        [Test]
         public void Match_score_is_readable_and_matches_the_end()
         {
             var t = new LoopbackTransport();

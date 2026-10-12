@@ -95,6 +95,7 @@ namespace Tichu.Net
                 Calls = Permute(v.Calls, my),
                 IsOut = Permute(v.IsOut, my),
                 Away = Permute(v.Away, my),
+                PhaseSecondsLeft = v.PhaseSecondsLeft,
                 FinishOrder = Permute(v.FinishOrder, my),
                 WonCards = Permute(v.WonCards, my),
                 CurrentTrick = v.CurrentTrick == null ? null : RotateTrick(v.CurrentTrick, my),

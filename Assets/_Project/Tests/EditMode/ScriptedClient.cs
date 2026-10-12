@@ -49,6 +49,9 @@ namespace Tichu.Core.Tests
         /// <summary>마지막 StateUpdate 의 좌석별 자리 비움.</summary>
         public bool[]? LastAway { get; private set; }
 
+        /// <summary>받은 모든 StateUpdate 의 (단계, 단계 남은 초).</summary>
+        public List<KeyValuePair<RoundPhase, int?>> PhaseSeconds { get; } = new List<KeyValuePair<RoundPhase, int?>>();
+
         /// <summary>MatchEnded 를 받았는가.</summary>
         public bool MatchEnded { get; private set; }
 
@@ -83,6 +86,7 @@ namespace Tichu.Core.Tests
 
                 var view = ev.View!;
                 LastAway = view.Away;
+                PhaseSeconds.Add(new KeyValuePair<RoundPhase, int?>(view.Phase, view.PhaseSecondsLeft));
                 LastCalls = view.Calls;
                 var awaiting = view.Awaiting;
                 if (awaiting == null || awaiting.Seat != _seat) continue;

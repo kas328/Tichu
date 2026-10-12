@@ -171,13 +171,15 @@ namespace Tichu.Presentation.ViewModel
             bool earlyPhase = v.Phase == RoundPhase.GrandTichuDecision || v.Phase == RoundPhase.Exchange;
             if (!earlyPhase) _phaseDeadlinePhase = null;
             if (earlyPhase && v.PhaseSecondsLeft.HasValue) TrackPhaseDeadline(v);
-            else TrackDeadline(v.Awaiting);
+            // 서버가 내 좌석에 직접 물으면 그 질문의 초가 실제 마감이다 — 단계 창과 보통 같고,
+            // 멈췄다 돌아온 좌석은 서버가 전체 시간을 새로 준다.
+            TrackDeadline(v.Awaiting);
             if (Prompt.CurrentValue == null) _turnDeadline = null;
         }
 
         /// <summary>
         /// 큰 티츄·교환은 네 좌석이 단계 시작부터 같은 마감을 쓴다 — 내가 아직 묻는 중이면 단계마다 한 번,
-        /// 처음 받은 남은 초로 마감을 잡는다(이후 갱신이 마감을 밀지 않는다).
+        /// 처음 받은 남은 초로 마감을 잡는다(이후 단계 갱신이 마감을 밀지 않는다. 내 좌석에 온 질문만 다시 잡는다).
         /// </summary>
         private void TrackPhaseDeadline(PlayerView v)
         {

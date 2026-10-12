@@ -895,6 +895,23 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void Grand_countdown_follows_the_servers_own_question_after_a_pause()
+        {
+            // 멈췄다 돌아온 좌석은 단계 창이 끝났어도 서버가 전체 시간을 새로 준다 — 화면도 그 질문의 초를 따른다.
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+
+            now = 140;
+            var v = PhaseView(s, RoundPhase.GrandTichuDecision, 0);
+            v.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0, AskId = 9, SecondsLeft = 20 };
+            vm.Apply(v);
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20));
+        }
+
+        [Test]
         public void A_new_round_resets_the_shared_phase_deadline()
         {
             var s = GameEngine.NewRound(777UL);

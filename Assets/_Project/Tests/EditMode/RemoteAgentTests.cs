@@ -91,6 +91,8 @@ namespace Tichu.Core.Tests
             public int ChooseDragonRecipient(in DecisionContext ctx) { Dragons++; return (ctx.Seat + 1) % 4; }
         }
 
+        private static ClientAction WithAsk(ClientAction a, long askId) { a.AskId = askId; return a; }
+
         private static ClientAction PlayFive(long seq, long askId = 0)
         {
             var a = ClientAction.Play(0, seq, new List<Card> { Card.Normal(5, Suit.Jade) }, rank: 0, wish: null);
@@ -760,6 +762,34 @@ namespace Tichu.Core.Tests
 
             Assert.That(agent.CallGrandTichu(GameFlowHelpers.Context(s, 0)), Is.True, "버퍼의 답을 먼저 쓴다");
             Assert.That(agent.IsAway, Is.False, "답이 있었으니 시간 초과가 아니다");
+        }
+
+        [Test]
+        public void Seat_returning_from_a_pause_gets_the_full_timeout_not_the_expired_shared_window()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            bool anyone = false;
+            var agent = h.Create(0, TimeSpan.FromSeconds(5), standIn: stub, anyConnected: () => anyone,
+                phaseStartedUtc: () => FixedNow.AddSeconds(-60), utcNow: () => FixedNow);
+            agent.SetConnected(false);
+            var s = GameEngine.NewRound(782UL);
+            bool? called = null;
+            var t = new Thread(() => called = agent.CallGrandTichu(GameFlowHelpers.Context(s, 0)));
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+
+            anyone = true;
+            agent.SetConnected(true);                       // 돌아왔다
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(5), "전체 시간을 새로 받는다");
+            agent.Submit(WithAsk(ClientAction.CallGrandTichu(0, 1), h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+
+            Assert.That(called, Is.True, "사람의 답이 적용된다");
+            Assert.That(stub.Grands, Is.EqualTo(0));
+            Assert.That(agent.IsAway, Is.False);
         }
 
         [Test]

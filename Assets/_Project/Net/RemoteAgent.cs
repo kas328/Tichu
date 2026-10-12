@@ -425,12 +425,17 @@ namespace Tichu.Net
 
         /// <summary>
         /// 해당 종류의 액션이 올 때까지 기다린다. null 이면 사람이 없다 — 호출자가 대리 AI 에게 넘긴다.
-        /// 사람 있음: 질문 번호·남은 초를 붙여 묻고 _timeout 까지 기다린다(초과 → null, 연속 _maxTimeouts 번이면 자리 비움).
+        /// 사람 있음: 질문 번호·남은 초를 붙여 묻고 기다린다(초과 → null, 연속 _maxTimeouts 번이면 자리 비움).
+        /// 대기 상한은 보통 _timeout 이지만 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유해 남은 시간만 기다린다
+        /// (멈춤에서 돌아온 좌석은 예외 — 전체 _timeout).
         /// 자리 비움: 묻지 않고 바로 null. 단 방에 연결된 사람이 아무도 없으면 멈춰 무기한 기다린다.
         /// Resume 표식(연결·복귀 변화)으로 깨면 상태를 다시 보고 처음부터 다시 묻는다.
         /// </summary>
         private ClientAction? Await(StepKind kind, GameState state, int seat)
         {
+            // 멈춤(아무도 연결 안 됨)에서 깨어난 뒤의 재질문은 공유 마감을 무시하고 전체 시간을 받는다 —
+            // 멈춘 동안 단계 시작이 계속 늙어 돌아온 사람이 곧바로 자리 비움이 되는 것을 막는다.
+            bool resumedFromPause = false;
             while (true)
             {
                 // 다른 좌석의 잠금을 잡는 콜백이라 _gate 밖에서 부른다(잠금 중첩 금지).
@@ -459,7 +464,7 @@ namespace Tichu.Net
                 // 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유한다 — 늦게 물린 좌석은 남은 시간만 받는다.
                 // 콜백은 잠금 밖에서 부른다(세션의 읽기 전용 값이라 잠금은 없다).
                 TimeSpan waitFor = _timeout;
-                if (human && _timeout != Timeout.InfiniteTimeSpan
+                if (human && !resumedFromPause && _timeout != Timeout.InfiniteTimeSpan
                     && (kind == StepKind.GrandTichu || kind == StepKind.Exchange))
                 {
                     var phaseStart = _phaseStartedUtc?.Invoke();
@@ -467,6 +472,7 @@ namespace Tichu.Net
                     {
                         waitFor = _timeout - (_utcNow() - phaseStart.Value);
                         if (waitFor < TimeSpan.Zero) waitFor = TimeSpan.Zero;
+                        if (waitFor > _timeout) waitFor = _timeout;   // 벽시계가 뒤로 가도 전체 시간을 넘지 않는다
                     }
                 }
                 int? secondsLeft = human && _timeout != Timeout.InfiniteTimeSpan
@@ -588,7 +594,11 @@ namespace Tichu.Net
 
                 ClientAction a;
                 lock (_gate) a = _matched.Dequeue();
-                if (a.Kind == ClientActionKind.Resume) continue;   // 연결·복귀 변화 — 다시 판단
+                if (a.Kind == ClientActionKind.Resume)
+                {
+                    if (paused) resumedFromPause = true;
+                    continue;   // 연결·복귀 변화 — 다시 판단
+                }
                 lock (_gate) _timeouts = 0;
                 return a;
             }

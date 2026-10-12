@@ -138,6 +138,7 @@ namespace Tichu.Net
             var start = PhaseStartedUtc();
             if (!start.HasValue || _turnTimeout == Timeout.InfiniteTimeSpan) return null;
             var left = _turnTimeout - (_utcNow() - start.Value);
+            if (left > _turnTimeout) left = _turnTimeout;   // 벽시계가 뒤로 가도 제한을 넘지 않는다
             return left <= TimeSpan.Zero ? 0 : (int)Math.Ceiling(left.TotalSeconds);
         }
 

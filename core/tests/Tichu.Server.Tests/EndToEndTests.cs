@@ -26,6 +26,11 @@ namespace Tichu.Server.Tests
         private static Task<WebSocketClientTransport> Connect(TestServer s) =>
             WebSocketClientTransport.ConnectAsync(s.WsUri, TimeSpan.FromSeconds(5), CancellationToken.None);
 
+        private static Task<WebSocketClientTransport> ConnectAs(TestServer s, string id) =>
+            WebSocketClientTransport.ConnectAsync(s.WsUri, id, TimeSpan.FromSeconds(5), CancellationToken.None);
+
+        private static string NewId() => Guid.NewGuid().ToString("N");
+
         /// <summary>Lobby 까지 받은 이벤트를 쥐고 있다가 ScriptedClient 에 다시 흘려 주는 전송.</summary>
         private sealed class Joined : IClientTransport
         {
@@ -172,36 +177,6 @@ namespace Tichu.Server.Tests
         }
 
         [Test]
-        public async Task Leaving_mid_match_faults_only_that_room()
-        {
-            var opt = Fast(target: 1000);
-            opt.AiDelayMs = 50;                               // 끊기 전에 매치가 끝나지 않게
-            await using var server = await TestServer.StartAsync(opt);
-            using var t1 = await Connect(server);
-            var t2 = await Connect(server);
-            var j1 = await AwaitLobby(t1);
-            await AwaitLobby(t2);
-            await server.WaitForLogAsync("방 0 시작");
-
-            using var t3 = await Connect(server);             // 방 1(혼자)
-            var j3 = await AwaitLobby(t3);
-            await server.WaitForLogAsync("방 1 시작");
-
-            var c1 = new ScriptedClient(j1.Seat, j1);
-            var c3 = new ScriptedClient(j3.Seat, j3);
-            t2.Dispose();                                     // 방 0 의 한 사람이 사라진다
-
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(15);
-            while (DateTime.UtcNow < deadline && c1.FaultReason == null) { c1.Pump(); c3.Pump(); await Task.Delay(5); }
-            Assert.That(c1.FaultReason, Does.Contain("연결 끊김"), "남은 사람에게 누가 끊겼는지 알려야 한다");
-
-            var watch = DateTime.UtcNow + TimeSpan.FromSeconds(1);
-            while (DateTime.UtcNow < watch) { c3.Pump(); await Task.Delay(5); }
-            Assert.That(c3.FaultReason, Is.Null, "다른 방은 영향이 없다");
-            Assert.That(Count(server, "방 1 종료"), Is.EqualTo(0));
-        }
-
-        [Test]
         public async Task No_fault_is_raised_when_server_closes_connections_after_match_end()
         {
             await using var server = await TestServer.StartAsync(Fast());
@@ -213,7 +188,124 @@ namespace Tichu.Server.Tests
             await Task.Delay(500);                            // 서버 닫기 프레임이 도착할 시간
             c.Pump();
 
+            Assert.That(t.ConnectionLost, Is.False, "MatchEnded 뒤 서버의 정상 종료는 끊김이 아니다");
             Assert.That(c.FaultReason, Is.Null, "정상 종료 뒤 닫기를 끊김으로 보고하면 결과 화면 대신 메뉴로 튕긴다");
+        }
+
+        [Test]
+        public async Task A_dropped_solo_player_rejoins_the_same_seat_and_finishes()
+        {
+            var opt = Fast(target: 200);
+            opt.AiDelayMs = 20;
+            await using var server = await TestServer.StartAsync(opt);
+            string id = NewId();
+            var t1 = await ConnectAs(server, id);
+            var j1 = await AwaitLobby(t1);
+            var c1 = new ScriptedClient(j1.Seat, j1);
+            var until = DateTime.UtcNow.AddSeconds(2);
+            while (DateTime.UtcNow < until) { c1.Pump(); await Task.Delay(5); }
+            t1.Dispose();                                     // 판 도중 끊김(혼자 → 멈춤)
+            await server.WaitForLogAsync("사람 0명, 멈춤");
+
+            using var t2 = await ConnectAs(server, id);
+            var j2 = await AwaitLobby(t2);
+
+            Assert.That(j2.Seat, Is.EqualTo(j1.Seat), "같은 자리로 돌아온다");
+            await server.WaitForLogAsync($"좌석 {j2.Seat} 재접속");
+            await PlayToEnd(new ScriptedClient(j2.Seat, j2));
+            Assert.That(Count(server, "시간 초과"), Is.EqualTo(0), "재접속 뒤 액션이 받아들여져야 한다(거부되면 시간 초과로만 진행된다)");
+        }
+
+        [Test]
+        public async Task Remaining_player_finishes_when_the_other_never_returns()
+        {
+            var opt = Fast(target: 200);
+            opt.AiDelayMs = 20;
+            await using var server = await TestServer.StartAsync(opt);
+            using var t1 = await Connect(server);
+            var t2 = await Connect(server);
+            var j1 = await AwaitLobby(t1);
+            await AwaitLobby(t2);
+            t2.Dispose();
+
+            await PlayToEnd(new ScriptedClient(j1.Seat, j1));
+            await server.WaitForLogAsync("연결 끊김 — AI 대행");
+        }
+
+        [Test]
+        public async Task Idle_player_times_out_and_becomes_away()
+        {
+            var opt = Fast(target: 200);
+            opt.TurnSeconds = 1;
+            await using var server = await TestServer.StartAsync(opt);
+            using var tActive = await Connect(server);
+            using var tIdle = await Connect(server);          // 아무것도 하지 않는다
+            var j = await AwaitLobby(tActive);
+            await AwaitLobby(tIdle);
+
+            var active = new ScriptedClient(j.Seat, j);
+            var deadline = DateTime.UtcNow.AddSeconds(60);
+            while (DateTime.UtcNow < deadline && !active.MatchEnded)
+            {
+                active.Pump();
+                tIdle.Drain();
+                await Task.Delay(2);
+            }
+            Assert.That(active.MatchEnded, Is.True);
+            await server.WaitForLogAsync("자리 비움, 대리 AI");
+        }
+
+        [Test]
+        public async Task Empty_room_closes_after_the_grace_period()
+        {
+            var opt = Fast(target: 1000);
+            opt.AiDelayMs = 20;
+            opt.EmptyRoomSeconds = 1;
+            await using var server = await TestServer.StartAsync(opt);
+            var t = await Connect(server);
+            await AwaitLobby(t);
+            t.Dispose();
+
+            await server.WaitForLogAsync("사람 0명 1초 — 방 종료");
+            await server.WaitForLogAsync("방 0 종료");
+        }
+
+        [Test]
+        public async Task Second_connection_from_the_same_device_takes_the_seat()
+        {
+            var opt = Fast(target: 1000);
+            opt.AiDelayMs = 20;
+            await using var server = await TestServer.StartAsync(opt);
+            string id = NewId();
+            using var first = await ConnectAs(server, id);
+            var j1 = await AwaitLobby(first);
+
+            using var second = await ConnectAs(server, id);
+            var j2 = await AwaitLobby(second);
+
+            Assert.That(j2.Seat, Is.EqualTo(j1.Seat));
+            // 옛 연결은 사유(SessionFaulted)를 받고 닫힌다 — 끊김이 아니므로 재접속하지 않는다.
+            string? reason = null;
+            var lost = DateTime.UtcNow.AddSeconds(5);
+            while (DateTime.UtcNow < lost && reason == null)
+            {
+                foreach (var e in first.Drain()) if (e.Kind == ServerEventKind.SessionFaulted) reason = e.Reason;
+                await Task.Delay(10);
+            }
+            Assert.That(reason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(first.ConnectionLost, Is.False, "서버가 사유를 보내고 닫은 것은 끊김이 아니다");
+        }
+
+        [Test]
+        public async Task Old_v2_app_gets_the_update_notice()
+        {
+            await using var server = await TestServer.StartAsync(Fast());
+            using var ws = new System.Net.WebSockets.ClientWebSocket();
+            await ws.ConnectAsync(new Uri(server.WsUri + "?v=2"), CancellationToken.None);
+            var buf = new byte[4096];
+            var r = await ws.ReceiveAsync(new ArraySegment<byte>(buf), CancellationToken.None);
+            var ev = ProtocolJson.DeserializeServerEvent(System.Text.Encoding.UTF8.GetString(buf, 0, r.Count));
+            Assert.That(ev.Reason, Is.EqualTo(ProtocolVersion.UpdateRequiredReason));
         }
 
         [Test]

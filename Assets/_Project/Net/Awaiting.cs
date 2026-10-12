@@ -22,6 +22,12 @@ namespace Tichu.Net
         /// <summary>만료 시각. M1 에서는 항상 null(턴 시계는 M5).</summary>
         public DateTime? DeadlineUtc { get; set; }
 
+        /// <summary>그 좌석에 묻는 질문의 일련번호(좌석별 증가). 답은 이 번호를 싣는다 — 늦은 답 거부(M5 §3.1).</summary>
+        public long AskId { get; set; }
+
+        /// <summary>이 질문의 남은 초(턴 타이머). 시계 차이를 피하려 절대 시각 대신 쓴다. 타이머가 없으면 null.</summary>
+        public int? SecondsLeft { get; set; }
+
         /// <summary>대기 좌석이 지금 낼 수 있는 조합 전체. 다른 좌석에게는 null.</summary>
         public IReadOnlyList<Combination>? LegalMoves { get; set; }
 

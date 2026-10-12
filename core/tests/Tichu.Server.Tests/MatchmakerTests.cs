@@ -163,7 +163,7 @@ namespace Tichu.Server.Tests
             foreach (var l in waiting) mm.Enqueue(l);        // 4명이 모였지만 상한
             Assert.That(_rooms.Count, Is.EqualTo(1));
 
-            mm.RoomClosed();
+            mm.RoomClosed(_rooms[0]);
 
             Assert.That(_rooms.Count, Is.EqualTo(2));
             Assert.That(_rooms[1].Humans, Is.EqualTo(waiting));
@@ -197,6 +197,65 @@ namespace Tichu.Server.Tests
             Assert.That(_rooms[0].LeftLinks, Is.EqualTo(new[] { p[2] }));
             Assert.That(_rooms[0].ReceivedActions.Count, Is.EqualTo(1));
             Assert.That(p[1].ClosedReason, Is.Null, "방에 속한 연결은 대기 중 액션 규칙으로 닫지 않는다");
+        }
+
+        [Test]
+        public void Reconnecting_device_is_routed_to_its_room_not_the_queue()
+        {
+            var mm = Make();
+            var p = Links(4);
+            foreach (var l in p) mm.Enqueue(l);
+            var back = new FakeLink { DeviceId = p[1].DeviceId };
+
+            mm.Enqueue(back);
+
+            Assert.That(_rooms[0].Rejoined, Is.EqualTo(new[] { back }));
+            Assert.That(mm.QueuedCount, Is.EqualTo(0));
+            Assert.That(back.QueuedEvents, Is.Empty, "대기열 상태를 받으면 안 된다");
+        }
+
+        [Test]
+        public void Same_device_in_the_queue_replaces_the_old_entry_and_keeps_its_place()
+        {
+            var mm = Make();
+            var a = new FakeLink(); var b = new FakeLink();
+            mm.Enqueue(a);
+            Advance(10); mm.Enqueue(b);
+            Advance(5);
+            var a2 = new FakeLink { DeviceId = a.DeviceId };
+
+            mm.Enqueue(a2);
+
+            Assert.That(a.ClosedReason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "다른 곳에서 접속"), Is.True);
+            Assert.That(mm.QueuedCount, Is.EqualTo(2));
+            Assert.That(a2.QueuedEvents.Last().FillInSeconds, Is.EqualTo(15), "a 의 입장 시각을 이어받는다");
+            Advance(15); mm.Tick();
+            Assert.That(_rooms.Single().Humans, Is.EqualTo(new IPlayerLink[] { a2, b }));
+        }
+
+        [Test]
+        public void A_closed_room_forgets_its_devices()
+        {
+            var mm = Make();
+            var p = Links(4);
+            foreach (var l in p) mm.Enqueue(l);
+            mm.RoomClosed(_rooms[0]);
+
+            mm.Enqueue(new FakeLink { DeviceId = p[0].DeviceId });
+
+            Assert.That(_rooms[0].Rejoined, Is.Empty);
+            Assert.That(mm.QueuedCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void Tick_passes_the_clock_to_active_rooms()
+        {
+            var mm = Make();
+            foreach (var l in Links(4)) mm.Enqueue(l);
+            Advance(3);
+            mm.Tick();
+            Assert.That(_rooms[0].Ticks.Last(), Is.EqualTo(_now));
         }
     }
 }

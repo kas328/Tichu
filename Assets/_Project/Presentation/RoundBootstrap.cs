@@ -26,6 +26,7 @@ namespace Tichu.Presentation
     /// </summary>
     public sealed class RoundBootstrap : MonoBehaviour
     {
+        private const string DeviceIdKey = "tichu.deviceId";
         private GameLaunchArgs _args;
         private Action<MatchSummary> _onComplete;
         private Action<string> _onFault;
@@ -135,51 +136,105 @@ namespace Tichu.Presentation
         }
 
         /// <summary>
-        /// 서버에 접속해 대기실에서 좌석을 받은 뒤 같은 펌프로 매치를 돈다. 로컬 세션·AI 는 없다 —
-        /// 권위와 AI 페이싱은 서버가 쥔다(빨리감기 무효는 의도된 동작).
+        /// 서버에 접속해 대기실에서 좌석을 받은 뒤 같은 펌프로 매치를 돈다. 연결이 끊기면(서버의 정상 종료가
+        /// 아니면) 같은 기기 식별자로 다시 접속해 같은 자리로 돌아간다(M5) — 서버가 로비+스냅샷을 보낸다.
         /// </summary>
         private async UniTaskVoid RunNetworkMatchAsync(TableViewModel vm, Canvas canvas)
         {
             var ct = this.GetCancellationTokenOnDestroy();
+            string deviceId = DeviceIdentity.GetOrCreate(
+                () => PlayerPrefs.GetString(DeviceIdKey, ""),
+                v => { PlayerPrefs.SetString(DeviceIdKey, v); PlayerPrefs.Save(); });
             var overlay = CreateLobbyOverlay(canvas, out var status, out var cancel);
             cancel.onClick.AddListener(() => InvokeFault(null));   // 사용자 취소 → 알림 없이 메뉴로
+            ReconnectPolicy retry = null;                           // null = 첫 접속
 
-            WebSocketClientTransport transport;
             try
             {
-                transport = await WebSocketClientTransport.ConnectAsync(_args.ServerAddress, TimeSpan.FromSeconds(5), ct);
-            }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
-            catch (Exception e)
-            {
-                if (ct.IsCancellationRequested) return;   // 씬 종료 뒤 Mono 가 OCE 가 아닌 예외를 던질 수 있다
-                Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
-                InvokeFault("서버에 연결할 수 없습니다");
-                return;
-            }
-
-            using (transport)
-            {
-                try
+                while (true)
                 {
-                    var lobby = new LobbyWaiter();
-                    while (!lobby.Started && lobby.FaultReason == null)
+                    if (_faulted) return;   // 재접속 대기 중 취소 — 더는 접속하지 않는다
+                    WebSocketClientTransport transport;
+                    try
                     {
-                        lobby.Feed(transport.Drain());
-                        if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
-                        status.text = lobby.StatusText;
-                        await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                        transport = await WebSocketClientTransport.ConnectAsync(_args.ServerAddress, deviceId, TimeSpan.FromSeconds(5), ct);
                     }
-                    if (lobby.FaultReason != null) { InvokeFault(lobby.FaultReason); return; }
+                    catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                    catch (Exception e)
+                    {
+                        if (ct.IsCancellationRequested || _faulted) return;
+                        if (retry != null && retry.TryNextDelay(out double wait))
+                        {
+                            await UniTask.Delay(TimeSpan.FromSeconds(wait), cancellationToken: ct);
+                            continue;
+                        }
+                        Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
+                        InvokeFault(retry == null ? "서버에 연결할 수 없습니다" : "서버와 연결이 끊어졌습니다");
+                        return;
+                    }
 
-                    Destroy(overlay);
-                    MatchSummary? summary = null;
-                    using var client = new TichuClient(transport, vm, lobby.Seat, s => summary = s, lobby.Backlog);
-                    await PumpUntilEndAsync(client, () => summary, ct);
+                    using (transport)
+                    {
+                        var lobby = new LobbyWaiter();
+                        while (!lobby.Started && lobby.FaultReason == null)
+                        {
+                            lobby.Feed(transport.Drain());
+                            if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
+                            if (retry == null) status.text = lobby.StatusText;
+                            else if (lobby.Waiting > 0 || lobby.Busy)
+                            {
+                                // 재접속인데 서버가 대기열에 넣었다 = 돌아갈 방이 없다(끝났거나 서버 재시작)
+                                InvokeFault("진행 중인 판이 끝났습니다");
+                                return;
+                            }
+                            await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                        }
+                        if (lobby.FaultReason != null)
+                        {
+                            if (transport.ConnectionLost && retry != null && retry.TryNextDelay(out double w2))
+                            {
+                                await UniTask.Delay(TimeSpan.FromSeconds(w2), cancellationToken: ct);
+                                continue;
+                            }
+                            InvokeFault(lobby.FaultReason);
+                            return;
+                        }
+
+                        if (overlay != null) { Destroy(overlay); overlay = null; }
+                        if (retry != null) vm.ResetForReconnect();
+                        lobby.LocalScore(out int mine, out int theirs);
+                        vm.SetMatchScore(mine, theirs);
+                        retry = null;
+
+                        MatchSummary? summary = null;
+                        using var client = new TichuClient(transport, vm, lobby.Seat, s => summary = s, lobby.Backlog);
+                        while (!summary.HasValue && !client.Faulted && !ct.IsCancellationRequested)
+                        {
+                            client.Pump();
+                            await UniTask.Yield(PlayerLoopTiming.Update, ct);
+                        }
+                        if (ct.IsCancellationRequested) return;
+                        if (summary.HasValue) { _onComplete?.Invoke(summary.Value); return; }
+
+                        if (transport.ConnectionLost)
+                        {
+                            Debug.LogWarning("[RoundBootstrap] 연결이 끊겼다 — 재접속을 시도한다");
+                            retry = new ReconnectPolicy(() => Time.realtimeSinceStartupAsDouble);
+                            overlay = CreateLobbyOverlay(canvas, out status, out cancel);
+                            cancel.onClick.AddListener(() => InvokeFault(null));
+                            status.text = "재접속 중…";
+                            if (retry.TryNextDelay(out double w3))
+                                await UniTask.Delay(TimeSpan.FromSeconds(w3), cancellationToken: ct);
+                            continue;
+                        }
+                        Debug.LogError($"[RoundBootstrap] 세션 폴트로 매치를 중단한다: {client.LastRejection}");
+                        InvokeFault(client.LastRejection);
+                        return;
+                    }
                 }
-                catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
-                catch (Exception e) { Debug.LogException(e); }
             }
+            catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
+            catch (Exception e) { Debug.LogException(e); }
         }
 
         /// <summary>대기실 오버레이(상태 문구 + 취소). 테이블 위 반투명 판.</summary>

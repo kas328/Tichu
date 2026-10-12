@@ -35,6 +35,10 @@ namespace Tichu.Net
         private long _arrival;
         private int _teamA;
         private int _teamB;
+        private readonly Func<DateTime> _utcNow;
+        private readonly TimeSpan _turnTimeout;
+        private RoundPhase? _lastBroadcastPhase;   // 세션 스레드 전용
+        private long _phaseStartTicks;             // 큰 티츄·교환 단계 시작(UTC ticks). 0 = 해당 단계 아님. Volatile.
 
         /// <param name="aiSeats">좌석별 AI 에이전트. null 인 좌석은 원격 플레이어다.</param>
         /// <param name="turnTimeout">원격 좌석 1회 대기 상한. 기본 무한(만료 정책은 M5).</param>
@@ -46,7 +50,10 @@ namespace Tichu.Net
             int targetScore = 1000,
             TimeSpan? turnTimeout = null,
             Action<RoundOutcome>? onRoundCompleted = null,
-            TimeSpan? interRoundPause = null)
+            TimeSpan? interRoundPause = null,
+            Func<int, IAgent>? standInFor = null,
+            Action<string>? log = null,
+            Func<DateTime>? utcNow = null)
         {
             if (aiSeats == null || aiSeats.Length != SeatCount)
                 throw new ArgumentException("exactly 4 seats required", nameof(aiSeats));
@@ -57,7 +64,9 @@ namespace Tichu.Net
             _onRoundCompleted = onRoundCompleted;
             _interRoundPause = interRoundPause ?? TimeSpan.Zero;
 
+            _utcNow = utcNow ?? (() => DateTime.UtcNow);
             var timeout = turnTimeout ?? Timeout.InfiniteTimeSpan;
+            _turnTimeout = timeout;
             for (int seat = 0; seat < SeatCount; seat++)
             {
                 if (aiSeats[seat] != null) { _agents[seat] = aiSeats[seat]!; continue; }
@@ -70,7 +79,12 @@ namespace Tichu.Net
                     timeout,
                     _cts.Token,
                     WakeTurnsForTichu,
-                    AnyTichuPending);
+                    AnyTichuPending,
+                    standInFor?.Invoke(seat),
+                    AnyRemoteConnected,
+                    log,
+                    phaseStartedUtc: PhaseStartedUtc,
+                    utcNow: _utcNow);
                 _remote[seat] = remote;
                 _agents[seat] = remote;
             }
@@ -93,6 +107,56 @@ namespace Tichu.Net
 
         /// <summary>세션 스레드가 끝날 때까지 기다린다. 끝났으면 true(테스트·종료 처리용).</summary>
         public bool Join(TimeSpan timeout) => _thread?.Join(timeout) ?? true;
+
+        /// <summary>방이 좌석의 연결/끊김을 알린다. 돌아오면 멈춰 있던 좌석들을 깨운다.</summary>
+        public void SetSeatConnected(int seat, bool connected)
+        {
+            var r = _remote[seat];
+            if (r == null) return;
+            r.SetConnected(connected);
+            if (!connected) return;
+            for (int s = 0; s < SeatCount; s++) _remote[s]?.WakeIfPaused();
+        }
+
+        /// <summary>재접속: 새 앱의 ActionSeq 를 1 부터 받는다.</summary>
+        public void ResetSeatSequence(int seat) => _remote[seat]?.ResetActionSeq();
+
+        public bool IsSeatAway(int seat) => _remote[seat]?.IsAway ?? false;
+
+        /// <summary>매치 누적 점수(재접속 로비용). 세션 스레드가 라운드마다 갱신한다.</summary>
+        public (int TeamA, int TeamB) MatchScore => (Volatile.Read(ref _teamA), Volatile.Read(ref _teamB));
+
+        /// <summary>현재 큰 티츄·교환 단계의 시작 시각. 그 단계가 아니면 null.</summary>
+        private DateTime? PhaseStartedUtc()
+        {
+            long t = Volatile.Read(ref _phaseStartTicks);
+            return t == 0 ? (DateTime?)null : new DateTime(t, DateTimeKind.Utc);
+        }
+
+        private int? PhaseSecondsLeft()
+        {
+            var start = PhaseStartedUtc();
+            if (!start.HasValue || _turnTimeout == Timeout.InfiniteTimeSpan) return null;
+            var left = _turnTimeout - (_utcNow() - start.Value);
+            if (left > _turnTimeout) left = _turnTimeout;   // 벽시계가 뒤로 가도 제한을 넘지 않는다
+            return left <= TimeSpan.Zero ? 0 : (int)Math.Ceiling(left.TotalSeconds);
+        }
+
+        private bool AnyRemoteConnected()
+        {
+            for (int s = 0; s < SeatCount; s++)
+                if (_remote[s] != null && _remote[s]!.IsConnected) return true;
+            return false;
+        }
+
+        /// <summary>좌석 시야 + 자리 비움 표시.</summary>
+        private PlayerView Project(GameState s, int seat)
+        {
+            var v = ViewProjector.ProjectFor(s, seat);
+            for (int i = 0; i < SeatCount; i++) v.Away[i] = _remote[i]?.IsAway ?? false;
+            v.PhaseSecondsLeft = PhaseSecondsLeft();
+            return v;
+        }
 
         /// <summary>클라이언트 액션을 해당 좌석의 원격 에이전트로 보낸다.</summary>
         public void Submit(ClientAction a)
@@ -143,8 +207,8 @@ namespace Tichu.Net
                     Broadcast(state, null);
                     var outcome = driver.RunRound(state, OnApply, TakePendingTichu, TakePendingBomb);
 
-                    _teamA += outcome.Result.TeamATotal;
-                    _teamB += outcome.Result.TeamBTotal;
+                    Interlocked.Add(ref _teamA, outcome.Result.TeamATotal);
+                    Interlocked.Add(ref _teamB, outcome.Result.TeamBTotal);
 
                     for (int seat = 0; seat < SeatCount; seat++)
                         _transport.SendTo(seat, ServerEvent.RoundScored(outcome.Result));
@@ -188,14 +252,20 @@ namespace Tichu.Net
             var redacted = awaiting.Redacted();
             for (int i = 0; i < SeatCount; i++)
                 _transport.SendTo(i, ServerEvent.StateUpdate(
-                    ViewProjector.ProjectFor(CurrentState!, i), i == seat ? awaiting : redacted));
+                    Project(CurrentState!, i), i == seat ? awaiting : redacted));
         }
 
         private void Broadcast(GameState s, Awaiting? awaiting, AppliedAction? applied = null)
         {
             CurrentState = s;
+            if (s.Phase != _lastBroadcastPhase)
+            {
+                _lastBroadcastPhase = s.Phase;
+                bool shared = s.Phase == RoundPhase.GrandTichuDecision || s.Phase == RoundPhase.Exchange;
+                Volatile.Write(ref _phaseStartTicks, shared ? _utcNow().Ticks : 0L);
+            }
             for (int seat = 0; seat < SeatCount; seat++)
-                _transport.SendTo(seat, ServerEvent.StateUpdate(ViewProjector.ProjectFor(s, seat), awaiting, applied));
+                _transport.SendTo(seat, ServerEvent.StateUpdate(Project(s, seat), awaiting, applied));
         }
 
         /// <summary>세션 스레드 전용. OnAwait 가 투영에 쓴다.</summary>

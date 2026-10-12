@@ -12,7 +12,8 @@ namespace Tichu.Net
         CallTichu,
         Play,
         Pass,
-        GiveDragon
+        GiveDragon,
+        Resume
     }
 
     /// <summary>
@@ -50,6 +51,9 @@ namespace Tichu.Net
         /// <summary>GiveDragon: 트릭 점수를 양도받을 상대 좌석.</summary>
         public int RecipientSeat { get; set; }
 
+        /// <summary>답하는 질문의 번호(Awaiting.AskId). 0 = 번호 없음(차례 밖 폭탄·작은 티츄·미리 낸 큰 티츄/교환).</summary>
+        public long AskId { get; set; }
+
         public static ClientAction CallGrandTichu(int seat, long actionSeq) =>
             new ClientAction { Kind = ClientActionKind.CallGrandTichu, Seat = seat, ActionSeq = actionSeq };
 
@@ -82,5 +86,9 @@ namespace Tichu.Net
                 Kind = ClientActionKind.GiveDragon, Seat = seat, ActionSeq = actionSeq,
                 RecipientSeat = recipientSeat
             };
+
+        /// <summary>자리 비움에서 돌아가기(M5). 서버는 좌석을 사람 있음으로 바꾸고 아무것도 적용하지 않는다.</summary>
+        public static ClientAction Resume(int seat, long actionSeq) =>
+            new ClientAction { Kind = ClientActionKind.Resume, Seat = seat, ActionSeq = actionSeq };
     }
 }

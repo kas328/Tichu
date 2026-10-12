@@ -142,7 +142,7 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.SubmitGrandTichu(false), Is.True);
 
             // 거부 뒤 재질의처럼 **새** Awaiting 이 오면 다시 답할 수 있다.
-            vm.OnActionRejected();
+            vm.OnActionRejected("illegal");
             var second = ViewOf(s, 0);
             second.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0 };
             vm.Apply(second);
@@ -637,11 +637,25 @@ namespace Tichu.Presentation.Tests
             vm.Apply(ViewOf(s, 0));
             vm.SubmitGrandTichu(false);
 
-            vm.OnActionRejected();
+            vm.OnActionRejected("illegal");
             vm.Apply(ViewOf(s, 0));
 
             Assert.That(vm.Prompt.CurrentValue, Is.Not.Null);
             Assert.That(vm.Prompt.CurrentValue.Kind, Is.EqualTo(StepKind.GrandTichu));
+        }
+
+        [Test]
+        public void An_already_decided_rejection_does_not_bring_the_prompt_back()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            vm.SubmitGrandTichu(false);
+
+            vm.OnActionRejected("already decided this round");
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Null);
         }
 
         [Test]
@@ -673,10 +687,12 @@ namespace Tichu.Presentation.Tests
             return view;
         }
 
-        private static Awaiting AskPlay(Card legal) => new Awaiting
+        private static Awaiting AskPlay(Card legal, long askId = 1, int? secs = 30) => new Awaiting
         {
             Kind = StepKind.Play,
             Seat = 0,
+            AskId = askId,
+            SecondsLeft = secs,
             CanPass = true,
             LegalMoves = new List<Combination> { CombinationRecognizer.Recognize(new[] { legal }, TrickContext.Lead) },
         };
@@ -713,6 +729,238 @@ namespace Tichu.Presentation.Tests
             vm.Apply(MyTurnView(s, 1, null));            // 차례밖 폭탄 등으로 차례가 넘어갔다
 
             Assert.That(vm.Prompt.CurrentValue, Is.Null);
+        }
+
+        [Test]
+        public void Answers_carry_the_prompt_ask_id_but_off_turn_calls_do_not()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 17)));
+
+            vm.SubmitPass();
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(17));
+        }
+
+        [Test]
+        public void An_in_turn_play_carries_the_prompt_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 23)));
+
+            Assert.That(vm.SubmitPlay(new List<Card> { legal }), Is.True);
+
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.Play));
+            Assert.That(sent.Last().AskId, Is.EqualTo(23));
+        }
+
+        [Test]
+        public void A_small_tichu_call_has_no_ask_id_even_while_a_prompt_shows()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0], askId: 23)));
+
+            Assert.That(vm.DeclareSmallTichu(), Is.True);
+
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.CallTichu));
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void An_off_turn_bomb_has_no_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 1, null));   // 프롬프트 없음 = 차례밖
+
+            var bomb = new List<Card>
+            {
+                Card.Normal(7, Suit.Jade), Card.Normal(7, Suit.Star),
+                Card.Normal(7, Suit.Sword), Card.Normal(7, Suit.Pagoda),
+            };
+            Assert.That(vm.SubmitPlay(bomb), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void A_dragon_gift_carries_the_prompt_ask_id()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, new Awaiting { Kind = StepKind.DragonGift, Seat = 0, AskId = 31 }));
+
+            Assert.That(vm.SubmitDragonRecipient(1), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(31));
+        }
+
+        [Test]
+        public void An_early_grand_tichu_answer_has_no_ask_id()
+        {
+            // 스펙 §3.1: 큰 티츄·교환은 서버가 묻기 전에 미리 답한다 — 번호 0, 중복은 서버가 막는다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.SubmitGrandTichu(false), Is.True);
+
+            Assert.That(sent.Last().AskId, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void A_held_turn_prompt_takes_the_new_ask_id()
+        {
+            // 작은 티츄 Yield 재질의: 깜빡임 방지로 인스턴스는 유지하지만 번호는 새 질문의 것이어야 한다.
+            var s = GameEngine.NewRound(777UL);
+            var legal = s.Seats[0].Hand[0];
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 5)));
+            var held = vm.Prompt.CurrentValue;
+            vm.Apply(MyTurnView(s, 0, null));
+            vm.Apply(MyTurnView(s, 0, AskPlay(legal, askId: 6)));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.SameAs(held));
+            vm.SubmitPass();
+            Assert.That(sent.Last().AskId, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void Turn_countdown_runs_from_the_time_the_question_arrived()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0], askId: 1, secs: 30)));
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(30));
+            now = 112.4;
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(18));
+            vm.SubmitPass();
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "답하면 타이머가 사라진다");
+        }
+
+        private static PlayerView PhaseView(GameState s, RoundPhase phase, int? phaseSecs)
+        {
+            var v = ViewOf(s, 0);
+            v.Phase = phase;
+            v.PhaseSecondsLeft = phaseSecs;
+            return v;
+        }
+
+        [Test]
+        public void Grand_and_exchange_countdown_comes_from_the_shared_phase_window_once_per_phase()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20), "묻기 전이라도 단계 남은 초로 카운트다운");
+
+            now = 105;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 15));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(15));
+            now = 110;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 18));   // 늦게 온 갱신이 마감을 밀면 안 된다
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(10));
+
+            vm.SubmitGrandTichu(false);
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "답하면 사라진다");
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 9));
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "이미 답한 단계는 다시 세지 않는다");
+
+            now = 130;
+            vm.Apply(PhaseView(s, RoundPhase.Exchange, 20));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20), "새 단계는 새 마감");
+        }
+
+        [Test]
+        public void Grand_countdown_follows_the_servers_own_question_after_a_pause()
+        {
+            // 멈췄다 돌아온 좌석은 단계 창이 끝났어도 서버가 전체 시간을 새로 준다 — 화면도 그 질문의 초를 따른다.
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+
+            now = 140;
+            var v = PhaseView(s, RoundPhase.GrandTichuDecision, 0);
+            v.Awaiting = new Awaiting { Kind = StepKind.GrandTichu, Seat = 0, AskId = 9, SecondsLeft = 20 };
+            vm.Apply(v);
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void A_new_round_resets_the_shared_phase_deadline()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 0;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+            vm.Apply(PhaseView(s, RoundPhase.Play, null));
+            now = 500;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void Away_flags_and_resume()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0);
+            var sent = new List<ClientAction>();
+            using var sub = vm.Submitted.Subscribe(a => sent.Add(a));
+            var v = MyTurnView(s, 1, null);
+            v.Away[0] = true; v.Away[2] = true;
+            vm.Apply(v);
+
+            Assert.That(vm.MyAway.CurrentValue, Is.True);
+            Assert.That(vm.SeatAway(2).CurrentValue, Is.True);
+            Assert.That(vm.SubmitResume(), Is.True);
+            Assert.That(sent.Last().Kind, Is.EqualTo(ClientActionKind.Resume));
+            Assert.That(vm.MyAway.CurrentValue, Is.False, "돌아가기를 보내면 배너가 바로 걷힌다");
+            Assert.That(vm.SeatAway(0).CurrentValue, Is.False);
+        }
+
+        [Test]
+        public void Reconnect_resets_local_answers_and_sets_the_score()
+        {
+            var s = GameEngine.NewRound(777UL);           // 큰 티츄 단계
+            var vm = new TableViewModel(0);
+            vm.Apply(ViewOf(s, 0));
+            vm.SubmitGrandTichu(false);
+            vm.Apply(ViewOf(s, 0));
+            Assert.That(vm.Prompt.CurrentValue, Is.Null);
+
+            vm.ResetForReconnect();
+            vm.SetMatchScore(450, 300);
+            vm.Apply(ViewOf(s, 0));
+
+            Assert.That(vm.Prompt.CurrentValue, Is.Not.Null, "재접속하면 서버 상태로 다시 묻는다");
+            Assert.That(vm.CumulativeA.CurrentValue, Is.EqualTo(450));
+            Assert.That(vm.CumulativeB.CurrentValue, Is.EqualTo(300));
         }
     }
 }

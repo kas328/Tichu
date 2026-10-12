@@ -20,21 +20,27 @@ namespace Tichu.Server.Tests
             Difficulty = Difficulty.Easy, Target = target, AiDelayMs = aiDelay, InterRoundPauseMs = 0, Seed = 7
         };
 
+        private DateTime _clock = new DateTime(2026, 10, 10, 12, 0, 0, DateTimeKind.Utc);
+
         private (Room room, Func<int> closedCount, List<string> log) Make(ServerOptions opt, int[] seats, params FakeLink[] humans)
         {
             int closed = 0;
             var log = new List<string>();
-            var room = new Room(_rooms.Count, humans, seats, opt, m => { lock (log) log.Add(m); }, () => Interlocked.Increment(ref closed));
+            var room = new Room(_rooms.Count, humans, seats, opt, () => _clock,
+                m => { lock (log) log.Add(m); }, _ => Interlocked.Increment(ref closed));
             _rooms.Add(room);
             _links.AddRange(humans);
             return (room, () => Volatile.Read(ref closed), log);
         }
+
+        private FakeLink Track(FakeLink l) { _links.Add(l); return l; }
 
         [TearDown]
         public async Task TearDown()
         {
             // 남은 세션 스레드를 끝낸다: 아직 열린 사람 연결을 모두 이탈시킨다.
             foreach (var l in _links) l.Owner?.Left(l);
+            foreach (var r in _rooms) r.Tick(DateTime.MaxValue.AddDays(-1));
             await Task.Delay(50);
             _rooms.Clear();
             _links.Clear();
@@ -86,9 +92,25 @@ namespace Tichu.Server.Tests
             Assert.That(closed(), Is.EqualTo(1), "onClosed 는 한 번만");
         }
 
-        // 세션 스레드 종료 → End() 사이의 좁은 틈(Room.Left 의 _ending·Join(TimeSpan.Zero) 가드가 막는 구간)은
-        // 훅 없이는 결정적으로 재현할 수 없다 — 그 가드는 코드 검토로 확인한다. 실제 종료 경로는
-        // EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 끝에서 끝까지 덮는다.
+        [Test]
+        public async Task Rejoin_after_the_room_ended_is_told_why()
+        {
+            var a = new FakeLink();
+            var (room, closed, _) = Make(Fast(), new[] { 2 }, a);
+            room.Start();
+            var client = new ScriptedClient(2, a);
+            await Until(() => { client.Pump(); return client.MatchEnded; }, 60);
+            await Until(() => closed() == 1);
+
+            var late = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(late);
+
+            Assert.That(late.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "진행 중인 판이 끝났습니다"), Is.True);
+            Assert.That(late.ClosedReason, Is.EqualTo("match over"));
+        }
+
+        // 방이 닫힌 뒤 늦게 오는 Left 는 _ending 가드가 막는다(좌석 끊김 처리·로그 없음).
+        // 실제 종료 경로는 EndToEndTests.No_fault_is_raised_when_server_closes_connections_after_match_end 가 덮는다.
         [Test]
         public async Task Normal_end_closes_links_without_fault()
         {
@@ -103,44 +125,115 @@ namespace Tichu.Server.Tests
             client.Pump();
 
             Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted), Is.False);
-            lock (log) Assert.That(log.Exists(m => m.Contains("이탈")), Is.False);
+            lock (log) Assert.That(log.Exists(m => m.Contains("연결 끊김")), Is.False);
         }
 
         [Test]
-        public async Task Leaving_mid_match_faults_only_this_room()
-        {
-            var a1 = new FakeLink(); var a2 = new FakeLink(); var b1 = new FakeLink();
-            var (roomA, closedA, logA) = Make(Fast(target: 1000, aiDelay: 50), new[] { 0, 2 }, a1, a2);
-            var (roomB, closedB, _) = Make(Fast(target: 1000, aiDelay: 50), new[] { 1 }, b1);
-            roomA.Start(); roomB.Start();
-            await Until(() => a1.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
-
-            roomA.Left(a2);
-            await Until(() => closedA() == 1);
-
-            var fault = a1.Received.Single(e => e.Kind == ServerEventKind.SessionFaulted);
-            Assert.That(fault.Reason, Is.EqualTo("좌석 2 연결 끊김"));
-            Assert.That(a1.ClosedReason, Is.EqualTo("match over"));
-            lock (logA) Assert.That(logA.Exists(m => m == "방 0 좌석 2 이탈 — 매치 중단"), Is.True);
-
-            await Task.Delay(300);
-            Assert.That(closedB(), Is.EqualTo(0), "다른 방은 계속 돈다");
-            Assert.That(b1.ClosedReason, Is.Null);
-            Assert.That(b1.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted), Is.False);
-        }
-
-        [Test]
-        public async Task Leave_before_start_faults_the_room_on_start()
+        public async Task A_leaving_human_is_played_by_the_stand_in_and_the_room_continues()
         {
             var a = new FakeLink(); var b = new FakeLink();
-            var (room, closed, _) = Make(Fast(target: 1000, aiDelay: 50), new[] { 0, 1 }, a, b);
-
-            room.Left(b);                                    // 묶인 직후, Start 전에 끊겼다
+            var (room, closed, log) = Make(Fast(target: 200), new[] { 0, 2 }, a, b);
             room.Start();
-            await Until(() => closed() == 1);
+            var client = new ScriptedClient(0, a);
+            await Until(() => { client.Pump(); return a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate); });
 
-            Assert.That(a.Received.Exists(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "좌석 1 연결 끊김"), Is.True);
-            Assert.That(a.ClosedReason, Is.EqualTo("match over"));
+            room.Left(b);
+            await Until(() => { client.Pump(); return client.MatchEnded; }, 60);
+
+            Assert.That(client.FaultReason, Is.Null, "한 명이 나가도 판은 깨지지 않는다");
+            lock (log) Assert.That(log.Exists(m => m == "방 0 좌석 2 연결 끊김 — AI 대행"), Is.True);
+            await Until(() => closed() == 1);
+        }
+
+        [Test]
+        public async Task A_human_gone_before_start_is_played_by_the_stand_in()
+        {
+            var a = new FakeLink(); var b = new FakeLink();
+            var (room, closed, _) = Make(Fast(target: 200), new[] { 0, 1 }, a, b);
+            room.Left(b);
+            room.Start();
+            var client = new ScriptedClient(0, a);
+            await Until(() => { client.Pump(); return client.MatchEnded; }, 60);
+            Assert.That(client.FaultReason, Is.Null);
+        }
+
+        [Test]
+        public async Task Rejoin_restores_the_seat_with_score_and_snapshot()
+        {
+            var a = new FakeLink();
+            var (room, _, log) = Make(Fast(target: 1000, aiDelay: 20), new[] { 1 }, a);
+            room.Start();
+            await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
+
+            room.Receive(a, ClientAction.Pass(1, 50));       // 옛 앱이 ActionSeq 를 이미 올려 놨다
+            room.Left(a);                                    // 유일한 사람 → 멈춤
+            var a2 = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(a2);
+
+            var first = a2.Received[0];
+            Assert.That(first.Kind, Is.EqualTo(ServerEventKind.Lobby));
+            Assert.That(first.YourSeat, Is.EqualTo(1));
+            Assert.That(a2.Received[1].Kind, Is.EqualTo(ServerEventKind.StateUpdate), "로비 다음은 스냅샷");
+            Assert.That(a2.Received[1].Applied, Is.Null, "스냅샷은 효과음·로그를 다시 일으키지 않는다");
+            Assert.That(a2.Owner, Is.SameAs(room));
+            lock (log) Assert.That(log.Exists(m => m.StartsWith("방 0 좌석 1 재접속")), Is.True);
+
+            // 새 앱은 ActionSeq 1 부터 — 판이 이어져야 한다.
+            var client = new ScriptedClient(1, a2);
+            int before = a2.Received.Count;
+            await Until(() => { client.Pump(); return a2.Received.Count > before + 20; }, 30);
+            Assert.That(a2.Received.Any(e => e.Kind == ServerEventKind.ActionRejected && e.Reason!.Contains("actionSeq")), Is.False);
+        }
+
+        [Test]
+        public async Task Duplicate_rejoin_closes_the_old_link_and_ignores_its_late_leave()
+        {
+            var a = new FakeLink(); var other = new FakeLink();
+            var (room, _, log) = Make(Fast(target: 1000, aiDelay: 20), new[] { 0, 2 }, a, other);
+            room.Start();
+            await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
+
+            var a2 = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(a2);
+            room.Left(a);                                    // 옛 연결이 늦게 끊긴다
+
+            Assert.That(a.ClosedReason, Is.EqualTo("다른 곳에서 접속"));
+            Assert.That(a.Received.Any(e => e.Kind == ServerEventKind.SessionFaulted && e.Reason == "다른 곳에서 접속"), Is.True,
+                "밀려난 연결에 사유를 보낸다 — 클라이언트가 재접속해 자리를 되찾지 않게");
+            lock (log) Assert.That(log.Exists(m => m.Contains("좌석 0 연결 끊김")), Is.False, "옛 연결의 끊김은 좌석에 닿지 않는다");
+        }
+
+        [Test]
+        public async Task Empty_room_closes_after_the_grace_period()
+        {
+            var a = new FakeLink();
+            var (room, closed, log) = Make(Fast(target: 1000, aiDelay: 20), new[] { 0 }, a);
+            room.Start();
+            await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
+            room.Left(a);
+
+            room.Tick(_clock.AddSeconds(119));
+            await Task.Delay(200);
+            Assert.That(closed(), Is.EqualTo(0));
+
+            room.Tick(_clock.AddSeconds(120));
+            await Until(() => closed() == 1);
+            lock (log) Assert.That(log.Exists(m => m == "방 0 사람 0명 120초 — 방 종료"), Is.True);
+        }
+
+        [Test]
+        public async Task Returning_within_the_grace_period_keeps_the_room()
+        {
+            var a = new FakeLink();
+            var (room, closed, _) = Make(Fast(target: 1000, aiDelay: 20), new[] { 0 }, a);
+            room.Start();
+            await Until(() => a.Received.Any(e => e.Kind == ServerEventKind.StateUpdate));
+            room.Left(a);
+            room.Rejoin(Track(new FakeLink { DeviceId = a.DeviceId }));
+
+            room.Tick(_clock.AddSeconds(500));
+            await Task.Delay(300);
+            Assert.That(closed(), Is.EqualTo(0));
         }
 
         [Test]

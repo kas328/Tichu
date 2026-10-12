@@ -57,6 +57,7 @@ namespace Tichu.Net
                 Kind = a.Kind,
                 Seat = ToServerSeat(a.Seat, mySeat),
                 ActionSeq = a.ActionSeq,
+                AskId = a.AskId,
                 Cards = a.Cards,
                 Rank = a.Rank,
                 Wish = a.Wish,
@@ -93,6 +94,8 @@ namespace Tichu.Net
                 HandCounts = Permute(v.HandCounts, my),
                 Calls = Permute(v.Calls, my),
                 IsOut = Permute(v.IsOut, my),
+                Away = Permute(v.Away, my),
+                PhaseSecondsLeft = v.PhaseSecondsLeft,
                 FinishOrder = Permute(v.FinishOrder, my),
                 WonCards = Permute(v.WonCards, my),
                 CurrentTrick = v.CurrentTrick == null ? null : RotateTrick(v.CurrentTrick, my),
@@ -107,6 +110,8 @@ namespace Tichu.Net
                     DeadlineUtc = v.Awaiting.DeadlineUtc,
                     LegalMoves = v.Awaiting.LegalMoves,
                     CanPass = v.Awaiting.CanPass,
+                    AskId = v.Awaiting.AskId,
+                    SecondsLeft = v.Awaiting.SecondsLeft,
                 },
             };
         }

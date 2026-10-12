@@ -50,6 +50,8 @@ namespace Tichu.Presentation.Views
         private readonly CompositeDisposable _subs = new CompositeDisposable();
 
         private readonly Text[] _seatTexts = new Text[4];
+        private Text _timerText;
+        private GameObject _awayBanner;
         private readonly RectTransform[] _backRoots = new RectTransform[4];
         private readonly Text[] _countTexts = new Text[4];
         private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _resultText;
@@ -177,6 +179,9 @@ namespace Tichu.Presentation.Views
             pv.childAlignment = TextAnchor.LowerCenter; pv.padding = new RectOffset(8, 8, 8, 8);
             // 순서: 라벨(위) → 버튼(아래).
             _promptLabel = NewText("PromptLabel", panel.transform, "", 26); _promptLabel.alignment = TextAnchor.MiddleCenter;
+            // 타이머는 결정 패널 밖 — 패널 안에 두면 행동 버튼이 눌린다. "나 · N장" 라벨(y=320) 바로 위.
+            _timerText = NewAnchoredText("TurnTimer", rt, "", 26, new Vector2(0.5f, 0), new Vector2(0, 360), new Vector2(520, 36), TextAnchor.MiddleCenter);
+            _timerText.color = Warn;
             var actions = NewPanel("Actions", panel.transform);
             _actionRoot = actions.GetComponent<RectTransform>();
             var al = actions.AddComponent<HorizontalLayoutGroup>();
@@ -209,6 +214,24 @@ namespace Tichu.Presentation.Views
             skip.SetActive(false);
             _skipButton = skip;
             BuildCallBadges(rt);
+
+            _awayBanner = new GameObject("AwayBanner", typeof(RectTransform), typeof(Image));
+            _awayBanner.transform.SetParent(rt, false);
+            var brt = (RectTransform)_awayBanner.transform;
+            brt.anchorMin = new Vector2(0.5f, 0f); brt.anchorMax = new Vector2(0.5f, 0f); brt.pivot = new Vector2(0.5f, 0f);
+            brt.sizeDelta = new Vector2(900, 90); brt.anchoredPosition = new Vector2(0, 20);
+            _awayBanner.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            var bl = _awayBanner.AddComponent<HorizontalLayoutGroup>();
+            bl.childAlignment = TextAnchor.MiddleCenter; bl.spacing = 24; bl.childForceExpandWidth = false;
+            var msg = NewText("AwayMsg", _awayBanner.transform, "자리 비움 — AI가 대신 플레이하는 중", 26);
+            msg.gameObject.AddComponent<LayoutElement>().preferredWidth = 520;
+            var back = new GameObject("Btn_돌아가기", typeof(RectTransform), typeof(Image), typeof(Button));
+            back.transform.SetParent(_awayBanner.transform, false);
+            back.GetComponent<Image>().color = BtnGo;
+            back.AddComponent<LayoutElement>().preferredWidth = 220;
+            back.GetComponent<Button>().onClick.AddListener(() => _vm.SubmitResume());
+            AddCardLabel(back.transform, "돌아가기", Ink, 24);
+            _awayBanner.SetActive(false);
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -326,6 +349,18 @@ namespace Tichu.Presentation.Views
                 int seat = i;
                 _vm.SeatCall(seat).Subscribe(call => UpdateCallBadge(seat, call)).AddTo(_subs);
             }
+            _vm.MyAway.Subscribe(a => { if (_awayBanner != null) _awayBanner.SetActive(a); }).AddTo(_subs);
+            for (int i = 1; i < 4; i++)
+            {
+                int seat = i;
+                _vm.SeatAway(seat).Subscribe(a => _seatTexts[seat].text = a ? $"{SeatNames[seat]}(AI)" : SeatNames[seat]).AddTo(_subs);
+            }
+            Observable.EveryUpdate(_sceneCt).Subscribe(_ =>
+            {
+                if (_timerText == null) return;
+                var left = _vm.TurnSecondsLeft;
+                _timerText.text = left.HasValue ? $"남은 시간 {left}초" : "";
+            }).AddTo(_subs);
         }
 
         private void UpdateScore() => _scoreText.text = $"총점  우리(A) {_cumA} : 상대(B) {_cumB}";

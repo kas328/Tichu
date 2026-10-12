@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -17,6 +18,7 @@ namespace Tichu.Server.Tests
         private string? _closedReason;
 
         public int Id { get; } = Interlocked.Increment(ref _ids);
+        public string DeviceId { get; init; } = Guid.NewGuid().ToString("N");
         public ILinkOwner? Owner { get => _owner; set => _owner = value; }
 
         public string? ClosedReason { get { lock (_gate) return _closedReason; } }
@@ -63,6 +65,12 @@ namespace Tichu.Server.Tests
             Humans = humans;
             foreach (var h in humans) h.Owner = this;
         }
+
+        public List<IPlayerLink> Rejoined { get; } = new List<IPlayerLink>();
+        public List<DateTime> Ticks { get; } = new List<DateTime>();
+        public IReadOnlyList<string> DeviceIds => Humans.Select(h => h.DeviceId).ToList();
+        public void Rejoin(IPlayerLink link) { lock (Rejoined) { Rejoined.Add(link); link.Owner = this; } }
+        public void Tick(DateTime now) { lock (Ticks) Ticks.Add(now); }
 
         public void Start() => Started = true;
         public void Left(IPlayerLink who) { lock (LeftLinks) LeftLinks.Add(who); }

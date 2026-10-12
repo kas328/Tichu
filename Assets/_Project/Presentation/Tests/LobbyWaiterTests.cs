@@ -90,5 +90,18 @@ namespace Tichu.Presentation.Tests
             Assert.That(w.Seat, Is.EqualTo(3));
             Assert.That(w.Backlog, Is.EqualTo(new[] { first }));
         }
+
+        [Test]
+        public void Rejoin_lobby_carries_the_match_score_for_my_team()
+        {
+            var w = new LobbyWaiter(() => 0);
+            var lobby = ServerEvent.Lobby(3, 2, 2);
+            lobby.TeamA = 300; lobby.TeamB = 450;
+            w.Feed(new[] { lobby });
+
+            w.LocalScore(out int mine, out int theirs);
+            Assert.That(w.MatchTeamA, Is.EqualTo(300));
+            Assert.That((mine, theirs), Is.EqualTo((450, 300)), "좌석 3 은 B 팀 — 내 팀이 앞");
+        }
     }
 }

@@ -31,8 +31,8 @@ namespace Tichu.Server
             Matchmaker? matchmaker = null;
             matchmaker = new Matchmaker(
                 opt.FillAfterSeconds, opt.MaxRooms, () => DateTime.UtcNow,
-                (index, humans) => new Room(index, humans, SeatPicker.Pick(humans.Count, rng), opt, log,
-                    () => matchmaker!.RoomClosed()),
+                (index, humans) => new Room(index, humans, SeatPicker.Pick(humans.Count, rng), opt,
+                    () => DateTime.UtcNow, log, r => matchmaker!.RoomClosed(r)),
                 log);
             var tick = new Timer(_ =>
             {
@@ -53,7 +53,14 @@ namespace Tichu.Server
                     await Connection.RejectAsync(ws, ProtocolVersion.UpdateRequiredReason);
                     return;
                 }
-                var conn = new Connection(ws, new TokenBucket(opt.RateCapacity, opt.RatePerSecond, NowSeconds), log);
+                string? deviceId = ctx.Request.Query[ProtocolVersion.DeviceIdKey];
+                if (!ProtocolVersion.IsValidDeviceId(deviceId))
+                {
+                    log("기기 식별자 없음 — 거절");
+                    await Connection.RejectAsync(ws, ProtocolVersion.UpdateRequiredReason);
+                    return;
+                }
+                var conn = new Connection(ws, new TokenBucket(opt.RateCapacity, opt.RatePerSecond, NowSeconds), log, deviceId!);
                 log($"연결 #{conn.Id} 접속");
                 matchmaker.Enqueue(conn);
                 await conn.RunAsync(ctx.RequestAborted);

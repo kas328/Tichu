@@ -17,7 +17,7 @@ namespace Tichu.Server.Tests
             Difficulty = Difficulty.Easy, AiDelayMs = 0, InterRoundPauseMs = 0, Seed = 1, FillAfterSeconds = 600
         };
 
-        private static Task<ClientWebSocket> Connect(Uri uri) => ConnectRaw(ProtocolVersion.Attach(uri));
+        private static Task<ClientWebSocket> Connect(Uri uri) => ConnectRaw(ProtocolVersion.Attach(uri, Guid.NewGuid().ToString("N")));
 
         private static async Task<ClientWebSocket> ConnectRaw(Uri uri)
         {
@@ -133,6 +133,7 @@ namespace Tichu.Server.Tests
 
         [TestCase("")]
         [TestCase("?v=1")]
+        [TestCase("?v=2")]
         [TestCase("?v=999")]
         [TestCase("?v=abc")]
         public async Task Missing_wrong_or_garbage_version_gets_the_update_notice_and_is_closed(string query)
@@ -146,6 +147,18 @@ namespace Tichu.Server.Tests
             Assert.That(ev.Reason, Is.EqualTo(ProtocolVersion.UpdateRequiredReason));
             Assert.That(await ReadUntilClosed(old), Is.EqualTo(WebSocketCloseStatus.PolicyViolation));
             await server.WaitForLogAsync("프로토콜 버전 불일치");
+        }
+
+        [TestCase("?v=3")]
+        [TestCase("?v=3&id=short")]
+        public async Task Missing_or_bad_device_id_gets_the_update_notice(string query)
+        {
+            await using var server = await TestServer.StartAsync(QueueOnly());
+            using var ws = await ConnectRaw(new Uri(server.WsUri + query));
+            var ev = await Receive(ws);
+            Assert.That(ev!.Kind, Is.EqualTo(ServerEventKind.SessionFaulted));
+            Assert.That(ev.Reason, Is.EqualTo(ProtocolVersion.UpdateRequiredReason));
+            await server.WaitForLogAsync("기기 식별자 없음");
         }
 
         [Test]

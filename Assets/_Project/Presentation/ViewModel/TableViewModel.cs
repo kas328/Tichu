@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using R3;
 using Tichu.Core.Cards;
@@ -25,6 +26,20 @@ namespace Tichu.Presentation.ViewModel
 
         private readonly int _mySeat;
         private long _actionSeq;
+        private readonly Func<double> _now;
+        private double? _turnDeadline;      // 내게 온 서버 질문의 마감(로컬 시계)
+        private long _deadlineAsk;          // 그 마감을 잡은 질문 번호
+        private RoundPhase? _phaseDeadlinePhase;   // 큰 티츄·교환 공유 마감을 이미 잡은 단계(새 단계·새 라운드에 해제)
+        private readonly ReactiveProperty<bool>[] _away = new ReactiveProperty<bool>[4];
+
+        /// <summary>내 좌석이 자리 비움(AI 대행) — 배너·[돌아가기].</summary>
+        public ReactiveProperty<bool> MyAway { get; } = new ReactiveProperty<bool>(false);
+
+        public ReadOnlyReactiveProperty<bool> SeatAway(int seat) => _away[seat];
+
+        /// <summary>내 차례 남은 초. 묻는 질문이 없으면 null.</summary>
+        public int? TurnSecondsLeft =>
+            _turnDeadline.HasValue ? Math.Max(0, (int)Math.Ceiling(_turnDeadline.Value - _now())) : (int?)null;
 
         // ── 서버 시야 투영 ───────────────────────────────────────────────────
 
@@ -108,11 +123,13 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>차례밖 폭탄 전송 상태(뷰 표시용).</summary>
         public bool HasPendingBomb { get { return _bombSent; } }
 
-        public TableViewModel(int mySeat)
+        public TableViewModel(int mySeat, Func<double> nowSeconds = null)
         {
             _mySeat = mySeat;
+            _now = nowSeconds ?? (() => System.Diagnostics.Stopwatch.GetTimestamp() / (double)System.Diagnostics.Stopwatch.Frequency);
             for (int i = 0; i < 4; i++)
             {
+                _away[i] = new ReactiveProperty<bool>(false);
                 _handCounts[i] = new ReactiveProperty<int>(0);
                 _calls[i] = new ReactiveProperty<TichuCall>(TichuCall.None);
             }
@@ -148,6 +165,35 @@ namespace Tichu.Presentation.ViewModel
             MyHand.Value = new List<Card>(v.MyHand);
 
             Prompt.Value = PromptFor(v);
+
+            for (int i = 0; i < 4; i++) _away[i].Value = v.Away != null && v.Away[i];
+            MyAway.Value = _away[_mySeat].Value;
+            bool earlyPhase = v.Phase == RoundPhase.GrandTichuDecision || v.Phase == RoundPhase.Exchange;
+            if (!earlyPhase) _phaseDeadlinePhase = null;
+            if (earlyPhase && v.PhaseSecondsLeft.HasValue) TrackPhaseDeadline(v);
+            // 서버가 내 좌석에 직접 물으면 그 질문의 초가 실제 마감이다 — 단계 창과 보통 같고,
+            // 멈췄다 돌아온 좌석은 서버가 전체 시간을 새로 준다.
+            TrackDeadline(v.Awaiting);
+            if (Prompt.CurrentValue == null) _turnDeadline = null;
+        }
+
+        /// <summary>
+        /// 큰 티츄·교환은 네 좌석이 단계 시작부터 같은 마감을 쓴다 — 내가 아직 묻는 중이면 단계마다 한 번,
+        /// 처음 받은 남은 초로 마감을 잡는다(이후 단계 갱신이 마감을 밀지 않는다. 내 좌석에 온 질문만 다시 잡는다).
+        /// </summary>
+        private void TrackPhaseDeadline(PlayerView v)
+        {
+            if (Prompt.CurrentValue == null || _phaseDeadlinePhase == v.Phase) return;
+            _phaseDeadlinePhase = v.Phase;
+            _turnDeadline = _now() + v.PhaseSecondsLeft.Value;
+        }
+
+        /// <summary>서버가 내게 새 질문을 보냈으면(번호가 다르면) 마감을 다시 잡는다 — 받은 시각 + 남은 초.</summary>
+        private void TrackDeadline(Awaiting aw)
+        {
+            if (aw == null || aw.Seat != _mySeat || !aw.SecondsLeft.HasValue || aw.AskId == _deadlineAsk) return;
+            _deadlineAsk = aw.AskId;
+            _turnDeadline = _now() + aw.SecondsLeft.Value;
         }
 
         /// <summary>
@@ -194,19 +240,30 @@ namespace Tichu.Presentation.ViewModel
                 _turnPromptHeld = stillMyTurn && v.Awaiting == null;
                 return _turnPromptHeld ? current : null;
             }
-            if (held && stillMyTurn && v.Awaiting.Kind == StepKind.Play) return current;
+            if (held && stillMyTurn && v.Awaiting.Kind == StepKind.Play)
+            {
+                // 인스턴스는 유지(다시 그리지 않음), 질문 번호·합법수·남은 초는 새 질문의 것으로.
+                current.AskId = v.Awaiting.AskId;
+                current.SecondsLeft = v.Awaiting.SecondsLeft;
+                current.LegalMoves = v.Awaiting.LegalMoves;
+                current.CanPass = v.Awaiting.CanPass;
+                return current;
+            }
             return v.Awaiting;
         }
 
         /// <summary>
         /// 서버가 내 액션을 거부했다. 미리 답한 큰 티츄·교환이 거부됐다면 서버가 다시 묻는다 —
         /// 답함 표시를 풀어야 그 질문이 다시 보인다(새 인스턴스로, 뷰가 다시 그리도록).
+        /// 단 "already decided this round" 는 이미 결정이 끝났다는 뜻이라 다시 묻지 않는다.
         /// </summary>
-        public void OnActionRejected()
+        public void OnActionRejected(string reason)
         {
+            if (reason == "already decided this round") return;
             _grandAnswered = false;
             _exchangeAnswered = false;
             _earlyPrompt = null;
+            _phaseDeadlinePhase = null;   // 다시 묻는 질문은 그 시점의 남은 초로 마감을 새로 잡는다
         }
 
         /// <summary>서버가 적용한 액션을 로그·사운드로 흘린다.</summary>
@@ -244,6 +301,7 @@ namespace Tichu.Presentation.ViewModel
             _exchangeAnswered = false;
             _earlyPrompt = null;
             _turnPromptHeld = false;
+            _phaseDeadlinePhase = null;
             RoundResult.Value = null;
             FastForward = false;
             _cleared.OnNext(default);
@@ -256,8 +314,8 @@ namespace Tichu.Presentation.ViewModel
         {
             if (!Asking(StepKind.GrandTichu)) return false;
             Send(call
-                ? ClientAction.CallGrandTichu(_mySeat, NextSeq())
-                : ClientAction.DeclineGrandTichu(_mySeat, NextSeq()));
+                ? WithAsk(ClientAction.CallGrandTichu(_mySeat, NextSeq()))
+                : WithAsk(ClientAction.DeclineGrandTichu(_mySeat, NextSeq())));
             _grandAnswered = true;
             Answered();
             return true;
@@ -269,7 +327,7 @@ namespace Tichu.Presentation.ViewModel
             if (!Asking(StepKind.Exchange)) return false;
             if (!IsDistinctAndInHand(choice.ToLeft, choice.ToPartner, choice.ToRight, MyHand.CurrentValue))
                 return false;
-            Send(ClientAction.Exchange(_mySeat, NextSeq(), choice.ToLeft, choice.ToPartner, choice.ToRight));
+            Send(WithAsk(ClientAction.Exchange(_mySeat, NextSeq(), choice.ToLeft, choice.ToPartner, choice.ToRight)));
             _exchangeAnswered = true;
             Answered();
             return true;
@@ -280,7 +338,7 @@ namespace Tichu.Presentation.ViewModel
         {
             var aw = Prompt.CurrentValue;
             if (aw == null || aw.Kind != StepKind.Play || !aw.CanPass) return false;
-            Send(ClientAction.Pass(_mySeat, NextSeq()));
+            Send(WithAsk(ClientAction.Pass(_mySeat, NextSeq())));
             Answered();
             return true;
         }
@@ -312,7 +370,8 @@ namespace Tichu.Presentation.ViewModel
             }
 
             // Rank 는 의도 확인용이다(모호성 해소가 아니다 — 기획서 11.1).
-            Send(ClientAction.Play(_mySeat, NextSeq(), new List<Card>(cards), combo.Rank, wish));
+            var action = ClientAction.Play(_mySeat, NextSeq(), new List<Card>(cards), combo.Rank, wish);
+            Send(myTurn ? WithAsk(action) : action);
             if (myTurn) Answered();   // 차례밖 폭탄은 질문에 대한 답이 아니다 — 프롬프트를 건드리지 않는다
             return true;
         }
@@ -322,9 +381,40 @@ namespace Tichu.Presentation.ViewModel
         {
             if (!Asking(StepKind.DragonGift)) return false;
             if (seat < 0 || seat > 3 || (seat % 2) == (_mySeat % 2)) return false;
-            Send(ClientAction.GiveDragon(_mySeat, NextSeq(), seat));
+            Send(WithAsk(ClientAction.GiveDragon(_mySeat, NextSeq(), seat)));
             Answered();
             return true;
+        }
+
+        /// <summary>자리 비움에서 돌아가기.</summary>
+        public bool SubmitResume()
+        {
+            Send(ClientAction.Resume(_mySeat, NextSeq()));
+            _away[_mySeat].Value = false;   // 서버 갱신을 기다리지 않고 배너를 바로 걷는다
+            MyAway.Value = false;
+            return true;
+        }
+
+        /// <summary>재접속 로비의 누적 점수(내 팀 기준)로 갈아끼운다.</summary>
+        public void SetMatchScore(int mine, int theirs)
+        {
+            CumulativeA.Value = mine;
+            CumulativeB.Value = theirs;
+        }
+
+        /// <summary>재접속 직후 — 로컬에만 있던 답함·예약 표시를 지운다. 서버 스냅샷이 다시 묻게 한다.</summary>
+        public void ResetForReconnect()
+        {
+            _grandAnswered = false;
+            _exchangeAnswered = false;
+            _earlyPrompt = null;
+            _turnPromptHeld = false;
+            _tichuSent = false;
+            _bombSent = false;
+            _turnDeadline = null;
+            _deadlineAsk = 0;
+            _phaseDeadlinePhase = null;
+            Prompt.Value = null;
         }
 
         /// <summary>
@@ -362,7 +452,7 @@ namespace Tichu.Presentation.ViewModel
         /// 조용히 쓰인다(패스 재사용·폭탄 큐 막힘). 거부되면 RemoteAgent 의 while(true)
         /// 가 **새** Awaiting 을 방송하므로 R3 가 다시 통지해 프롬프트가 돌아온다.
         /// </summary>
-        private void Answered() { Prompt.Value = null; }
+        private void Answered() { Prompt.Value = null; _turnDeadline = null; }
 
         private bool Asking(StepKind kind)
         {
@@ -371,6 +461,12 @@ namespace Tichu.Presentation.ViewModel
         }
 
         private long NextSeq() { return ++_actionSeq; }
+
+        private ClientAction WithAsk(ClientAction a)
+        {
+            a.AskId = Prompt.CurrentValue?.AskId ?? 0;
+            return a;
+        }
 
         private void Send(ClientAction a) { _submitted.OnNext(a); }
 

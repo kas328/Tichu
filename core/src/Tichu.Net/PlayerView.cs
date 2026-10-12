@@ -66,7 +66,16 @@ namespace Tichu.Net
 
         public TichuCall[] Calls { get; set; } = new TichuCall[4];
         public bool[] IsOut { get; set; } = new bool[4];
+
+        /// <summary>좌석별 자리 비움(AI 대행) 여부(M5).</summary>
+        public bool[] Away { get; set; } = new bool[4];
         public int[] FinishOrder { get; set; } = new int[4];
+
+        /// <summary>
+        /// 큰 티츄·교환 단계의 공유 제한 시간 중 남은 초(단계 시작부터 전원 같은 마감). 그 단계가 아니거나
+        /// 시간 제한이 없으면 null.
+        /// </summary>
+        public int? PhaseSecondsLeft { get; set; }
 
         /// <summary>전 좌석 획득 더미 — 이미 공개된 카드라 전체를 싣는다(카드 카운팅 근거).</summary>
         public List<Card>[] WonCards { get; set; } = new List<Card>[4];

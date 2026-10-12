@@ -859,6 +859,55 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.TurnSecondsLeft, Is.Null, "답하면 타이머가 사라진다");
         }
 
+        private static PlayerView PhaseView(GameState s, RoundPhase phase, int? phaseSecs)
+        {
+            var v = ViewOf(s, 0);
+            v.Phase = phase;
+            v.PhaseSecondsLeft = phaseSecs;
+            return v;
+        }
+
+        [Test]
+        public void Grand_and_exchange_countdown_comes_from_the_shared_phase_window_once_per_phase()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20), "묻기 전이라도 단계 남은 초로 카운트다운");
+
+            now = 105;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 15));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(15));
+            now = 110;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 18));   // 늦게 온 갱신이 마감을 밀면 안 된다
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(10));
+
+            vm.SubmitGrandTichu(false);
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "답하면 사라진다");
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 9));
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "이미 답한 단계는 다시 세지 않는다");
+
+            now = 130;
+            vm.Apply(PhaseView(s, RoundPhase.Exchange, 20));
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20), "새 단계는 새 마감");
+        }
+
+        [Test]
+        public void A_new_round_resets_the_shared_phase_deadline()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 0;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+            vm.Apply(PhaseView(s, RoundPhase.Play, null));
+            now = 500;
+            vm.Apply(PhaseView(s, RoundPhase.GrandTichuDecision, 20));
+
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20));
+        }
+
         [Test]
         public void Away_flags_and_resume()
         {

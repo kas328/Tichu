@@ -179,8 +179,8 @@ namespace Tichu.Presentation.Views
             pv.childAlignment = TextAnchor.LowerCenter; pv.padding = new RectOffset(8, 8, 8, 8);
             // 순서: 라벨(위) → 버튼(아래).
             _promptLabel = NewText("PromptLabel", panel.transform, "", 26); _promptLabel.alignment = TextAnchor.MiddleCenter;
-            _timerText = NewText("TurnTimer", panel.transform, "", 24);
-            _timerText.alignment = TextAnchor.MiddleCenter;
+            // 타이머는 결정 패널 밖 — 패널 안에 두면 행동 버튼이 눌린다. "나 · N장" 라벨(y=320) 바로 위.
+            _timerText = NewAnchoredText("TurnTimer", rt, "", 26, new Vector2(0.5f, 0), new Vector2(0, 360), new Vector2(520, 36), TextAnchor.MiddleCenter);
             _timerText.color = Warn;
             var actions = NewPanel("Actions", panel.transform);
             _actionRoot = actions.GetComponent<RectTransform>();
@@ -223,7 +223,7 @@ namespace Tichu.Presentation.Views
             _awayBanner.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
             var bl = _awayBanner.AddComponent<HorizontalLayoutGroup>();
             bl.childAlignment = TextAnchor.MiddleCenter; bl.spacing = 24; bl.childForceExpandWidth = false;
-            var msg = NewText("AwayMsg", _awayBanner.transform, "자리 비움 — AI가 대신 두는 중", 26);
+            var msg = NewText("AwayMsg", _awayBanner.transform, "자리 비움 — AI가 대신 플레이하는 중", 26);
             msg.gameObject.AddComponent<LayoutElement>().preferredWidth = 520;
             var back = new GameObject("Btn_돌아가기", typeof(RectTransform), typeof(Image), typeof(Button));
             back.transform.SetParent(_awayBanner.transform, false);
@@ -353,7 +353,7 @@ namespace Tichu.Presentation.Views
             for (int i = 1; i < 4; i++)
             {
                 int seat = i;
-                _vm.SeatAway(seat).Subscribe(a => _seatTexts[seat].text = a ? $"{SeatNames[seat]} (AI 대행)" : SeatNames[seat]).AddTo(_subs);
+                _vm.SeatAway(seat).Subscribe(a => _seatTexts[seat].text = a ? $"{SeatNames[seat]}(AI)" : SeatNames[seat]).AddTo(_subs);
             }
             Observable.EveryUpdate(_sceneCt).Subscribe(_ =>
             {

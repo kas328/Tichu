@@ -29,6 +29,7 @@ namespace Tichu.Presentation.ViewModel
         private readonly Func<double> _now;
         private double? _turnDeadline;      // 내게 온 서버 질문의 마감(로컬 시계)
         private long _deadlineAsk;          // 그 마감을 잡은 질문 번호
+        private RoundPhase? _phaseDeadlinePhase;   // 큰 티츄·교환 공유 마감을 이미 잡은 단계(새 단계·새 라운드에 해제)
         private readonly ReactiveProperty<bool>[] _away = new ReactiveProperty<bool>[4];
 
         /// <summary>내 좌석이 자리 비움(AI 대행) — 배너·[돌아가기].</summary>
@@ -167,8 +168,22 @@ namespace Tichu.Presentation.ViewModel
 
             for (int i = 0; i < 4; i++) _away[i].Value = v.Away != null && v.Away[i];
             MyAway.Value = _away[_mySeat].Value;
-            TrackDeadline(v.Awaiting);
+            bool earlyPhase = v.Phase == RoundPhase.GrandTichuDecision || v.Phase == RoundPhase.Exchange;
+            if (!earlyPhase) _phaseDeadlinePhase = null;
+            if (earlyPhase && v.PhaseSecondsLeft.HasValue) TrackPhaseDeadline(v);
+            else TrackDeadline(v.Awaiting);
             if (Prompt.CurrentValue == null) _turnDeadline = null;
+        }
+
+        /// <summary>
+        /// 큰 티츄·교환은 네 좌석이 단계 시작부터 같은 마감을 쓴다 — 내가 아직 묻는 중이면 단계마다 한 번,
+        /// 처음 받은 남은 초로 마감을 잡는다(이후 갱신이 마감을 밀지 않는다).
+        /// </summary>
+        private void TrackPhaseDeadline(PlayerView v)
+        {
+            if (Prompt.CurrentValue == null || _phaseDeadlinePhase == v.Phase) return;
+            _phaseDeadlinePhase = v.Phase;
+            _turnDeadline = _now() + v.PhaseSecondsLeft.Value;
         }
 
         /// <summary>서버가 내게 새 질문을 보냈으면(번호가 다르면) 마감을 다시 잡는다 — 받은 시각 + 남은 초.</summary>
@@ -246,6 +261,7 @@ namespace Tichu.Presentation.ViewModel
             _grandAnswered = false;
             _exchangeAnswered = false;
             _earlyPrompt = null;
+            _phaseDeadlinePhase = null;   // 다시 묻는 질문은 그 시점의 남은 초로 마감을 새로 잡는다
         }
 
         /// <summary>서버가 적용한 액션을 로그·사운드로 흘린다.</summary>
@@ -283,6 +299,7 @@ namespace Tichu.Presentation.ViewModel
             _exchangeAnswered = false;
             _earlyPrompt = null;
             _turnPromptHeld = false;
+            _phaseDeadlinePhase = null;
             RoundResult.Value = null;
             FastForward = false;
             _cleared.OnNext(default);
@@ -394,6 +411,7 @@ namespace Tichu.Presentation.ViewModel
             _bombSent = false;
             _turnDeadline = null;
             _deadlineAsk = 0;
+            _phaseDeadlinePhase = null;
             Prompt.Value = null;
         }
 

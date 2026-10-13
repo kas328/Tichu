@@ -22,11 +22,13 @@ namespace Tichu.Presentation.Views
         private static readonly Color BombGlowGold = new Color(1.00f, 0.82f, 0.20f); // 폭탄 보유 카드 금색 오오라
         private static readonly Color CardInk = new Color(0.10f, 0.12f, 0.16f);
         private static readonly Color CardRed = new Color(0.78f, 0.10f, 0.12f);
+        private static readonly Color CardJade = new Color(0.08f, 0.50f, 0.24f);
+        private static readonly Color CardBlue = new Color(0.11f, 0.30f, 0.85f);
         private static readonly Color Back    = new Color(0.16f, 0.24f, 0.45f);
         private const float LiftHeight = 12f;
 
         private RectTransform _rt;
-        private Image _bg, _face;
+        private Image _bg, _face, _icon;
         private Text _label;
         private LayoutElement _le;
         private Button _button;
@@ -113,6 +115,7 @@ namespace Tichu.Presentation.Views
                 _bg.sprite = back;
                 _bg.color = back != null ? Color.white : Back;
                 _face.enabled = false;
+                _icon.enabled = false;
                 _label.enabled = false;
                 return;
             }
@@ -120,6 +123,9 @@ namespace Tichu.Presentation.Views
             _bg.sprite = _atlas != null ? _atlas.Frame(_card) : null; // 생성 프레임(없으면 납작 사각형=기존)
             _bg.color = HighlightColor();
             var sprite = _atlas != null ? _atlas.Face(_card) : null;   // PNG 풀아트 우선
+            var icon = sprite == null && _atlas != null ? _atlas.Icon(_card) : null;
+            _icon.enabled = icon != null;
+            _icon.sprite = icon;
             if (sprite != null)
             {
                 _face.enabled = true; _face.sprite = sprite;
@@ -129,9 +135,42 @@ namespace Tichu.Presentation.Views
             {
                 _face.enabled = false;
                 _label.enabled = true;
-                _label.text = CardFormat.Label(_card);
-                _label.color = CardFormat.IsRed(_card) ? CardRed : CardInk;
+                _label.color = InkFor(_card);
+                if (icon != null)
+                {
+                    // 위: 큰 랭크(특수는 이름) / 아래: 아이콘
+                    _label.text = CardFormat.IconLabel(_card);
+                    _label.fontSize = _card.IsSpecial ? 22 : 30;
+                    _label.fontStyle = FontStyle.Bold;
+                    SetAnchors((RectTransform)_label.transform, 0f, 0.48f, 1f, 1f);
+                }
+                else
+                {
+                    _label.text = CardFormat.Label(_card);
+                    _label.fontSize = 22;
+                    _label.fontStyle = FontStyle.Normal;
+                    Stretch((RectTransform)_label.transform);
+                }
             }
+        }
+
+        // 티츄 4색: 옥=초록, 검=검정, 탑=파랑, 별=빨강. 특수는 기본 잉크.
+        private static Color InkFor(Card c)
+        {
+            if (c.IsSpecial) return CardInk;
+            switch (c.Suit)
+            {
+                case Suit.Jade:   return CardJade;
+                case Suit.Pagoda: return CardBlue;
+                case Suit.Star:   return CardRed;
+                default:          return CardInk;
+            }
+        }
+
+        private static void SetAnchors(RectTransform rt, float x0, float y0, float x1, float y1)
+        {
+            rt.anchorMin = new Vector2(x0, y0); rt.anchorMax = new Vector2(x1, y1);
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         }
 
         private Color HighlightColor()
@@ -162,6 +201,12 @@ namespace Tichu.Presentation.Views
             _face = NewChildImage("Face");
             _face.enabled = false;
             _face.preserveAspect = true;
+
+            _icon = NewChildImage("Icon");   // 무늬/특수 아이콘(카드 아래쪽)
+            _icon.enabled = false;
+            _icon.preserveAspect = true;
+            _icon.raycastTarget = false;
+            SetAnchors((RectTransform)_icon.transform, 0.18f, 0.08f, 0.82f, 0.50f);
 
             _label = NewChildText("Label");
             _label.alignment = TextAnchor.MiddleCenter;

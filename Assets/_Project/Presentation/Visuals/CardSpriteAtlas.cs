@@ -16,9 +16,11 @@ namespace Tichu.Presentation.Visuals
 
         [SerializeField] private Sprite back;
         [SerializeField] private Entry[] faces = new Entry[0];
+        [SerializeField] private Entry[] icons = new Entry[0]; // 무늬 4(Jade/Sword/Pagoda/Star) + 특수 4(종류명)
         [SerializeField] private bool generateArt; // true면 미할당 면/뒷면을 CardArtFactory로 생성
 
         private Dictionary<string, Sprite> _map;
+        private Dictionary<string, Sprite> _iconMap;
         private CardArtFactory _factory;
         private CardArtFactory Factory => _factory ?? (_factory = new CardArtFactory());
 
@@ -38,6 +40,19 @@ namespace Tichu.Presentation.Visuals
                     if (!string.IsNullOrEmpty(e.key)) _map[e.key] = e.sprite;
             }
             return _map.TryGetValue(CardFormat.Key(card), out var s) ? s : null;
+        }
+
+        /// <summary>면에 얹는 무늬/특수 아이콘. 없으면 null(CardView 텍스트 폴백).</summary>
+        public Sprite Icon(Card card)
+        {
+            if (icons == null || icons.Length == 0) return null;
+            if (_iconMap == null)
+            {
+                _iconMap = new Dictionary<string, Sprite>(icons.Length);
+                foreach (var e in icons)
+                    if (!string.IsNullOrEmpty(e.key)) _iconMap[e.key] = e.sprite;
+            }
+            return _iconMap.TryGetValue(CardFormat.IconKey(card), out var s) ? s : null;
         }
     }
 }

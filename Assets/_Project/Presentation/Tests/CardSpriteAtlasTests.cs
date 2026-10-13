@@ -50,5 +50,31 @@ namespace Tichu.Presentation.Tests
             Object.DestroyImmediate(atlas);
             Object.DestroyImmediate(tex);
         }
+
+        [Test]
+        public void Icon_is_looked_up_by_suit_or_special_kind()
+        {
+            var atlas = ScriptableObject.CreateInstance<CardSpriteAtlas>();
+            var tex = new Texture2D(4, 4);
+            var star = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            var dragon = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f));
+            typeof(CardSpriteAtlas).GetField("icons", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(atlas,
+                new[] { new CardSpriteAtlas.Entry { key = "Star", sprite = star }, new CardSpriteAtlas.Entry { key = "Dragon", sprite = dragon } });
+
+            Assert.AreSame(star, atlas.Icon(Card.Normal(3, Suit.Star)));
+            Assert.AreSame(star, atlas.Icon(Card.Normal(14, Suit.Star)), "같은 무늬는 같은 아이콘");
+            Assert.AreSame(dragon, atlas.Icon(Card.Dragon));
+            Assert.IsNull(atlas.Icon(Card.Normal(3, Suit.Jade)), "없는 아이콘은 null(텍스트 폴백)");
+            Object.DestroyImmediate(atlas);
+            Object.DestroyImmediate(tex);
+        }
+
+        [Test]
+        public void Unpopulated_atlas_returns_null_icon()
+        {
+            var atlas = ScriptableObject.CreateInstance<CardSpriteAtlas>();
+            Assert.IsNull(atlas.Icon(Card.Normal(14, Suit.Star)));
+            Object.DestroyImmediate(atlas);
+        }
     }
 }

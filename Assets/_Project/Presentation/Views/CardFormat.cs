@@ -8,16 +8,24 @@ namespace Tichu.Presentation.Views
     /// </summary>
     public static class CardFormat
     {
-        /// <summary>카드 면 라벨. 특수=한글, 일반="랭크\n무늬글리프".</summary>
+        /// <summary>카드 면 라벨. 특수=한글, 일반="랭크\n무늬이름".</summary>
         public static string Label(Card c)
+        {
+            if (c.IsSpecial) return SpecialName(c);
+            return $"{RankLabel(c.Rank)}\n{SuitName(c.Suit)}";
+        }
+
+        /// <summary>무늬 아이콘이 있을 때의 면 라벨 — 일반은 랭크만(무늬는 아이콘), 특수는 이름.</summary>
+        public static string IconLabel(Card c) => c.IsSpecial ? SpecialName(c) : RankLabel(c.Rank);
+
+        private static string SpecialName(Card c)
         {
             switch (c.Special)
             {
                 case SpecialKind.Dragon:  return "용";
-                case SpecialKind.Phoenix: return "봉";
+                case SpecialKind.Phoenix: return "봉황";
                 case SpecialKind.Dog:     return "개";
-                case SpecialKind.Mahjong: return "1";
-                default: return $"{RankLabel(c.Rank)}\n{SuitGlyph(c.Suit)}";
+                default:                  return "1";   // 마작
             }
         }
 
@@ -26,13 +34,11 @@ namespace Tichu.Presentation.Views
             switch (r) { case 14: return "A"; case 13: return "K"; case 12: return "Q"; case 11: return "J"; default: return r.ToString(); }
         }
 
-        public static string SuitGlyph(Suit s)
+        /// <summary>무늬 한 글자. ♠♣♥♦ 는 Android 폰트에 없어 보이지 않으므로 한글로 쓴다.</summary>
+        public static string SuitName(Suit s)
         {
-            switch (s) { case Suit.Jade: return "♣"; case Suit.Sword: return "♠"; case Suit.Pagoda: return "♦"; case Suit.Star: return "♥"; default: return ""; }
+            switch (s) { case Suit.Jade: return "옥"; case Suit.Sword: return "검"; case Suit.Pagoda: return "탑"; case Suit.Star: return "별"; default: return ""; }
         }
-
-        /// <summary>빨강 무늬(다이아/하트). 특수는 false.</summary>
-        public static bool IsRed(Card c) => !c.IsSpecial && (c.Suit == Suit.Pagoda || c.Suit == Suit.Star);
 
         /// <summary>손패/트릭 정렬 키. 개=0, 마작=1, 봉=15, 용=16, 일반=랭크.</summary>
         public static int SortKey(Card c)
@@ -49,6 +55,9 @@ namespace Tichu.Presentation.Views
 
         /// <summary>CardSpriteAtlas 조회 키. 특수=종류명, 일반="랭크_무늬".</summary>
         public static string Key(Card c) => c.IsSpecial ? c.Special.ToString() : $"{c.Rank}_{c.Suit}";
+
+        /// <summary>CardSpriteAtlas 아이콘 키. 특수=종류명, 일반=무늬명(같은 무늬는 같은 아이콘).</summary>
+        public static string IconKey(Card c) => c.IsSpecial ? c.Special.ToString() : c.Suit.ToString();
 
         // 스트레이트/연속페어에서 카드의 표시 랭크(마작=1, 일반=Rank). 봉황·용·개는 여기 안 들어옴.
         private static int RankOf(Card c) => c.Special == SpecialKind.Mahjong ? 1 : c.Rank;

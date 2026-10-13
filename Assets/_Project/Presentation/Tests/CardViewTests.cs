@@ -24,7 +24,7 @@ namespace Tichu.Presentation.Tests
             cv.Set(Card.Normal(14, Suit.Star), null, faceUp: true);
             var label = go.transform.Find("Label").GetComponent<Text>();
             var face = go.transform.Find("Face").GetComponent<Image>();
-            Assert.AreEqual("A\n♥", label.text);
+            Assert.AreEqual("A\n별", label.text);
             Assert.IsTrue(label.enabled);
             Assert.IsFalse(face.enabled);
             Object.DestroyImmediate(go);
@@ -181,7 +181,7 @@ namespace Tichu.Presentation.Tests
             var label = go.transform.Find("Label").GetComponent<Text>();
             Assert.IsNotNull(bg.sprite, "면 배경에 생성 프레임 스프라이트");
             Assert.IsTrue(label.enabled, "PNG 풀아트가 없으면 랭크/무늬 라벨은 위에 유지");
-            Assert.AreEqual("A\n♥", label.text);
+            Assert.AreEqual("A\n별", label.text);
 
             Object.DestroyImmediate(go);
             Object.DestroyImmediate(atlas);
@@ -196,6 +196,89 @@ namespace Tichu.Presentation.Tests
 
             var bg = go.GetComponent<Image>();
             Assert.IsNotNull(bg.sprite, "뒷면 스프라이트가 배경에 설정");
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
+        }
+
+        private static CardSpriteAtlas IconAtlas(params string[] keys)
+        {
+            var a = ScriptableObject.CreateInstance<CardSpriteAtlas>();
+            var tex = new Texture2D(4, 4);
+            var entries = new CardSpriteAtlas.Entry[keys.Length];
+            for (int i = 0; i < keys.Length; i++)
+                entries[i] = new CardSpriteAtlas.Entry { key = keys[i], sprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f)) };
+            typeof(CardSpriteAtlas).GetField("icons", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(a, entries);
+            return a;
+        }
+
+        [Test]
+        public void Icon_present_shows_rank_only_label_and_suit_icon()
+        {
+            var cv = New(out var go);
+            var atlas = IconAtlas("Star");
+            cv.Set(Card.Normal(14, Suit.Star), atlas, faceUp: true);
+
+            var label = go.transform.Find("Label").GetComponent<Text>();
+            var icon = go.transform.Find("Icon").GetComponent<Image>();
+            Assert.AreEqual("A", label.text, "무늬는 아이콘이 맡는다");
+            Assert.IsTrue(icon.enabled);
+            Assert.AreSame(atlas.Icon(Card.Normal(14, Suit.Star)), icon.sprite);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
+        }
+
+        [Test]
+        public void Icon_missing_falls_back_to_full_text_label()
+        {
+            var cv = New(out var go);
+            var atlas = IconAtlas("Star");
+            cv.Set(Card.Normal(9, Suit.Jade), atlas, faceUp: true);
+
+            Assert.AreEqual("9\n옥", go.transform.Find("Label").GetComponent<Text>().text);
+            Assert.IsFalse(go.transform.Find("Icon").GetComponent<Image>().enabled);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
+        }
+
+        [Test]
+        public void Special_with_icon_keeps_its_name_label()
+        {
+            var cv = New(out var go);
+            var atlas = IconAtlas("Phoenix");
+            cv.Set(Card.Phoenix, atlas, faceUp: true);
+
+            Assert.AreEqual("봉황", go.transform.Find("Label").GetComponent<Text>().text);
+            Assert.IsTrue(go.transform.Find("Icon").GetComponent<Image>().enabled);
+
+            Object.DestroyImmediate(go);
+            Object.DestroyImmediate(atlas);
+        }
+
+        [Test]
+        public void Each_suit_has_its_own_ink_colour()
+        {
+            var colours = new System.Collections.Generic.HashSet<Color>();
+            foreach (var suit in new[] { Suit.Jade, Suit.Sword, Suit.Pagoda, Suit.Star })
+            {
+                var cv = New(out var go);
+                cv.Set(Card.Normal(5, suit), null, faceUp: true);
+                colours.Add(go.transform.Find("Label").GetComponent<Text>().color);
+                Object.DestroyImmediate(go);
+            }
+            Assert.AreEqual(4, colours.Count, "옥·검·탑·별은 서로 다른 색");
+        }
+
+        [Test]
+        public void FaceDown_hides_icon()
+        {
+            var cv = New(out var go);
+            var atlas = IconAtlas("Star");
+            cv.Set(Card.Normal(14, Suit.Star), atlas, faceUp: false);
+
+            Assert.IsFalse(go.transform.Find("Icon").GetComponent<Image>().enabled);
 
             Object.DestroyImmediate(go);
             Object.DestroyImmediate(atlas);

@@ -14,4 +14,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Tichu.Presentation::Tichu.Presentation.Visuals.CardSpriteAtlas
   back: {fileID: 0}
   faces: []
+  icons:
+  - key: Jade
+    sprite: {fileID: 3286163911610860551, guid: ab169594ae34e3b4186d415436ad775b, type: 3}
+  - key: Sword
+    sprite: {fileID: 3286163911610860551, guid: 3d0da47d608bbbd4b84f9f869270f758, type: 3}
+  - key: Pagoda
+    sprite: {fileID: 3286163911610860551, guid: 945224ded960e5f4794a777efb971516, type: 3}
+  - key: Star
+    sprite: {fileID: 3286163911610860551, guid: cb4d1a57afafe9d448ed25d6b5a9a2a9, type: 3}
+  - key: Dragon
+    sprite: {fileID: 3286163911610860551, guid: 467a2cf81c9736c4c8d91bf6dba1eaec, type: 3}
+  - key: Phoenix
+    sprite: {fileID: 3286163911610860551, guid: 65d1e15922cafbf40a1dc153678fbccd, type: 3}
+  - key: Dog
+    sprite: {fileID: 3286163911610860551, guid: df09d52188f684d41b71c463bf32ca85, type: 3}
+  - key: Mahjong
+    sprite: {fileID: 3286163911610860551, guid: 6bf5b45c2a329764abed1c07a5badff1, type: 3}
   generateArt: 1

@@ -803,7 +803,7 @@ namespace Tichu.Presentation.Views
         private static string CardShort(Card c)
         {
             if (c.IsSpecial) return CardLabel(c).Replace("\n", "");
-            return $"{RankLabel(c.Rank)}{SuitGlyph(c.Suit)}";
+            return $"{RankLabel(c.Rank)}{SuitName(c.Suit)}";
         }
 
         private static string TypeKo(CombinationType t)
@@ -825,7 +825,7 @@ namespace Tichu.Presentation.Views
         // 카드 면 포맷은 CardFormat으로 추출(CardView와 공용·DRY). 아래는 호출부 호환 위임.
         private static string CardLabel(Card c) => CardFormat.Label(c);
         private static string RankLabel(int r) => CardFormat.RankLabel(r);
-        private static string SuitGlyph(Suit s) => CardFormat.SuitGlyph(s);
+        private static string SuitName(Suit s) => CardFormat.SuitName(s);
         private static int SortKey(Card c) => CardFormat.SortKey(c);
 
         private static bool CardsMatch(IReadOnlyList<Card> a, IReadOnlyList<Card> b)

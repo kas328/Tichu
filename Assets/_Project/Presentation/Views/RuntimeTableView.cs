@@ -52,6 +52,9 @@ namespace Tichu.Presentation.Views
         private readonly Text[] _seatTexts = new Text[4];
         private Text _timerText;
         private GameObject _awayBanner;
+        private GameObject _noticeToast;
+        private Text _noticeText;
+        private double _noticeUntil;   // 이 시각(realtime) 이후 토스트를 숨긴다
         private readonly RectTransform[] _backRoots = new RectTransform[4];
         private readonly Text[] _countTexts = new Text[4];
         private Text _phaseText, _scoreText, _wishText, _trickOwnerText, _promptLabel, _resultText;
@@ -232,6 +235,19 @@ namespace Tichu.Presentation.Views
             back.GetComponent<Button>().onClick.AddListener(() => _vm.SubmitResume());
             AddCardLabel(back.transform, "돌아가기", Ink, 24);
             _awayBanner.SetActive(false);
+
+            // 서버 거부 알림 토스트 — 상단 중앙, 2초 뒤 숨김(Subscribe 의 EveryUpdate 가 숨긴다).
+            _noticeToast = new GameObject("NoticeToast", typeof(RectTransform), typeof(Image));
+            _noticeToast.transform.SetParent(rt, false);
+            var nrt = (RectTransform)_noticeToast.transform;
+            nrt.anchorMin = nrt.anchorMax = nrt.pivot = new Vector2(0.5f, 1f);
+            nrt.sizeDelta = new Vector2(900, 80); nrt.anchoredPosition = new Vector2(0, -140);
+            _noticeToast.GetComponent<Image>().color = new Color(0.10f, 0.12f, 0.16f, 0.92f);
+            _noticeText = NewText("NoticeText", _noticeToast.transform, "", 28);
+            _noticeText.alignment = TextAnchor.MiddleCenter;
+            var ntr = _noticeText.rectTransform;
+            ntr.anchorMin = Vector2.zero; ntr.anchorMax = Vector2.one; ntr.offsetMin = Vector2.zero; ntr.offsetMax = Vector2.zero;
+            _noticeToast.SetActive(false);
         }
 
         // 상대 1명: 프로필 박스(placeholder) + 이름 + 장수를 세로 스택(가운데 정렬)으로 묶고, 카드는 별도 위치.
@@ -350,6 +366,13 @@ namespace Tichu.Presentation.Views
                 _vm.SeatCall(seat).Subscribe(call => UpdateCallBadge(seat, call)).AddTo(_subs);
             }
             _vm.MyAway.Subscribe(a => { if (_awayBanner != null) _awayBanner.SetActive(a); }).AddTo(_subs);
+            _vm.Notice.Subscribe(msg =>
+            {
+                if (_noticeToast == null) return;
+                _noticeText.text = msg;
+                _noticeToast.SetActive(true);
+                _noticeUntil = Time.realtimeSinceStartupAsDouble + 2.0;
+            }).AddTo(_subs);
             for (int i = 1; i < 4; i++)
             {
                 int seat = i;
@@ -357,6 +380,8 @@ namespace Tichu.Presentation.Views
             }
             Observable.EveryUpdate(_sceneCt).Subscribe(_ =>
             {
+                if (_noticeToast != null && _noticeToast.activeSelf && Time.realtimeSinceStartupAsDouble >= _noticeUntil)
+                    _noticeToast.SetActive(false);
                 if (_timerText == null) return;
                 var left = _vm.TurnSecondsLeft;
                 _timerText.text = left.HasValue ? $"남은 시간 {left}초" : "";

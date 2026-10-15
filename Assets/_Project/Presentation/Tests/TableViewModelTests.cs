@@ -659,6 +659,42 @@ namespace Tichu.Presentation.Tests
         }
 
         [Test]
+        public void Late_rejection_raises_the_late_notice_once()
+        {
+            var vm = new TableViewModel(0);
+            var notices = new List<string>();
+            vm.Notice.Subscribe(notices.Add);
+
+            vm.OnActionRejected("stale answer");
+
+            Assert.That(notices, Is.EqualTo(new[] { "시간이 지나 AI가 대신 처리했습니다" }));
+        }
+
+        [Test]
+        public void Already_decided_rejection_raises_no_notice()
+        {
+            var vm = new TableViewModel(0);
+            var notices = new List<string>();
+            vm.Notice.Subscribe(notices.Add);
+
+            vm.OnActionRejected("already decided this round");
+
+            Assert.That(notices, Is.Empty);
+        }
+
+        [Test]
+        public void Other_rejection_raises_the_generic_notice()
+        {
+            var vm = new TableViewModel(0);
+            var notices = new List<string>();
+            vm.Notice.Subscribe(notices.Add);
+
+            vm.OnActionRejected("cannot pass now");
+
+            Assert.That(notices, Is.EqualTo(new[] { "낼 수 없는 동작입니다" }));
+        }
+
+        [Test]
         public void A_new_round_asks_again_with_a_fresh_prompt()
         {
             var s = GameEngine.NewRound(777UL);

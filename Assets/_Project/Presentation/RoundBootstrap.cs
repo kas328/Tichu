@@ -169,7 +169,7 @@ namespace Tichu.Presentation
                             continue;
                         }
                         Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
-                        InvokeFault(retry == null ? "서버에 연결할 수 없습니다" : "서버와 연결이 끊어졌습니다");
+                        InvokeFault(retry == null ? NetMessages.CannotConnect : NetMessages.ConnectionLost);
                         return;
                     }
 
@@ -184,7 +184,7 @@ namespace Tichu.Presentation
                             else if (lobby.Waiting > 0 || lobby.Busy)
                             {
                                 // 재접속인데 서버가 대기열에 넣었다 = 돌아갈 방이 없다(끝났거나 서버 재시작)
-                                InvokeFault("진행 중인 판이 끝났습니다");
+                                InvokeFault(NetMessages.MatchGone);
                                 return;
                             }
                             await UniTask.Yield(PlayerLoopTiming.Update, ct);

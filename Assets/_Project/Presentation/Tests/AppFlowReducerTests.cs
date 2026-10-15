@@ -25,6 +25,7 @@ namespace Tichu.Presentation.Tests
         [TestCase(ScreenState.Result,     AppFlowEvent.ReturnToHub,    ScreenState.MainHub)]
         [TestCase(ScreenState.ModeSelect, AppFlowEvent.OpenNetJoin,    ScreenState.NetJoin)]
         [TestCase(ScreenState.NetJoin,    AppFlowEvent.StartNetMatch,  ScreenState.InGame)]
+        [TestCase(ScreenState.ModeSelect, AppFlowEvent.StartNetMatch,  ScreenState.InGame)]   // M4 출시 빌드 바로 접속
         [TestCase(ScreenState.NetJoin,    AppFlowEvent.Back,           ScreenState.ModeSelect)]
         public void Valid_transitions(ScreenState from, AppFlowEvent evt, ScreenState expected)
         {

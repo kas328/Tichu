@@ -94,7 +94,9 @@ namespace Tichu.Presentation.Shell
             Wire(ScreenState.DifficultySelect, "어려움", () => StartAt(Difficulty.Hard));
             Wire(ScreenState.DifficultySelect, "전문가", () => StartAt(Difficulty.Expert));
             Wire(ScreenState.DifficultySelect, "뒤로",   () => _flow.Send(AppFlowEvent.Back));
-            _addressInput = _view.AddInputField(ScreenState.NetJoin, PlayerPrefs.GetString(AddressKey, ""), "서버 주소 (예: 192.168.0.5)");
+            _addressInput = _view.AddInputField(ScreenState.NetJoin,
+                OnlineEntry.InitialAddress(PlayerPrefs.GetString(AddressKey, ""), ReleaseServerConfig.LoadAddress()),
+                "서버 주소 (예: 192.168.0.5)");
             Wire(ScreenState.NetJoin, "접속", ConnectToServer);
             Wire(ScreenState.NetJoin, "뒤로", () => _flow.Send(AppFlowEvent.Back));
             Wire(ScreenState.HowTo,      "뒤로",      () => _flow.Send(AppFlowEvent.Back));
@@ -115,16 +117,25 @@ namespace Tichu.Presentation.Shell
             _flow.Send(AppFlowEvent.StartAiMatch);
         }
 
-        // 온라인 대전: 개발 빌드(에디터 포함)에서만 접속 화면을 연다. 릴리스는 스텁 안내(출시 주소 고정은 M4).
+        // 온라인 대전: 개발 빌드(에디터 포함)는 주소 입력 화면, 출시 빌드는 빌드에 넣은 주소로 바로 접속.
+        // 출시 주소가 비어 있으면(M2b 전) 준비 중 안내.
         void OnFriendRoom()
         {
-            if (!Debug.isDebugBuild)
+            var d = OnlineEntry.Decide(Debug.isDebugBuild, ReleaseServerConfig.LoadAddress());
+            switch (d.Kind)
             {
-                _flow.Send(AppFlowEvent.SelectFriendRoomStub);
-                ShowToast("온라인 대전은 준비 중입니다");
-                return;
+                case OnlineEntryKind.Unavailable:
+                    _flow.Send(AppFlowEvent.SelectFriendRoomStub);
+                    ShowToast("온라인 대전은 준비 중입니다");
+                    break;
+                case OnlineEntryKind.StartDirect:
+                    _settings.ServerAddress = d.Uri;
+                    _flow.Send(AppFlowEvent.StartNetMatch);
+                    break;
+                default:
+                    _flow.Send(AppFlowEvent.OpenNetJoin);
+                    break;
             }
-            _flow.Send(AppFlowEvent.OpenNetJoin);
         }
 
         // 주소를 정규화해 기록하고 네트워크 매치를 시작한다(→ InGame). 형식 오류면 접속을 시도하지 않는다.

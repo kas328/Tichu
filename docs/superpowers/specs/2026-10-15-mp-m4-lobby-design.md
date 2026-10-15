@@ -80,13 +80,14 @@ LobbyDisplay
 새 순수 클래스 `NetMessages` (`Presentation/Net/`):
 
 ```
-NetMessages.ForRejection(string reason) → string
+NetMessages.ForRejection(string reason) → string?   // null = 알리지 않음
 NetMessages.ForFault(string? reason)    → string?   // null = 사용자 취소(알림 없음, 지금과 같음)
 ```
 
 | 입력 | 출력 |
 |---|---|
-| 거부 `stale answer` · `stale action from a previous round` · `already decided this round` | 시간이 지나 AI가 대신 처리했습니다 |
+| 거부 `stale answer` · `stale action from a previous round` | 시간이 지나 AI가 대신 처리했습니다 |
+| 거부 `already decided this round` | 없음(`null`, 토스트 안 띄움) — 재접속 뒤 다시 뜬 질문처럼 **내 답이 이미 쓰인** 경우라 "AI가 대신" 문구가 틀릴 수 있다 |
 | 그 밖의 모든 거부 | 낼 수 없는 동작입니다 |
 | 폴트: 이미 아는 한국어 사유(서버 연결 끊김 · 다른 곳에서 접속 · 진행 중인 판이 끝났습니다 · 서버에 연결할 수 없습니다 · 서버와 연결이 끊어졌습니다 · `ProtocolVersion.UpdateRequiredReason`) | 그대로 |
 | 폴트: 그 밖(예: `MatchSession`이 보내는 예외 메시지) | 서버 오류로 판이 중단되었습니다 |
@@ -96,8 +97,8 @@ NetMessages.ForFault(string? reason)    → string?   // null = 사용자 취소
 
 ### 4.2 게임 화면 토스트
 
-- `TableViewModel`에 `Observable<string> Notice`(`Subject<string>`)를 더한다. `OnActionRejected(reason)`가 `NetMessages.ForRejection(reason)`을 흘린다. 기존 동작(이미 결정된 답 거부면 프롬프트를 다시 띄우지 않음)은 그대로다.
-- `RuntimeTableView`에 작은 토스트 하나(화면 상단 중앙, 1.5초 유지 후 사라짐, DoTween 코어 API)를 더하고 `Notice`를 구독한다. `ITableView` 인터페이스는 바꾸지 않는다.
+- `TableViewModel`에 `Observable<string> Notice`(`Subject<string>`)를 더한다. `OnActionRejected(reason)`가 `NetMessages.ForRejection(reason)`이 null이 아닐 때만 흘린다. 기존 동작(이미 결정된 답 거부면 프롬프트를 다시 띄우지 않음)은 그대로다.
+- `RuntimeTableView`에 작은 토스트 하나(화면 상단 중앙, 2초 유지 후 숨김 — 이 파일의 기존 `Observable.EveryUpdate` 타이머 관용구를 따른다)를 더하고 `Notice`를 구독한다. `ITableView` 인터페이스는 바꾸지 않는다.
 - 로컬 AI 대전은 거부가 없으므로 영향 없음.
 
 ### 4.3 메뉴 토스트
@@ -118,7 +119,7 @@ NetMessages.ForFault(string? reason)    → string?   // null = 사용자 취소
   - `AppFlowReducer`: `(ModeSelect, StartNetMatch) → InGame` 추가, 기존 무시 케이스 유지.
   - `LobbyWaiter.Display`: 표 3.1의 다섯 상태 + 판정 순서(붐빔이면서 Required>0이면 방 배정 우선) + 카운트다운 감소·0 하한(주입 시계).
   - `NetMessages`: 표 4.1 전 행.
-  - `TableViewModel.Notice`: 거부 시 변환 문구 1회 발행, 이미 결정된 답 거부도 문구는 발행.
+  - `TableViewModel.Notice`: 거부 시 변환 문구 1회 발행, 이미 결정된 답 거부는 발행하지 않음.
 - **회귀:** Presentation EditMode 전체 + core dotnet(변경 없음 확인). ⚠️Unity 러너에서 `Tichu.Core.Tests` 전체 실행 금지(시뮬 10만판).
 - **실기(에디터 + S23, 로컬 서버, 개발 APK):** 혼자 대기 → 1칸·카운트다운 → AI 충원 시작 / 둘이 대기 → 2칸 / `--max-rooms 1` 붐빔 → 순번 표시 → 자동 입장 / 판 중 Wi-Fi 끊기 → "연결이 끊겼습니다" 화면 → 복귀 / 시간 초과 직후 수 → 토스트.
 - 출시 빌드 '준비 중' 경로는 `OnlineEntry` 단위 테스트로 확인한다.

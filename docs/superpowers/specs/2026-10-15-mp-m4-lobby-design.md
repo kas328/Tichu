@@ -86,8 +86,8 @@ NetMessages.ForFault(string? reason)    → string?   // null = 사용자 취소
 
 | 입력 | 출력 |
 |---|---|
-| 거부 `stale answer` · `stale action from a previous round` | 시간이 지나 AI가 대신 처리했습니다 |
-| 거부 `already decided this round` | 없음(`null`, 토스트 안 띄움) — 재접속 뒤 다시 뜬 질문처럼 **내 답이 이미 쓰인** 경우라 "AI가 대신" 문구가 틀릴 수 있다 |
+| 거부 `stale answer` | 시간이 지나 AI가 대신 처리했습니다 |
+| 거부 `already decided this round` · `stale action from a previous round` | 없음(`null`, 토스트 안 띄움) — 재접속 뒤 다시 뜬 질문처럼 **내 답이 이미 쓰인** 경우, 또는 라운드가 끝나 **버려진 수**(차례 밖 폭탄)라 "AI가 대신" 문구가 틀린 안내가 된다(최종 리뷰에서 정정) |
 | 그 밖의 모든 거부 | 낼 수 없는 동작입니다 |
 | 폴트: 이미 아는 한국어 사유(서버 연결 끊김 · 다른 곳에서 접속 · 진행 중인 판이 끝났습니다 · 서버에 연결할 수 없습니다 · 서버와 연결이 끊어졌습니다 · `ProtocolVersion.UpdateRequiredReason`) | 그대로 |
 | 폴트: 그 밖(예: `MatchSession`이 보내는 예외 메시지) | 서버 오류로 판이 중단되었습니다 |

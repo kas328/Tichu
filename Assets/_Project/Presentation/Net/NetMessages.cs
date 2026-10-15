@@ -19,14 +19,14 @@ namespace Tichu.Presentation.Net
         public const string MatchGone = "진행 중인 판이 끝났습니다";
 
         // 시간 초과로 대리 AI 가 이미 둔 질문을 향한 늦은 답.
-        private static readonly HashSet<string> Late = new HashSet<string>
-        {
-            "stale answer",
-            "stale action from a previous round",
-        };
+        private const string Late = "stale answer";
 
-        // 재접속 뒤 다시 뜬 질문처럼 내 답이 이미 쓰였을 수 있는 거부 — 알리지 않는다.
-        private const string AlreadyDecided = "already decided this round";
+        // AI 가 대신 처리한 일이 없는 거부 — 알리지 않는다("AI가 대신" 문구가 틀린 안내가 된다).
+        private static readonly HashSet<string> Silent = new HashSet<string>
+        {
+            "already decided this round",          // 재접속 뒤 다시 뜬 질문 — 내 답이 이미 쓰였다
+            "stale action from a previous round",  // 라운드가 끝나 버려진 수(차례 밖 폭탄 등)
+        };
 
         private static readonly HashSet<string> KnownFaults = new HashSet<string>
         {
@@ -41,8 +41,8 @@ namespace Tichu.Presentation.Net
         /// <summary>판 중 거부 → 토스트 문구. null 이면 알리지 않는다.</summary>
         public static string ForRejection(string reason)
         {
-            if (reason == AlreadyDecided) return null;
-            return reason != null && Late.Contains(reason) ? LateAnswer : CannotDo;
+            if (reason != null && Silent.Contains(reason)) return null;
+            return reason == Late ? LateAnswer : CannotDo;
         }
 
         /// <summary>판 중단 사유 → 메뉴 알림 문구. null(사용자 취소)은 null 그대로.</summary>

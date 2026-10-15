@@ -6,17 +6,19 @@ namespace Tichu.Presentation.Tests
 {
     public class NetMessagesTests
     {
-        [TestCase("stale answer")]
-        [TestCase("stale action from a previous round")]
-        public void Late_answers_say_the_AI_handled_it(string reason)
+        [Test]
+        public void Late_answer_says_the_AI_handled_it()
         {
-            Assert.That(NetMessages.ForRejection(reason), Is.EqualTo("시간이 지나 AI가 대신 처리했습니다"));
+            Assert.That(NetMessages.ForRejection("stale answer"), Is.EqualTo("시간이 지나 AI가 대신 처리했습니다"));
         }
 
-        [Test]
-        public void Already_decided_rejection_is_silent()
+        // 내 답이 이미 쓰였거나(재접속 뒤 다시 뜬 질문) 라운드가 끝나 버려진 수(차례 밖 폭탄) —
+        // AI 가 대신 처리한 일이 없으므로 "AI가 대신" 문구는 틀린 안내가 된다.
+        [TestCase("already decided this round")]
+        [TestCase("stale action from a previous round")]
+        public void Rejections_where_the_AI_did_nothing_are_silent(string reason)
         {
-            Assert.That(NetMessages.ForRejection("already decided this round"), Is.Null);
+            Assert.That(NetMessages.ForRejection(reason), Is.Null);
         }
 
         [TestCase("cannot pass now")]

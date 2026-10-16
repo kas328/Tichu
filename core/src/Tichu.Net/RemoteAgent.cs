@@ -75,6 +75,7 @@ namespace Tichu.Net
         private bool _paused;             // _gate — 아무도 연결돼 있지 않아 무기한 대기 중
         private bool _grandDecided;       // _gate — 이번 라운드 결정 끝
         private bool _exchangeDecided;    // _gate
+        private DateTime? _decisionDeadlineUtc; // _gate — 진행 중인 차례·용 양도 결정의 마감(재질문해도 유지, M5.1)
 
         /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
         private readonly struct OffTurnPlay
@@ -337,6 +338,7 @@ namespace Tichu.Net
                 _exchangeDecided = false;
                 _paused = false;
                 _awaiting = null;
+                _decisionDeadlineUtc = null;   // 끝나지 않은 결정의 마감이 새 라운드로 새지 않게
                 while (_signal.Wait(0)) { }   // 남은 퍼밋 소각 — 퍼밋 수와 큐 길이를 함께 0으로
             }
             foreach (var a in discarded) Reject(a, "stale action from a previous round");
@@ -378,6 +380,13 @@ namespace Tichu.Net
         /// <inheritdoc/>
         public TurnDecision DecideTurn(in DecisionContext ctx)
         {
+            var d = DecideTurnCore(ctx);
+            if (!d.IsYield) ClearDecisionDeadline();   // Yield 는 같은 결정을 다시 묻는다 — 마감 유지
+            return d;
+        }
+
+        private TurnDecision DecideTurnCore(in DecisionContext ctx)
+        {
             var state = ctx.State;
             int seat = ctx.Seat;
             while (true)
@@ -408,6 +417,13 @@ namespace Tichu.Net
         /// <inheritdoc/>
         public int ChooseDragonRecipient(in DecisionContext ctx)
         {
+            int r = ChooseDragonRecipientCore(ctx);
+            ClearDecisionDeadline();
+            return r;
+        }
+
+        private int ChooseDragonRecipientCore(in DecisionContext ctx)
+        {
             var state = ctx.State;
             int seat = ctx.Seat;
             while (true)
@@ -426,16 +442,14 @@ namespace Tichu.Net
         /// <summary>
         /// 해당 종류의 액션이 올 때까지 기다린다. null 이면 사람이 없다 — 호출자가 대리 AI 에게 넘긴다.
         /// 사람 있음: 질문 번호·남은 초를 붙여 묻고 기다린다(초과 → null, 연속 _maxTimeouts 번이면 자리 비움).
-        /// 대기 상한은 보통 _timeout 이지만 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유해 남은 시간만 기다린다
-        /// (멈춤에서 돌아온 좌석은 예외 — 전체 _timeout).
+        /// 대기 상한은 마감까지 남은 시간이다. 차례·용 양도는 그 결정을 처음 물을 때 마감을 정하고 다시 물어도 유지하며
+        /// (재접속·티츄 Yield·거부 뒤 재질문 — 시간을 되돌리지 않는다), 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유한다.
+        /// 멈춤에서 돌아와도 예외 없이 남은 시간만 준다(M5.1).
         /// 자리 비움: 묻지 않고 바로 null. 단 방에 연결된 사람이 아무도 없으면 멈춰 무기한 기다린다.
         /// Resume 표식(연결·복귀 변화)으로 깨면 상태를 다시 보고 처음부터 다시 묻는다.
         /// </summary>
         private ClientAction? Await(StepKind kind, GameState state, int seat)
         {
-            // 멈춤(아무도 연결 안 됨)에서 깨어난 뒤의 재질문은 공유 마감을 무시하고 전체 시간을 받는다 —
-            // 멈춘 동안 단계 시작이 계속 늙어 돌아온 사람이 곧바로 자리 비움이 되는 것을 막는다.
-            bool resumedFromPause = false;
             while (true)
             {
                 // 다른 좌석의 잠금을 잡는 콜백이라 _gate 밖에서 부른다(잠금 중첩 금지).
@@ -461,18 +475,23 @@ namespace Tichu.Net
                     return early;
                 }
 
-                // 큰 티츄·교환은 단계 시작부터 전원이 같은 마감을 공유한다 — 늦게 물린 좌석은 남은 시간만 받는다.
+                // 사람에게 물을 때만 시계가 돈다(멈춤 대기는 무기한). 큰 티츄·교환은 단계 시작부터 전원이 같은
+                // 마감을 공유하고, 차례·용 양도는 결정마다 마감 하나 — 다시 물어도 남은 시간만 준다.
                 // 콜백은 잠금 밖에서 부른다(세션의 읽기 전용 값이라 잠금은 없다).
                 TimeSpan waitFor = _timeout;
-                if (human && !resumedFromPause && _timeout != Timeout.InfiniteTimeSpan
-                    && (kind == StepKind.GrandTichu || kind == StepKind.Exchange))
+                if (human && _timeout != Timeout.InfiniteTimeSpan)
                 {
-                    var phaseStart = _phaseStartedUtc?.Invoke();
-                    if (phaseStart.HasValue)
+                    var now = _utcNow();
+                    if (kind == StepKind.GrandTichu || kind == StepKind.Exchange)
                     {
-                        waitFor = _timeout - (_utcNow() - phaseStart.Value);
-                        if (waitFor < TimeSpan.Zero) waitFor = TimeSpan.Zero;
-                        if (waitFor > _timeout) waitFor = _timeout;   // 벽시계가 뒤로 가도 전체 시간을 넘지 않는다
+                        var phaseStart = _phaseStartedUtc?.Invoke();
+                        if (phaseStart.HasValue) waitFor = Remaining(phaseStart.Value + _timeout, now);
+                    }
+                    else
+                    {
+                        DateTime deadline;
+                        lock (_gate) deadline = (_decisionDeadlineUtc ??= now + _timeout);
+                        waitFor = Remaining(deadline, now);
                     }
                 }
                 int? secondsLeft = human && _timeout != Timeout.InfiniteTimeSpan
@@ -594,14 +613,24 @@ namespace Tichu.Net
 
                 ClientAction a;
                 lock (_gate) a = _matched.Dequeue();
-                if (a.Kind == ClientActionKind.Resume)
-                {
-                    if (paused) resumedFromPause = true;
-                    continue;   // 연결·복귀 변화 — 다시 판단
-                }
+                if (a.Kind == ClientActionKind.Resume) continue;   // 연결·복귀 변화 — 다시 판단
                 lock (_gate) _timeouts = 0;
                 return a;
             }
+        }
+
+        /// <summary>마감까지 남은 시간 — 0 아래면 0, 벽시계가 뒤로 가도 전체 시간을 넘지 않는다.</summary>
+        private TimeSpan Remaining(DateTime deadlineUtc, DateTime now)
+        {
+            var left = deadlineUtc - now;
+            if (left < TimeSpan.Zero) return TimeSpan.Zero;
+            return left > _timeout ? _timeout : left;
+        }
+
+        /// <summary>차례·용 양도 결정이 끝났다 — 다음 결정은 새 마감을 받는다.</summary>
+        private void ClearDecisionDeadline()
+        {
+            lock (_gate) _decisionDeadlineUtc = null;
         }
 
         /// <summary>선행 큐에서 이 질문의 답을 꺼낸다(_gate 안에서). 지난 질문의 번호 붙은 답은 stale 로 모은다.</summary>

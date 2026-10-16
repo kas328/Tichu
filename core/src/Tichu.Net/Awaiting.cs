@@ -34,8 +34,8 @@ namespace Tichu.Net
         /// <summary>대기 좌석이 지금 패스할 수 있는가. 다른 좌석에게는 false.</summary>
         public bool CanPass { get; set; }
 
-        /// <summary>다른 좌석에게 보낼 축약판 — 차례 표시에 필요한 것만 남긴다.</summary>
+        /// <summary>다른 좌석에게 보낼 축약판 — 차례 표시와 남은 초(M5.1)에 필요한 것만 남긴다. 합법수는 뺀다.</summary>
         public Awaiting Redacted() =>
-            new Awaiting { Kind = Kind, Seat = Seat, DeadlineUtc = DeadlineUtc };
+            new Awaiting { Kind = Kind, Seat = Seat, DeadlineUtc = DeadlineUtc, AskId = AskId, SecondsLeft = SecondsLeft };
     }
 }

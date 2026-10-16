@@ -245,6 +245,26 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Redacted_view_keeps_the_ask_id_and_seconds_left_but_not_the_moves()
+        {
+            // 남의 차례 남은 초를 다른 좌석도 보게 한다(M5.1). 합법수는 은닉 정보라 계속 뺀다.
+            var aw = new Awaiting
+            {
+                Kind = StepKind.Play, Seat = 1, AskId = 7, SecondsLeft = 12, CanPass = true,
+                LegalMoves = new List<Tichu.Core.Combinations.Combination>(),
+            };
+
+            var r = aw.Redacted();
+
+            Assert.That(r.Kind, Is.EqualTo(StepKind.Play));
+            Assert.That(r.Seat, Is.EqualTo(1));
+            Assert.That(r.AskId, Is.EqualTo(7));
+            Assert.That(r.SecondsLeft, Is.EqualTo(12));
+            Assert.That(r.LegalMoves, Is.Null);
+            Assert.That(r.CanPass, Is.False);
+        }
+
+        [Test]
         public void Blocking_wait_is_woken_by_a_later_submit()
         {
             // 이 테스트만이 _matched.Enqueue + Release → Wait + Dequeue 경로를 탄다.

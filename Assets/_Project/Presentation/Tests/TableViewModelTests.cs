@@ -930,6 +930,118 @@ namespace Tichu.Presentation.Tests
             Assert.That(vm.TurnSecondsLeft, Is.EqualTo(20), "새 단계는 새 마감");
         }
 
+        // ── M5.1: 남의 차례 남은 초 ───────────────────────────────────────────
+
+        private static Awaiting AskOther(int seat, long askId, int? secs, StepKind kind = StepKind.Play) =>
+            new Awaiting { Kind = kind, Seat = seat, AskId = askId, SecondsLeft = secs };
+
+        [Test]
+        public void Another_seats_turn_counts_down_from_when_its_question_arrived()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, 20)));
+
+            Assert.That(vm.SeatSecondsLeft(3), Is.EqualTo(20));
+            Assert.That(vm.SeatSecondsLeft(1), Is.Null, "묻지 않는 좌석엔 초가 없다");
+            Assert.That(vm.TurnSecondsLeft, Is.Null, "내 타이머와 섞이지 않는다");
+            now = 107.5;
+            Assert.That(vm.SeatSecondsLeft(3), Is.EqualTo(13));
+            now = 130;
+            Assert.That(vm.SeatSecondsLeft(3), Is.EqualTo(0), "0 아래로 내려가지 않는다");
+        }
+
+        [Test]
+        public void A_resent_question_does_not_push_another_seats_clock_back()
+        {
+            var s = GameEngine.NewRound(777UL);
+            double now = 100;
+            var vm = new TableViewModel(0, () => now);
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, 20)));
+
+            now = 105;
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, 20)));   // 같은 질문의 재전송
+            Assert.That(vm.SeatSecondsLeft(3), Is.EqualTo(15));
+
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 2, 15)));   // 서버가 다시 물었다 — 서버의 남은 초를 따른다
+            now = 110;
+            Assert.That(vm.SeatSecondsLeft(3), Is.EqualTo(10));
+        }
+
+        [Test]
+        public void Another_seats_clock_clears_when_the_turn_ends()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, 20)));
+
+            vm.Apply(MyTurnView(s, 0, null));                  // 수가 적용됐다(질문 없는 갱신)
+
+            Assert.That(vm.SeatSecondsLeft(3), Is.Null);
+        }
+
+        [Test]
+        public void Grand_tichu_and_exchange_questions_show_no_clock_for_other_seats()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+
+            var grand = MyTurnView(s, 1, AskOther(1, 1, 20, StepKind.GrandTichu));
+            grand.Phase = RoundPhase.GrandTichuDecision;
+            vm.Apply(grand);
+            Assert.That(vm.SeatSecondsLeft(1), Is.Null, "네 좌석 동시 질문 — 남의 초는 혼란만 준다");
+
+            var exchange = MyTurnView(s, 2, AskOther(2, 1, 20, StepKind.Exchange));
+            exchange.Phase = RoundPhase.Exchange;
+            vm.Apply(exchange);
+            Assert.That(vm.SeatSecondsLeft(2), Is.Null);
+        }
+
+        [Test]
+        public void Another_seats_dragon_gift_shows_its_clock()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+            vm.Apply(MyTurnView(s, 1, AskOther(1, 4, 20, StepKind.DragonGift)));
+
+            Assert.That(vm.SeatSecondsLeft(1), Is.EqualTo(20));
+        }
+
+        [Test]
+        public void A_question_without_seconds_shows_no_clock()
+        {
+            // 예전 서버·타이머 없는 질문 — 초를 지어내지 않는다.
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, null)));
+
+            Assert.That(vm.SeatSecondsLeft(3), Is.Null);
+        }
+
+        [Test]
+        public void My_own_question_is_not_another_seats_clock()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+            vm.Apply(MyTurnView(s, 0, AskPlay(s.Seats[0].Hand[0], askId: 1, secs: 30)));
+
+            for (int seat = 0; seat < 4; seat++)
+                Assert.That(vm.SeatSecondsLeft(seat), Is.Null);
+            Assert.That(vm.TurnSecondsLeft, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void Reconnect_clears_another_seats_clock()
+        {
+            var s = GameEngine.NewRound(777UL);
+            var vm = new TableViewModel(0, () => 100);
+            vm.Apply(MyTurnView(s, 3, AskOther(3, 1, 20)));
+
+            vm.ResetForReconnect();
+
+            Assert.That(vm.SeatSecondsLeft(3), Is.Null);
+        }
         [Test]
         public void Grand_countdown_follows_the_servers_own_question_after_a_pause()
         {

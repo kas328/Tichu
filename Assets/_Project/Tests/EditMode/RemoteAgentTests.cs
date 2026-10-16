@@ -245,6 +245,26 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void Redacted_view_keeps_the_ask_id_and_seconds_left_but_not_the_moves()
+        {
+            // 남의 차례 남은 초를 다른 좌석도 보게 한다(M5.1). 합법수는 은닉 정보라 계속 뺀다.
+            var aw = new Awaiting
+            {
+                Kind = StepKind.Play, Seat = 1, AskId = 7, SecondsLeft = 12, CanPass = true,
+                LegalMoves = new List<Tichu.Core.Combinations.Combination>(),
+            };
+
+            var r = aw.Redacted();
+
+            Assert.That(r.Kind, Is.EqualTo(StepKind.Play));
+            Assert.That(r.Seat, Is.EqualTo(1));
+            Assert.That(r.AskId, Is.EqualTo(7));
+            Assert.That(r.SecondsLeft, Is.EqualTo(12));
+            Assert.That(r.LegalMoves, Is.Null);
+            Assert.That(r.CanPass, Is.False);
+        }
+
+        [Test]
         public void Blocking_wait_is_woken_by_a_later_submit()
         {
             // 이 테스트만이 _matched.Enqueue + Release → Wait + Dequeue 경로를 탄다.
@@ -765,13 +785,14 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
-        public void Seat_returning_from_a_pause_gets_the_full_timeout_not_the_expired_shared_window()
+        public void Seat_returning_from_a_pause_gets_only_the_rest_of_the_shared_window()
         {
+            // 멈춤에서 돌아와도 시간을 되돌리지 않는다 — 단계 공유 마감의 남은 시간만 받는다(M5.1).
             var h = new Harness();
             var stub = new StubAgent();
             bool anyone = false;
             var agent = h.Create(0, TimeSpan.FromSeconds(5), standIn: stub, anyConnected: () => anyone,
-                phaseStartedUtc: () => FixedNow.AddSeconds(-60), utcNow: () => FixedNow);
+                phaseStartedUtc: () => FixedNow.AddSeconds(-2), utcNow: () => FixedNow);
             agent.SetConnected(false);
             var s = GameEngine.NewRound(782UL);
             bool? called = null;
@@ -783,7 +804,7 @@ namespace Tichu.Core.Tests
             agent.SetConnected(true);                       // 돌아왔다
             WaitUntil(() => h.AwaitCount == 2);
 
-            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(5), "전체 시간을 새로 받는다");
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(3), "단계 시작부터 흐른 2초를 뺀 남은 시간");
             agent.Submit(WithAsk(ClientAction.CallGrandTichu(0, 1), h.LastAwait.AskId));
             Assert.That(t.Join(2000), Is.True);
 
@@ -805,6 +826,283 @@ namespace Tichu.Core.Tests
             Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(5), "차례는 묻는 때부터 전체 시간");
             agent.Submit(PlayFive(1, h.LastAwait.AskId));
             t.Join(3000);
+        }
+
+        // ── M5.1: 한 결정에 마감 하나 ─────────────────────────────────────────
+
+        [Test]
+        public void Reconnect_during_the_turn_keeps_the_remaining_seconds()
+        {
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20));
+            Assert.That(t.Join(200), Is.False, "차례를 기다리는 중");
+
+            now = FixedNow.AddSeconds(8);
+            agent.SetConnected(true);                       // 끊김을 못 본 채 새 연결이 붙었다 → 다시 묻는다
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(12), "처음 물은 때부터 흐른 시간만큼 줄어 있다");
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void A_tichu_yield_does_not_restart_the_turn_clock()
+        {
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var ctx = LeadContext(out _);
+            TurnDecision first = default;
+            var t1 = new Thread(() => first = agent.DecideTurn(ctx)) { IsBackground = true };
+            t1.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t1.Join(200), Is.False, "차례를 기다리는 중");
+
+            now = FixedNow.AddSeconds(5);
+            agent.Submit(ClientAction.CallTichu(0, 1L));
+            Assert.That(t1.Join(2000), Is.True);
+            Assert.That(first.IsYield, Is.True, "테스트 전제: 콜이 차례 대기를 깨운다");
+            agent.TakeReservedTichu();
+
+            var t2 = new Thread(() => agent.DecideTurn(ctx)) { IsBackground = true };   // 드라이버가 같은 좌석에 다시 묻는다
+            t2.Start();
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(15));
+            agent.Submit(PlayFive(2, h.LastAwait.AskId));
+            Assert.That(t2.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void A_rejected_move_does_not_restart_the_turn_clock()
+        {
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t.Join(200), Is.False, "차례를 기다리는 중");
+
+            now = FixedNow.AddSeconds(7);
+            agent.Submit(WithAsk(ClientAction.Play(0, 1L,
+                new List<Card> { Card.Normal(13, Suit.Star) }, rank: 0, wish: null), h.LastAwait.AskId));   // 손에 없는 카드
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.Rejected("illegal or ambiguous move"), Is.True);
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(13));
+            agent.Submit(PlayFive(2, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void Returning_after_the_deadline_hands_the_turn_to_the_stand_in_at_once()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), standIn: stub, maxTimeouts: 1, utcNow: () => now);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t.Join(200), Is.False, "차례를 기다리는 중");
+
+            now = FixedNow.AddSeconds(25);
+            agent.SetConnected(true);                       // 마감이 지난 뒤 다시 붙었다
+            Assert.That(t.Join(2000), Is.True, "마감이 지났으니 기다리지 않는다");
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(0));
+            Assert.That(stub.Turns, Is.EqualTo(1), "대리 AI 가 둔다");
+            Assert.That(agent.IsAway, Is.True, "시간 초과 1회 = 자리 비움(maxTimeouts 1)");
+
+            // 복귀 뒤 다음 차례는 새 결정 — 지난 마감이 남아 있으면 0초로 시작해 다시 자리 비움이 된다.
+            agent.SetConnected(true);
+            var t2 = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t2.Start();
+            WaitUntil(() => h.AwaitCount == 3);
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20), "결정이 끝나면 마감을 지운다");
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t2.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void The_turn_clock_keeps_running_while_the_room_is_paused()
+        {
+            var h = new Harness();
+            var stub = new StubAgent();
+            bool anyone = true;
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), standIn: stub, anyConnected: () => anyone, utcNow: () => now);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t.Join(200), Is.False, "차례를 기다리는 중");
+
+            now = FixedNow.AddSeconds(6);
+            anyone = false;
+            agent.SetConnected(false);                      // 유일한 사람이 끊겼다 → 멈춤
+            WaitUntil(() => h.AwaitCount == 2);
+            Assert.That(h.LastAwait.SecondsLeft, Is.Null, "멈춤 중엔 타이머가 없다");
+            Assert.That(t.Join(200), Is.False, "아무도 없으면 기다린다");
+
+            now = FixedNow.AddSeconds(10);
+            anyone = true;
+            agent.SetConnected(true);
+            WaitUntil(() => h.AwaitCount == 3);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(10), "멈춘 동안에도 흘렀다 — 20초를 새로 주지 않는다");
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+            Assert.That(stub.Turns, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void A_question_first_asked_while_paused_starts_the_clock_on_return()
+        {
+            // 회귀 가드: 사람에게 물은 적이 없으면 시계도 시작되지 않았다 — 돌아와 처음 물을 때 전체 시간.
+            var h = new Harness();
+            var stub = new StubAgent();
+            bool anyone = false;
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), standIn: stub, anyConnected: () => anyone, utcNow: () => now);
+            agent.SetConnected(false);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(h.LastAwait.SecondsLeft, Is.Null);
+            Assert.That(t.Join(200), Is.False);
+
+            now = FixedNow.AddSeconds(30);
+            anyone = true;
+            agent.SetConnected(true);
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20), "사람에게 처음 묻는 순간 시계가 시작된다");
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void The_next_turn_gets_the_full_time_again()
+        {
+            // 회귀 가드: 결정이 끝나면 마감을 지운다.
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var ctx = LeadContext(out _);
+
+            agent.Submit(PlayFive(1));                      // 묻기 전에 낸 수 — 첫 차례를 바로 끝낸다
+            agent.DecideTurn(ctx);
+            now = FixedNow.AddSeconds(8);
+            agent.Submit(PlayFive(2));
+            agent.DecideTurn(ctx);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void After_a_yield_a_different_decision_gets_the_full_time()
+        {
+            // Yield 뒤 다른 좌석의 폭탄 등으로 판이 진행되면 드라이버는 이 좌석에 같은 결정을 다시 묻지 않는다 —
+            // 그 뒤 이 좌석에 오는 질문은 새 결정이다(남은 마감이 새면 잘못 없는 시간 초과·자리 비움, 최종 리뷰 지적).
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), standIn: new StubAgent(), utcNow: () => now);   // 남은 마감이 새면 대리 AI 가 즉시 둔다
+            var ctx = LeadContext(out var state);
+            TurnDecision first = default;
+            var t1 = new Thread(() => first = agent.DecideTurn(ctx)) { IsBackground = true };
+            t1.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t1.Join(200), Is.False, "차례를 기다리는 중");
+            now = FixedNow.AddSeconds(5);
+            agent.Submit(ClientAction.CallTichu(0, 1L));
+            Assert.That(t1.Join(2000), Is.True);
+            Assert.That(first.IsYield, Is.True, "테스트 전제: 마감이 남은 채 결정이 멈췄다");
+            agent.TakeReservedTichu();
+
+            state.CompletedTricks.Add(new Trick());          // 그 사이 판이 진행됐다(폭탄으로 차례가 넘어가 트릭이 끝남)
+            now = FixedNow.AddSeconds(25);
+            var t2 = new Thread(() => agent.DecideTurn(ctx)) { IsBackground = true };
+            t2.Start();
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20), "새 결정은 새 마감");
+            agent.Submit(PlayFive(2, h.LastAwait.AskId));
+            Assert.That(t2.Join(2000), Is.True);
+        }
+
+        [Test]
+        public void A_new_round_drops_a_pending_turn_deadline()
+        {
+            // Yield 로 마감이 남은 채 라운드가 끝나도 다음 라운드 차례는 전체 시간이다.
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var ctx = LeadContext(out _);
+            TurnDecision first = default;
+            var t1 = new Thread(() => first = agent.DecideTurn(ctx)) { IsBackground = true };
+            t1.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t1.Join(200), Is.False);
+            agent.Submit(ClientAction.CallTichu(0, 1L));
+            Assert.That(t1.Join(2000), Is.True);
+            Assert.That(first.IsYield, Is.True, "테스트 전제: 마감이 남은 채 결정이 멈췄다");
+
+            agent.ResetForNewRound();
+            now = FixedNow.AddSeconds(8);
+            agent.Submit(PlayFive(2));
+            agent.DecideTurn(ctx);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void A_rejected_dragon_recipient_does_not_restart_the_clock()
+        {
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var ctx = LeadContext(out _);
+            int got = -1;
+            var t = new Thread(() => got = agent.ChooseDragonRecipient(ctx)) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t.Join(200), Is.False);
+
+            now = FixedNow.AddSeconds(4);
+            agent.Submit(WithAsk(ClientAction.GiveDragon(0, 1L, 2), h.LastAwait.AskId));   // 파트너 — 거부
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(16));
+            agent.Submit(WithAsk(ClientAction.GiveDragon(0, 2L, 1), h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
+            Assert.That(got, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void A_clock_that_jumps_back_never_grants_more_than_the_full_time()
+        {
+            // 회귀 가드: 벽시계가 뒤로 가도 남은 초는 전체 시간을 넘지 않는다.
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), utcNow: () => now);
+            var t = new Thread(() => agent.DecideTurn(LeadContext(out _))) { IsBackground = true };
+            t.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t.Join(200), Is.False);
+
+            now = FixedNow.AddSeconds(-30);
+            agent.SetConnected(true);
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20));
+            agent.Submit(PlayFive(1, h.LastAwait.AskId));
+            Assert.That(t.Join(2000), Is.True);
         }
 
         [Test]

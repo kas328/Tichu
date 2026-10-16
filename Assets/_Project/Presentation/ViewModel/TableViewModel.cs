@@ -31,6 +31,9 @@ namespace Tichu.Presentation.ViewModel
         private double? _turnDeadline;      // 내게 온 서버 질문의 마감(로컬 시계)
         private long _deadlineAsk;          // 그 마감을 잡은 질문 번호
         private RoundPhase? _phaseDeadlinePhase;   // 큰 티츄·교환 공유 마감을 이미 잡은 단계(새 단계·새 라운드에 해제)
+        private int _otherSeat = -1;        // 지금 남에게 온 차례·용 양도 질문의 좌석(-1 = 없음)
+        private long _otherAsk;             // 그 질문 번호 — 같은 질문의 재전송이 시계를 되돌리지 않게
+        private double? _otherDeadline;     // 그 마감(로컬 시계)
         private readonly ReactiveProperty<bool>[] _away = new ReactiveProperty<bool>[4];
 
         /// <summary>내 좌석이 자리 비움(AI 대행) — 배너·[돌아가기].</summary>
@@ -41,6 +44,11 @@ namespace Tichu.Presentation.ViewModel
         /// <summary>내 차례 남은 초. 묻는 질문이 없으면 null.</summary>
         public int? TurnSecondsLeft =>
             _turnDeadline.HasValue ? Math.Max(0, (int)Math.Ceiling(_turnDeadline.Value - _now())) : (int?)null;
+
+        /// <summary>다른 좌석의 차례·용 양도 남은 초(로컬 좌석 번호). 그 좌석에 묻는 중이 아니면 null.</summary>
+        public int? SeatSecondsLeft(int seat) =>
+            seat == _otherSeat && _otherDeadline.HasValue
+                ? Math.Max(0, (int)Math.Ceiling(_otherDeadline.Value - _now())) : (int?)null;
 
         // ── 서버 시야 투영 ───────────────────────────────────────────────────
 
@@ -176,9 +184,9 @@ namespace Tichu.Presentation.ViewModel
             bool earlyPhase = v.Phase == RoundPhase.GrandTichuDecision || v.Phase == RoundPhase.Exchange;
             if (!earlyPhase) _phaseDeadlinePhase = null;
             if (earlyPhase && v.PhaseSecondsLeft.HasValue) TrackPhaseDeadline(v);
-            // 서버가 내 좌석에 직접 물으면 그 질문의 초가 실제 마감이다 — 단계 창과 보통 같고,
-            // 멈췄다 돌아온 좌석은 서버가 전체 시간을 새로 준다.
+            // 서버가 내 좌석에 직접 물으면 그 질문의 초가 실제 마감이다 — 다시 물어도 서버가 남은 초만 준다.
             TrackDeadline(v.Awaiting);
+            TrackOtherDeadline(v.Awaiting);
             if (Prompt.CurrentValue == null) _turnDeadline = null;
         }
 
@@ -199,6 +207,28 @@ namespace Tichu.Presentation.ViewModel
             if (aw == null || aw.Seat != _mySeat || !aw.SecondsLeft.HasValue || aw.AskId == _deadlineAsk) return;
             _deadlineAsk = aw.AskId;
             _turnDeadline = _now() + aw.SecondsLeft.Value;
+        }
+
+        /// <summary>
+        /// 남의 차례·용 양도 질문이면 그 마감을 잡는다(번호가 다를 때만 — 받은 시각 + 남은 초).
+        /// 질문이 없거나 내 질문·큰 티츄·교환(네 좌석 동시)·초 없는 질문이면 지운다.
+        /// </summary>
+        private void TrackOtherDeadline(Awaiting aw)
+        {
+            bool timed = aw != null && aw.Seat != _mySeat && aw.SecondsLeft.HasValue
+                && (aw.Kind == StepKind.Play || aw.Kind == StepKind.DragonGift);
+            if (!timed) { ClearOtherDeadline(); return; }
+            if (aw.Seat == _otherSeat && aw.AskId == _otherAsk) return;
+            _otherSeat = aw.Seat;
+            _otherAsk = aw.AskId;
+            _otherDeadline = _now() + aw.SecondsLeft.Value;
+        }
+
+        private void ClearOtherDeadline()
+        {
+            _otherSeat = -1;
+            _otherAsk = 0;
+            _otherDeadline = null;
         }
 
         /// <summary>
@@ -422,6 +452,7 @@ namespace Tichu.Presentation.ViewModel
             _turnDeadline = null;
             _deadlineAsk = 0;
             _phaseDeadlinePhase = null;
+            ClearOtherDeadline();
             Prompt.Value = null;
         }
 

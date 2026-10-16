@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티츄 M5.1 차례 시계 결과</title>
+<style>
+  :root { --bg:#f6f5f1; --card:#fff; --ink:#1f2421; --mute:#5d6660; --line:#dcdcd3; --jade:#1f7a5c; --jade-bg:#e4f2ec; --blue:#2d5f9a; --blue-bg:#e5edf7; --warn:#a4561a; --warn-bg:#fbeee2; --code:#ecebe4; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161a18; --card:#1f2421; --ink:#e7e9e4; --mute:#9aa39d; --line:#343b37; --jade:#5cc59c; --jade-bg:#1d3329; --blue:#86b2e6; --blue-bg:#1c2a3b; --warn:#e2a066; --warn-bg:#3a2a1b; --code:#2a302c; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.7 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; }
+  main { max-width:940px; margin:0 auto; padding:32px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 6px; }
+  .sub { color:var(--mute); margin:0 0 24px; }
+  h2 { font-size:21px; margin:44px 0 12px; padding-top:10px; border-top:1px solid var(--line); }
+  p { margin:8px 0; }
+  .ok { background:var(--jade-bg); border-left:4px solid var(--jade); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .warn { background:var(--warn-bg); border-left:4px solid var(--warn); border-radius:10px; padding:12px 16px; margin:12px 0; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 16px; }
+  .stat b { display:block; font-size:24px; color:var(--jade); }
+  .stat span { color:var(--mute); font-size:14px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; font-size:15px; margin:10px 0; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { background:var(--jade-bg); color:var(--jade); font-size:14px; }
+  code { font-size:14px; background:var(--code); padding:0 5px; border-radius:4px; }
+  ol li, ul li { margin-bottom:5px; }
+  .wrap { overflow-x:auto; }
+</style>
+</head>
+<body>
+<main>
+<h1>M5.1 차례 시계 — 결과 보고서</h1>
+<p class="sub">2026-10-17 · 브랜치 <code>feat/mp-m51</code> ← main <code>1a28acf</code> · M4 실기 피드백 두 건 반영</p>
+
+<div class="ok"><b>한 줄 요약:</b> 차례 시간은 이제 어떤 경로로도 20초로 되돌아가지 않고, 다른 사람 차례의 남은 초가 그 사람 이름표 옆("왼쪽 · 12초")에 보인다. 자동 테스트·최종 리뷰 완료, 실기는 출시 직전 배치로 미룸.</div>
+
+<h2>1. 확정된 결정</h2>
+<ol>
+  <li><b>한 결정에 마감 하나.</b> 차례·용 양도는 처음 물을 때 마감을 정하고, 다시 물어도 남은 초만 준다.</li>
+  <li><b>되돌림 없음 — 멈춤 복귀 포함.</b> 브레인스토밍에선 "혼자 판 멈춤 복귀는 새 20초"로 정했으나, 스펙 리뷰에서 사용자가 "다시 돌아가는 것 자체가 필요 없는 기능"이라 뒤집었다. 큰 티츄·교환의 멈춤 복귀 예외도 함께 제거. 단, 사람에게 한 번도 묻지 않은 질문은 돌아와 처음 물을 때 시계가 시작된다(되돌림이 아니라 첫 시작).</li>
+  <li><b>남의 남은 초는 이름표 옆.</b> 내 차례는 기존대로 아래 가운데 "남은 시간 N초".</li>
+  <li><b>프로토콜 불변.</b> 이미 있던 <code>SecondsLeft</code>·<code>AskId</code> 를 다른 좌석 축약판에도 채울 뿐 — 예전 앱·예전 서버와 호환.</li>
+</ol>
+
+<h2>2. 막은 리셋 경로</h2>
+<div class="wrap"><table>
+<tr><th>경로</th><th>전</th><th>후</th></tr>
+<tr><td>재접속(끊김을 서버가 늦게 앎) · 자리 비움 복귀</td><td>새 20초</td><td>남은 초</td></tr>
+<tr><td>내 차례에 누군가 작은 티츄</td><td>새 20초</td><td>남은 초</td></tr>
+<tr><td>낼 수 없는 수·패스 거부 뒤 재질문</td><td>새 20초</td><td>남은 초</td></tr>
+<tr><td>혼자 판 멈춤 → 복귀(차례·용 양도·큰 티츄·교환)</td><td>새 20초</td><td>남은 초(멈춘 동안도 흐름)</td></tr>
+<tr><td>티츄로 깬 뒤 다른 좌석 폭탄으로 차례가 넘어감 <i>(리뷰에서 발견)</i></td><td>—</td><td>새 결정으로 보고 새 20초(남은 마감이 새지 않음)</td></tr>
+<tr><td>재접속 스냅샷의 남 차례 초 <i>(리뷰에서 발견)</i></td><td>보낸 때 값 그대로(부풀어 보임)</td><td>흐른 만큼 빼서 보냄</td></tr>
+</table></div>
+
+<h2>3. 바뀐 파일</h2>
+<ul>
+  <li><code>Tichu.Net/RemoteAgent.cs</code> (core·Unity 미러) — <code>_decisionDeadlineUtc</code> + 결정 키(종류·끝난 트릭 수·현재 트릭 수·차례), <code>Remaining</code>, <code>ClearDecisionDeadline</code>, <code>resumedFromPause</code> 제거.</li>
+  <li><code>Tichu.Net/Awaiting.cs</code> (미러) — <code>Redacted()</code> 에 <code>AskId</code>·<code>SecondsLeft</code>.</li>
+  <li><code>Tichu.Server/Matchmaking/Room.cs</code> — 재접속 스냅샷 남은 초 차감(원본 보관·0 하한).</li>
+  <li><code>Presentation/ViewModel/TableViewModel.cs</code> — <code>SeatSecondsLeft(seat)</code>, 같은 질문 재전송 무시, 재접속 시 해제.</li>
+  <li><code>Presentation/Views/RuntimeTableView.cs</code> — <code>SeatLabel</code>, 이름표 매 프레임 조립, Overflow.</li>
+</ul>
+
+<h2>4. 검증</h2>
+<div class="grid">
+  <div class="stat"><b>595/595</b><span>core dotnet 전체(시뮬 포함)</span></div>
+  <div class="stat"><b>80/80</b><span>서버</span></div>
+  <div class="stat"><b>283/283</b><span>Unity Presentation</span></div>
+  <div class="stat"><b>54/54</b><span>Unity 미러 RemoteAgentTests</span></div>
+</div>
+<p>새 테스트: RemoteAgent 12(재접속·Yield·거부·마감 경과·멈춤 중 흐름·멈춤 첫 질문·다음 차례·새 라운드·용 양도·시계 역행·Yield 뒤 다른 결정·축약판) + 기존 1건 기대 반전, Room 1, TableViewModel 8, SeatLabel 4. 고치기 전 실패를 모두 먼저 확인(가드 4건은 설계상 원래 통과).</p>
+<p><b>최종 리뷰(Opus, 새 맥락):</b> 치명 1·중요 1 → 각각 실패 테스트 먼저 쓰고 수정. 사소 2건은 아래 이월.</p>
+
+<div class="warn"><b>실기 미확인 — 출시 직전 배치로 미룸(사용자 결정 2026-10-17).</b> 개발 APK는 빌드돼 있다(02:18).
+<ol>
+  <li>두 사람 판, 폰 차례에 Wi-Fi 끄고 몇 초 뒤 켜기 → 남은 초가 이어진다</li>
+  <li>에디터에서 폰 차례를 볼 때 폰 이름표 옆 "· N초"가 줄고, 차례가 끝나면 사라진다</li>
+  <li>혼자 판, 내 차례에 끊었다 돌아오기 → 남은 초가 이어진다</li>
+  <li>측면 이름표에 초가 붙었을 때 카드 뒷면과 겹치거나 잘리지 않는다</li>
+</ol></div>
+
+<h2>5. 대신 내린 결정과 비용</h2>
+<div class="wrap"><table>
+<tr><th>결정</th><th>이유</th><th>틀렸을 때 비용</th></tr>
+<tr><td>서버 <code>Room.cs</code> 수정(계획엔 "서버 변경 없음")</td><td>재접속 스냅샷을 만드는 곳이 Room 뿐</td><td>출시 시 서버 재배포 범위만 늘어남(프로토콜 불변)</td></tr>
+<tr><td>결정 구분을 상태 키로(세션에서 일괄 해제 안 함)</td><td>RemoteAgent 안에서 완결, 단위 테스트로 고정</td><td>트릭·수(패스 포함)·차례가 모두 같은데 다른 결정이면 누수 — 판이 진행되지 않은 것이라 발생 불가로 판단</td></tr>
+<tr><td>큰 티츄·교환 멈춤 복귀도 남은 시간만</td><td>사용자 결정("되돌림 불필요")</td><td>혼자 판에서 라운드 사이 앱을 20초 넘게 내리면 큰 티츄 자동 거절·교환 자동·자리 비움 배너(복귀 버튼으로 해제)</td></tr>
+<tr><td>Unity 전용 태스크는 완료 기록을 수동으로</td><td>셸에서 Unity 테스트를 못 돌림</td><td>기록 형식만 다름</td></tr>
+</table></div>
+
+<h2>6. 이월</h2>
+<ul>
+  <li>측면 이름표 Overflow 가 카드 뒷면 열과 겹칠 가능성 — 실기 배치에서 확인, 겹치면 22pt 또는 공백 축소.</li>
+  <li>재접속 스냅샷의 <code>PhaseSecondsLeft</code>(큰 티츄·교환 단계 남은 초)도 보낸 때 값 — M5 기존 동작.</li>
+  <li>서버 끊김 감지 속도(keep-alive) — 범위 밖.</li>
+</ul>
+
+<h2>7. 커밋</h2>
+<ul>
+  <li><code>a2046d1</code>·<code>e858085</code> 스펙 · <code>745bd17</code> 계획</li>
+  <li><code>efb042e</code> 한 결정에 마감 하나</li>
+  <li><code>2aaedb5</code> 축약판 남은 초 + 뷰모델 SeatSecondsLeft</li>
+  <li><code>40cf32b</code> 이름표 옆 남은 초</li>
+  <li><code>5bb6f36</code> 최종 리뷰 반영(Yield 뒤 다른 결정·재접속 스냅샷)</li>
+</ul>
+</main>
+</body>
+</html>

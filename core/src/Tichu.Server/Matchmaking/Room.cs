@@ -28,6 +28,8 @@ namespace Tichu.Server
         private readonly string?[] _deviceBySeat = new string?[SeatCount];       // 생성 후 불변
         private readonly IPlayerLink?[] _bySeat = new IPlayerLink?[SeatCount];   // _gate
         private readonly ServerEvent?[] _lastState = new ServerEvent?[SeatCount]; // _gate
+        private readonly Awaiting?[] _lastAwaiting = new Awaiting?[SeatCount];     // _gate — 보낸 때의 질문(재전송이 view 를 덮어써도 원본 유지)
+        private readonly DateTime[] _lastStateAt = new DateTime[SeatCount];        // _gate — 그 스냅샷을 보낸 시각
         private readonly object _gate = new object();
         private Action<ClientAction>? _handler;   // _gate
         private MatchSession? _session;           // _gate, Start 이후
@@ -114,7 +116,12 @@ namespace Tichu.Server
             if (seat < 0 || seat >= SeatCount) return;
             lock (_gate)
             {
-                if (ev.Kind == ServerEventKind.StateUpdate) _lastState[seat] = ev;   // 재접속 스냅샷
+                if (ev.Kind == ServerEventKind.StateUpdate)
+                {
+                    _lastState[seat] = ev;                                            // 재접속 스냅샷
+                    _lastAwaiting[seat] = ev.View?.Awaiting;
+                    _lastStateAt[seat] = _now();
+                }
                 _bySeat[seat]?.Send(ev);                                              // 끊긴·AI 좌석은 버린다
             }
         }
@@ -135,6 +142,21 @@ namespace Tichu.Server
                 h = _handler;
             }
             h?.Invoke(a);
+        }
+
+        /// <summary>
+        /// 재접속 스냅샷의 질문 — 남은 초는 보낸 때의 값이라 그 사이 흐른 만큼 뺀다(0 하한). 남의 차례 시계가
+        /// 부풀지 않게 한다(M5.1). 원본은 다른 좌석과 공유될 수 있어 복사본을 만든다.
+        /// </summary>
+        private static Awaiting? Aged(Awaiting? aw, TimeSpan elapsed)
+        {
+            if (aw?.SecondsLeft == null) return aw;
+            return new Awaiting
+            {
+                Kind = aw.Kind, Seat = aw.Seat, DeadlineUtc = aw.DeadlineUtc, AskId = aw.AskId,
+                LegalMoves = aw.LegalMoves, CanPass = aw.CanPass,
+                SecondsLeft = Math.Max(0, aw.SecondsLeft.Value - (int)elapsed.TotalSeconds),
+            };
         }
 
         public void Left(IPlayerLink who)
@@ -180,7 +202,8 @@ namespace Tichu.Server
                 if (session != null) { var sc = session.MatchScore; lobby.TeamA = sc.TeamA; lobby.TeamB = sc.TeamB; }
                 link.Send(lobby);
                 var last = _lastState[seat];
-                if (last?.View != null) link.Send(ServerEvent.StateUpdate(last.View, last.View.Awaiting));
+                if (last?.View != null)
+                    link.Send(ServerEvent.StateUpdate(last.View, Aged(_lastAwaiting[seat], _now() - _lastStateAt[seat])));
                 if (session != null)
                 {
                     session.ResetSeatSequence(seat);          // 새 앱은 ActionSeq 1 부터 — 수신 루프 시작 전에

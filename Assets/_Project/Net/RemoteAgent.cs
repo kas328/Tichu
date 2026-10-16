@@ -76,6 +76,7 @@ namespace Tichu.Net
         private bool _grandDecided;       // _gate — 이번 라운드 결정 끝
         private bool _exchangeDecided;    // _gate
         private DateTime? _decisionDeadlineUtc; // _gate — 진행 중인 차례·용 양도 결정의 마감(재질문해도 유지, M5.1)
+        private (StepKind Kind, int Tricks, int Plays, int Turn) _decisionKey;   // _gate — 그 마감이 속한 결정
 
         /// <summary>차례밖에 도착한 Play 한 건과 그 도착 순번.</summary>
         private readonly struct OffTurnPlay
@@ -489,8 +490,19 @@ namespace Tichu.Net
                     }
                     else
                     {
+                        // 판이 한 수라도 진행됐으면 다른 결정이다 — Yield 뒤 다른 좌석의 폭탄으로 차례가 넘어가면
+                        // 드라이버가 이 결정을 다시 묻지 않아 마감이 지워지지 않는다(트릭·수·차례로 구분).
+                        var key = (kind, state.CompletedTricks.Count, state.CurrentTrick?.History.Count ?? 0, state.Turn);
                         DateTime deadline;
-                        lock (_gate) deadline = (_decisionDeadlineUtc ??= now + _timeout);
+                        lock (_gate)
+                        {
+                            if (_decisionDeadlineUtc == null || _decisionKey != key)
+                            {
+                                _decisionDeadlineUtc = now + _timeout;
+                                _decisionKey = key;
+                            }
+                            deadline = _decisionDeadlineUtc.Value;
+                        }
                         waitFor = Remaining(deadline, now);
                     }
                 }

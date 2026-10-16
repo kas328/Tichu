@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Tichu.Core.Game;
 using Tichu.Core.Tests;
+using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
 using Tichu.Net;
 
@@ -183,6 +185,35 @@ namespace Tichu.Server.Tests
             int before = a2.Received.Count;
             await Until(() => { client.Pump(); return a2.Received.Count > before + 20; }, 30);
             Assert.That(a2.Received.Any(e => e.Kind == ServerEventKind.ActionRejected && e.Reason!.Contains("actionSeq")), Is.False);
+        }
+
+        [Test]
+        public void Rejoin_snapshot_counts_down_the_seconds_that_passed()
+        {
+            // 재접속 스냅샷의 남은 초는 보낸 때의 값이다 — 흐른 만큼 빼서 보내야 남의 차례 시계가 부풀지 않는다(M5.1).
+            var a = new FakeLink();
+            var (room, _, _) = Make(Fast(), new[] { 0 }, a);
+            var view = ViewProjector.ProjectFor(GameEngine.NewRound(1UL), 0);
+            room.SendTo(0, ServerEvent.StateUpdate(view, new Awaiting { Kind = StepKind.Play, Seat = 3, AskId = 4, SecondsLeft = 20 }));
+
+            _clock = _clock.AddSeconds(5);
+            room.Left(a);
+            var a2 = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(a2);
+            Assert.That(a2.Received[1].View!.Awaiting!.SecondsLeft, Is.EqualTo(15));
+            Assert.That(a2.Received[1].View!.Awaiting!.AskId, Is.EqualTo(4), "질문은 그대로");
+
+            _clock = _clock.AddSeconds(3);                   // 다시 끊겼다 돌아온다 — 빼기가 겹치면 안 된다
+            room.Left(a2);
+            var a3 = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(a3);
+            Assert.That(a3.Received[1].View!.Awaiting!.SecondsLeft, Is.EqualTo(12));
+
+            _clock = _clock.AddSeconds(30);
+            room.Left(a3);
+            var a4 = Track(new FakeLink { DeviceId = a.DeviceId });
+            room.Rejoin(a4);
+            Assert.That(a4.Received[1].View!.Awaiting!.SecondsLeft, Is.EqualTo(0), "0 아래로 내려가지 않는다");
         }
 
         [Test]

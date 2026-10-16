@@ -1006,6 +1006,37 @@ namespace Tichu.Core.Tests
         }
 
         [Test]
+        public void After_a_yield_a_different_decision_gets_the_full_time()
+        {
+            // Yield 뒤 다른 좌석의 폭탄 등으로 판이 진행되면 드라이버는 이 좌석에 같은 결정을 다시 묻지 않는다 —
+            // 그 뒤 이 좌석에 오는 질문은 새 결정이다(남은 마감이 새면 잘못 없는 시간 초과·자리 비움, 최종 리뷰 지적).
+            var h = new Harness();
+            var now = FixedNow;
+            var agent = h.Create(0, TimeSpan.FromSeconds(20), standIn: new StubAgent(), utcNow: () => now);   // 남은 마감이 새면 대리 AI 가 즉시 둔다
+            var ctx = LeadContext(out var state);
+            TurnDecision first = default;
+            var t1 = new Thread(() => first = agent.DecideTurn(ctx)) { IsBackground = true };
+            t1.Start();
+            WaitUntil(() => h.AwaitCount == 1);
+            Assert.That(t1.Join(200), Is.False, "차례를 기다리는 중");
+            now = FixedNow.AddSeconds(5);
+            agent.Submit(ClientAction.CallTichu(0, 1L));
+            Assert.That(t1.Join(2000), Is.True);
+            Assert.That(first.IsYield, Is.True, "테스트 전제: 마감이 남은 채 결정이 멈췄다");
+            agent.TakeReservedTichu();
+
+            state.CompletedTricks.Add(new Trick());          // 그 사이 판이 진행됐다(폭탄으로 차례가 넘어가 트릭이 끝남)
+            now = FixedNow.AddSeconds(25);
+            var t2 = new Thread(() => agent.DecideTurn(ctx)) { IsBackground = true };
+            t2.Start();
+            WaitUntil(() => h.AwaitCount == 2);
+
+            Assert.That(h.LastAwait.SecondsLeft, Is.EqualTo(20), "새 결정은 새 마감");
+            agent.Submit(PlayFive(2, h.LastAwait.AskId));
+            Assert.That(t2.Join(2000), Is.True);
+        }
+
+        [Test]
         public void A_new_round_drops_a_pending_turn_deadline()
         {
             // Yield 로 마감이 남은 채 라운드가 끝나도 다음 라운드 차례는 전체 시간이다.

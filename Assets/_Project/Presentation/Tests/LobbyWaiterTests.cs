@@ -11,13 +11,13 @@ namespace Tichu.Presentation.Tests
         public void Lobby_events_update_seat_and_counts()
         {
             var w = new LobbyWaiter();
-            Assert.That(w.StatusText, Is.EqualTo("서버 접속 중…"));
+            Assert.That(w.Display, Is.EqualTo(LobbyDisplay.Connecting));
 
             w.Feed(new[] { ServerEvent.Lobby(2, 1, 2) });
 
             Assert.That(w.Seat, Is.EqualTo(2));
             Assert.That(w.Started, Is.False);
-            Assert.That(w.StatusText, Is.EqualTo("다른 플레이어 기다리는 중 1/2"));
+            Assert.That(w.Display, Is.EqualTo(new LobbyDisplay("곧 시작합니다", 1, "다른 플레이어 기다리는 중")));
         }
 
         [Test]
@@ -52,11 +52,11 @@ namespace Tichu.Presentation.Tests
             var w = new LobbyWaiter(() => now);
             w.Feed(new[] { ServerEvent.Queued(2, 18, false, 0) });
 
-            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 18초 뒤 AI와 시작"));
+            Assert.That(w.Display, Is.EqualTo(new LobbyDisplay("상대를 찾는 중", 2, "18초 뒤 빈자리는 AI로 채우고 시작합니다")));
             now = 105.2;
-            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 13초 뒤 AI와 시작"));
+            Assert.That(w.Display.Detail, Is.EqualTo("13초 뒤 빈자리는 AI로 채우고 시작합니다"));
             now = 200;
-            Assert.That(w.StatusText, Is.EqualTo("상대를 찾는 중 · 2명 대기 · 0초 뒤 AI와 시작"));
+            Assert.That(w.Display.Detail, Is.EqualTo("0초 뒤 빈자리는 AI로 채우고 시작합니다"));
         }
 
         [Test]
@@ -66,7 +66,7 @@ namespace Tichu.Presentation.Tests
             w.Feed(new[] { ServerEvent.Queued(5, null, true, 3) });
 
             Assert.That(w.Busy, Is.True);
-            Assert.That(w.StatusText, Is.EqualTo("서버가 붐빕니다 · 대기 순번 3"));
+            Assert.That(w.Display, Is.EqualTo(new LobbyDisplay("서버가 붐빕니다", 0, "대기 순번 3 · 자리가 나면 자동으로 들어갑니다")));
         }
 
         [Test]
@@ -102,6 +102,43 @@ namespace Tichu.Presentation.Tests
             w.LocalScore(out int mine, out int theirs);
             Assert.That(w.MatchTeamA, Is.EqualTo(300));
             Assert.That((mine, theirs), Is.EqualTo((450, 300)), "좌석 3 은 B 팀 — 내 팀이 앞");
+        }
+
+        [Test]
+        public void Room_assignment_wins_over_busy()
+        {
+            var w = new LobbyWaiter(() => 0);
+            w.Feed(new List<ServerEvent> { ServerEvent.Queued(5, null, true, 1), ServerEvent.Lobby(1, 1, 2) });
+
+            Assert.That(w.Display.Title, Is.EqualTo("곧 시작합니다"));
+        }
+
+        [Test]
+        public void Reconnecting_wins_over_every_other_state()
+        {
+            var w = new LobbyWaiter(() => 0, reconnecting: true);
+            Assert.That(w.Display, Is.EqualTo(LobbyDisplay.Reconnecting));
+
+            w.Feed(new[] { ServerEvent.Lobby(1, 1, 2) });   // 재접속 시 서버가 Lobby 부터 보낸다
+
+            Assert.That(w.Display, Is.EqualTo(LobbyDisplay.Reconnecting));
+            Assert.That(LobbyDisplay.Reconnecting,
+                Is.EqualTo(new LobbyDisplay("연결이 끊겼습니다", 0, "재접속 중… 같은 자리로 돌아갑니다")));
+        }
+
+        [Test]
+        public void Seats_are_clamped_to_four()
+        {
+            var w = new LobbyWaiter(() => 0);
+            w.Feed(new[] { ServerEvent.Queued(6, 10, false, 0) });   // 비정상 값이어도 4칸을 넘지 않는다
+
+            Assert.That(w.Display.Seats, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void Connecting_display_hides_the_seats()
+        {
+            Assert.That(LobbyDisplay.Connecting, Is.EqualTo(new LobbyDisplay("서버 접속 중…", 0, "")));
         }
     }
 }

@@ -7,6 +7,7 @@ using Tichu.Core.Game;
 using Tichu.GameFlow;
 using Tichu.GameFlow.Agents;
 using Tichu.Net;
+using Tichu.Presentation.Net;
 
 namespace Tichu.Presentation.ViewModel
 {
@@ -94,6 +95,10 @@ namespace Tichu.Presentation.ViewModel
         private readonly Subject<ClientAction> _submitted = new Subject<ClientAction>();
         /// <summary>내가 서버로 올릴 액션. TichuClient 가 전송에 밀어 넣는다.</summary>
         public Observable<ClientAction> Submitted => _submitted;
+
+        private readonly Subject<string> _notice = new Subject<string>();
+        /// <summary>잠깐 띄울 알림(서버 거부 사유를 사용자 문구로 바꾼 것). 테이블 토스트가 먹는다.</summary>
+        public Observable<string> Notice => _notice;
 
         // ── 로컬 전용 상태 ───────────────────────────────────────────────────
 
@@ -259,6 +264,9 @@ namespace Tichu.Presentation.ViewModel
         /// </summary>
         public void OnActionRejected(string reason)
         {
+            var notice = NetMessages.ForRejection(reason);
+            if (notice != null) _notice.OnNext(notice);
+
             if (reason == "already decided this round") return;
             _grandAnswered = false;
             _exchangeAnswered = false;

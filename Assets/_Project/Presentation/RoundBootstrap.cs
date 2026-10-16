@@ -145,8 +145,8 @@ namespace Tichu.Presentation
             string deviceId = DeviceIdentity.GetOrCreate(
                 () => PlayerPrefs.GetString(DeviceIdKey, ""),
                 v => { PlayerPrefs.SetString(DeviceIdKey, v); PlayerPrefs.Save(); });
-            var overlay = CreateLobbyOverlay(canvas, out var status, out var cancel);
-            cancel.onClick.AddListener(() => InvokeFault(null));   // 사용자 취소 → 알림 없이 메뉴로
+            var overlay = LobbyOverlayView.Create(canvas);
+            overlay.Cancel.onClick.AddListener(() => InvokeFault(null));   // 사용자 취소 → 알림 없이 메뉴로
             ReconnectPolicy retry = null;                           // null = 첫 접속
 
             try
@@ -169,24 +169,24 @@ namespace Tichu.Presentation
                             continue;
                         }
                         Debug.LogWarning($"[RoundBootstrap] 접속 실패 {_args.ServerAddress}: {e.Message}");
-                        InvokeFault(retry == null ? "서버에 연결할 수 없습니다" : "서버와 연결이 끊어졌습니다");
+                        InvokeFault(retry == null ? NetMessages.CannotConnect : NetMessages.ConnectionLost);
                         return;
                     }
 
                     using (transport)
                     {
-                        var lobby = new LobbyWaiter();
+                        var lobby = new LobbyWaiter(reconnecting: retry != null);
                         while (!lobby.Started && lobby.FaultReason == null)
                         {
                             lobby.Feed(transport.Drain());
                             if (_faulted) return;   // 사용자 취소 — 파괴될 UI 를 건드리지 않는다
-                            if (retry == null) status.text = lobby.StatusText;
-                            else if (lobby.Waiting > 0 || lobby.Busy)
+                            if (retry != null && (lobby.Waiting > 0 || lobby.Busy))
                             {
                                 // 재접속인데 서버가 대기열에 넣었다 = 돌아갈 방이 없다(끝났거나 서버 재시작)
-                                InvokeFault("진행 중인 판이 끝났습니다");
+                                InvokeFault(NetMessages.MatchGone);
                                 return;
                             }
+                            overlay.Render(lobby.Display);
                             await UniTask.Yield(PlayerLoopTiming.Update, ct);
                         }
                         if (lobby.FaultReason != null)
@@ -200,7 +200,7 @@ namespace Tichu.Presentation
                             return;
                         }
 
-                        if (overlay != null) { Destroy(overlay); overlay = null; }
+                        if (overlay != null) { overlay.Destroy(); overlay = null; }
                         if (retry != null) vm.ResetForReconnect();
                         lobby.LocalScore(out int mine, out int theirs);
                         vm.SetMatchScore(mine, theirs);
@@ -220,9 +220,9 @@ namespace Tichu.Presentation
                         {
                             Debug.LogWarning("[RoundBootstrap] 연결이 끊겼다 — 재접속을 시도한다");
                             retry = new ReconnectPolicy(() => Time.realtimeSinceStartupAsDouble);
-                            overlay = CreateLobbyOverlay(canvas, out status, out cancel);
-                            cancel.onClick.AddListener(() => InvokeFault(null));
-                            status.text = "재접속 중…";
+                            overlay = LobbyOverlayView.Create(canvas);
+                            overlay.Cancel.onClick.AddListener(() => InvokeFault(null));
+                            overlay.Render(LobbyDisplay.Reconnecting);
                             if (retry.TryNextDelay(out double w3))
                                 await UniTask.Delay(TimeSpan.FromSeconds(w3), cancellationToken: ct);
                             continue;
@@ -235,45 +235,6 @@ namespace Tichu.Presentation
             }
             catch (OperationCanceledException) { /* 씬 종료: 정상 */ }
             catch (Exception e) { Debug.LogException(e); }
-        }
-
-        /// <summary>대기실 오버레이(상태 문구 + 취소). 테이블 위 반투명 판.</summary>
-        private static GameObject CreateLobbyOverlay(Canvas canvas, out Text status, out Button cancel)
-        {
-            var root = new GameObject("LobbyOverlay", typeof(RectTransform), typeof(Image));
-            root.transform.SetParent(canvas.transform, false);
-            var rt = (RectTransform)root.transform;
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-            root.GetComponent<Image>().color = new Color(0.04f, 0.10f, 0.06f, 0.92f);
-
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-
-            var textGo = new GameObject("Status", typeof(RectTransform), typeof(Text));
-            textGo.transform.SetParent(root.transform, false);
-            status = textGo.GetComponent<Text>();
-            status.font = font; status.fontSize = 48; status.alignment = TextAnchor.MiddleCenter;
-            status.color = new Color(0.92f, 0.94f, 0.98f); status.text = "서버 접속 중…";
-            var trt = status.rectTransform;
-            trt.anchorMin = trt.anchorMax = trt.pivot = new Vector2(0.5f, 0.5f);
-            trt.sizeDelta = new Vector2(1200f, 120f); trt.anchoredPosition = new Vector2(0f, 60f);
-
-            var btnGo = new GameObject("Btn_취소", typeof(RectTransform), typeof(Image), typeof(Button));
-            btnGo.transform.SetParent(root.transform, false);
-            var brt = (RectTransform)btnGo.transform;
-            brt.anchorMin = brt.anchorMax = brt.pivot = new Vector2(0.5f, 0.5f);
-            brt.sizeDelta = new Vector2(360f, 96f); brt.anchoredPosition = new Vector2(0f, -100f);
-            btnGo.GetComponent<Image>().color = new Color(0.20f, 0.24f, 0.34f, 1f);
-            cancel = btnGo.GetComponent<Button>();
-
-            var lblGo = new GameObject("L", typeof(RectTransform), typeof(Text));
-            lblGo.transform.SetParent(btnGo.transform, false);
-            var lbl = lblGo.GetComponent<Text>();
-            lbl.font = font; lbl.fontSize = 36; lbl.alignment = TextAnchor.MiddleCenter;
-            lbl.color = new Color(0.92f, 0.94f, 0.98f); lbl.text = "취소";
-            var lrt = lbl.rectTransform;
-            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one; lrt.offsetMin = Vector2.zero; lrt.offsetMax = Vector2.zero;
-
-            return root;
         }
 
         /// <summary>난이도별 인게임 1수 시간예산(ms). 정본은 core 의 PimcBudget — 기존 테스트 호환용 위임.</summary>

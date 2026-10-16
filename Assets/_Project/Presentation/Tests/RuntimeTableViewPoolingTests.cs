@@ -164,5 +164,28 @@ namespace Tichu.Presentation.Tests
             }
             finally { Object.DestroyImmediate(canvasGo); }
         }
+
+        [Test]
+        public void Rejection_notice_shows_the_toast_with_its_text()
+        {
+            var canvasGo = new GameObject("TestCanvas", typeof(Canvas));
+            try
+            {
+                var vm = new TableViewModel(0);
+                ITableView view = new RuntimeTableView();
+                view.Bind(vm, canvasGo.GetComponent<Canvas>(), CancellationToken.None);
+
+                var toast = FindByName(canvasGo, "NoticeToast");
+                Assert.IsNotNull(toast, "토스트가 빌드돼 있어야 한다");
+                Assert.IsFalse(toast.gameObject.activeSelf, "알림 전에는 숨김");
+
+                vm.OnActionRejected("stale answer");
+
+                Assert.IsTrue(toast.gameObject.activeSelf, "알림이 오면 보인다");
+                Assert.AreEqual("시간이 지나 AI가 대신 처리했습니다",
+                    FindByName(canvasGo, "NoticeText").GetComponent<Text>().text);
+            }
+            finally { Object.DestroyImmediate(canvasGo); }
+        }
     }
 }

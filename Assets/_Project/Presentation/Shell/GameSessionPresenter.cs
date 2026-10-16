@@ -1,6 +1,7 @@
 using System;
 using Cysharp.Threading.Tasks;
 using R3;
+using Tichu.Presentation.Net;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -68,7 +69,12 @@ namespace Tichu.Presentation.Shell
             if (rb == null) { Debug.LogError("[GameSession] Table 씬에 RoundBootstrap이 없습니다"); return; }
             rb.Begin(new GameLaunchArgs { Difficulty = _settings.Difficulty, ServerAddress = _settings.ServerAddress },
                 OnMatchEnded,
-                reason => { _settings.PendingNotice = reason; _flow.Send(AppFlowEvent.ReturnToHub); });   // 폴트·접속 실패 → 메뉴 + 알림
+                reason =>
+                {
+                    if (reason != null) Debug.LogWarning($"[GameSession] 매치 중단: {reason}");
+                    _settings.PendingNotice = NetMessages.ForFault(reason);   // 사용자 문구로(취소면 null)
+                    _flow.Send(AppFlowEvent.ReturnToHub);
+                });   // 폴트·접속 실패 → 메뉴 + 알림
         }
 
         void OnMatchEnded(MatchSummary summary)

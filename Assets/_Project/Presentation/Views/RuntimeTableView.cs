@@ -28,6 +28,10 @@ namespace Tichu.Presentation.Views
         // 시각 위치 기준 이름. seat1=오른쪽, seat2=파트너, seat3=왼쪽.
         private static readonly string[] SeatNames = { "나", "오른쪽", "파트너", "왼쪽" };
 
+        /// <summary>좌석 이름표 — 이름, 자리 비움이면 (AI), 남은 초가 있으면 · N초.</summary>
+        public static string SeatLabel(string name, bool away, int? secondsLeft) =>
+            (away ? $"{name}(AI)" : name) + (secondsLeft.HasValue ? $" · {secondsLeft.Value}초" : "");
+
         private static readonly Color Felt   = new Color(0.07f, 0.22f, 0.13f);
         private static readonly Color Ink     = new Color(0.93f, 0.96f, 0.94f);
         private static readonly Color Warn    = new Color(1.00f, 0.80f, 0.40f);
@@ -270,6 +274,7 @@ namespace Tichu.Presentation.Views
 
             _seatTexts[seat] = NewText($"Name{seat}", info.transform, SeatNames[seat], 24);
             _seatTexts[seat].alignment = TextAnchor.MiddleCenter;
+            _seatTexts[seat].horizontalOverflow = HorizontalWrapMode.Overflow;
             var nle = _seatTexts[seat].gameObject.AddComponent<LayoutElement>(); nle.preferredWidth = 140; nle.preferredHeight = 28;
 
             _countTexts[seat] = NewText($"Cnt{seat}", info.transform, "14장", 22);
@@ -373,15 +378,17 @@ namespace Tichu.Presentation.Views
                 _noticeToast.SetActive(true);
                 _noticeUntil = Time.realtimeSinceStartupAsDouble + 2.0;
             }).AddTo(_subs);
-            for (int i = 1; i < 4; i++)
-            {
-                int seat = i;
-                _vm.SeatAway(seat).Subscribe(a => _seatTexts[seat].text = a ? $"{SeatNames[seat]}(AI)" : SeatNames[seat]).AddTo(_subs);
-            }
             Observable.EveryUpdate(_sceneCt).Subscribe(_ =>
             {
                 if (_noticeToast != null && _noticeToast.activeSelf && Time.realtimeSinceStartupAsDouble >= _noticeUntil)
                     _noticeToast.SetActive(false);
+                // 남의 이름표 — 자리 비움·남은 초가 프레임마다 바뀌므로 여기서 조립하고 바뀔 때만 대입한다.
+                for (int i = 1; i < 4; i++)
+                {
+                    if (_seatTexts[i] == null) continue;
+                    var label = SeatLabel(SeatNames[i], _vm.SeatAway(i).CurrentValue, _vm.SeatSecondsLeft(i));
+                    if (_seatTexts[i].text != label) _seatTexts[i].text = label;
+                }
                 if (_timerText == null) return;
                 var left = _vm.TurnSecondsLeft;
                 _timerText.text = left.HasValue ? $"남은 시간 {left}초" : "";

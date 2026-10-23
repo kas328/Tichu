@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스토어 등록정보</title>
+<style>
+  :root { --bg: #f6f7f4; --ink: #1d2420; --muted: #5d6a62; --line: #d6dbd4; --card: #ffffff; --accent: #123821; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 "Malgun Gothic", system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 18px; }
+  h2 { font-size: 15px; margin: 0 0 8px; display: flex; justify-content: space-between; gap: 12px; }
+  h2 span { color: var(--muted); font-weight: 400; }
+  pre { margin: 0; white-space: pre-wrap; word-break: keep-all; font: inherit; }
+  .note { color: var(--muted); font-size: 14px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Google Play 스토어 등록정보 (한국어)</h1>
+  <p class="sub">각 블록의 내용을 Play Console 의 같은 이름 칸에 그대로 붙여 넣는다. 글자 수는 <code>docs/store/src/check-listing.ps1</code> 로 확인한 값.</p>
+
+  <section>
+    <h2>앱 이름 <span>13 / 30</span></h2>
+<pre id="title">용과 봉황: 팀 카드게임</pre>
+  </section>
+
+  <section>
+    <h2>간단한 설명 <span>48 / 80</span></h2>
+<pre id="short">넷이 둘씩 팀을 이뤄 겨루는 트릭테이킹 카드게임. 난이도 4단계 AI와 언제든 한 판!</pre>
+  </section>
+
+  <section>
+    <h2>자세한 설명 <span>729 / 4000</span></h2>
+    <!-- M2b 서버 배포 전에 게시한다면 아래 "온라인 대전" 단락(■ 온라인 대전 ~ 재접속 줄)을 빼고 붙여 넣을 것 -->
+<pre id="full">용과 봉황은 네 명이 둘씩 한 팀이 되어 겨루는 트릭테이킹 카드게임입니다. 티츄(Tichu) 규칙으로 즐기는 2:2 팀 대전으로, 파트너와 호흡을 맞춰 먼저 패를 털어내고 점수를 모으세요.
+
+■ 이렇게 놉니다
+· 싱글, 페어, 트리플, 풀하우스, 스트레이트, 연속 페어로 앞사람보다 높은 조합을 내며 트릭을 가져옵니다.
+· 같은 숫자 네 장이나 같은 무늬 스트레이트는 폭탄! 차례가 아니어도 끼어들어 판을 뒤집습니다.
+· 용, 봉황, 개, 마작 네 장의 특수 카드가 매 판을 다르게 만듭니다.
+· 카드를 받기 전에 외치는 라지 티츄, 첫 카드를 내기 전에 외치는 스몰 티츄로 큰 점수를 걸어 보세요.
+· 라운드마다 카드 세 장을 왼쪽·파트너·오른쪽과 주고받으며 작전을 짭니다.
+
+■ AI 대전
+· 쉬움, 보통, 어려움, 전문가 네 단계 난이도.
+· 파트너 AI는 내 티츄 선언을 돕고, 상대 AI는 위협을 막아섭니다.
+· 인터넷 연결 없이 언제든 혼자 즐길 수 있습니다.
+
+■ 온라인 대전
+· 자동 매칭으로 다른 플레이어와 한 테이블에 앉습니다. 빈자리는 AI가 채워 기다림이 짧습니다.
+· 한 차례 20초. 시간이 지나면 AI가 대신 둡니다.
+· 연결이 끊겨도 다시 들어오면 하던 판으로 돌아갑니다.
+
+■ 편하게
+· 가로 화면에 큼직한 카드와 또렷한 무늬.
+· 폭탄을 쥐면 손패가 빛나 놓치지 않습니다.
+
+본 앱은 Tichu 의 저작권자·상표권자 및 공식 라이선스 앱과 관련이 없는 독립 제작물입니다.</pre>
+    <p class="note">"티츄(Tichu) 규칙" 은 규칙을 사실대로 밝히는 표기다. 앱 이름·아이콘에는 Tichu 를 쓰지 않는다(상표 조사 보고서 참고).</p>
+  </section>
+</main>
+</body>
+</html>

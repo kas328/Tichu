@@ -71,14 +71,14 @@
     <figure><img src="../../store/screens/04-result.png" alt=""><figcaption>04 라운드 결과</figcaption></figure>
     <figure><img src="../../store/screens/05-difficulty.png" alt=""><figcaption>05 난이도 선택</figcaption></figure>
   </div>
-  <p>등록정보 문구: <code>docs/store/listing.html</code> (제목 13/30 · 간단한 설명 48/80 · 자세한 설명 729/4000). 그림 원본·렌더·검사 명령: <code>docs/store/src/README.md</code>.</p>
+  <p>등록정보 문구: <code>docs/store/listing.html</code> (제목 13/30 · 간단한 설명 48/80 · 자세한 설명 600/4000 + 온라인 단락 127, 합쳐서 729/4000). 그림 원본·렌더·검사 명령: <code>docs/store/src/README.md</code>.</p>
 </section>
 
 <section>
   <h2>2. 검증</h2>
   <table>
     <tr><th>항목</th><th>방법</th><th>결과</th></tr>
-    <tr><td>이미지 규격</td><td><code>check-store-images.ps1</code> — 크기·알파·적응형 안전 영역(지름 264px)</td><td class="ok">OK 10 files</td></tr>
+    <tr><td>이미지 규격</td><td><code>check-store-images.ps1</code> — 크기·알파(스토어 아이콘은 32비트 필수)·적응형 안전 영역(지름 264px)</td><td class="ok">OK 10 files</td></tr>
     <tr><td>문구 길이·필수 문구</td><td><code>check-listing.ps1</code> — 한도·정확한 제목·면책 문구·"최강/최고의" 금지</td><td class="ok">OK</td></tr>
     <tr><td>패키지·버전</td><td>bundletool <code>dump manifest</code></td><td class="ok">package="com.kas328.dragonphoenix" · versionCode 3</td></tr>
     <tr><td>홈 화면 이름</td><td>bundletool <code>dump resources string/app_name</code> 바이트 확인</td><td class="ok">"용과 봉황" (UTF-8 일치)</td></tr>
@@ -101,7 +101,7 @@
     <li><b>스크린샷 06(온라인 대기 화면) 생략</b> — 로컬 서버가 필요하고 개발 빌드는 주소 입력칸이 찍힌다. 5장으로 Play 최소(2장)를 넘는다.</li>
     <li><b>AAB 는 실행 중 에디터에서 빌드</b> — 에디터 프로세스에 키스토어 환경변수 4개가 있는 것을 값 없이 확인한 뒤 같은 메뉴(<code>Tichu/Build Release AAB</code>)를 실행했다. 에디터를 닫을 필요가 없었다.</li>
   </ol>
-  <div class="callout"><b>등록정보 주의:</b> M2b 서버 배포 전에 게시한다면 자세한 설명의 "■ 온라인 대전" 단락을 빼고 붙여 넣는다(파일 안 주석에도 적어 둠). 간단한 설명에는 온라인 언급이 없다.</div>
+  <div class="callout"><b>등록정보 주의:</b> "■ 온라인 대전" 단락은 <code>listing.html</code> 에서 별도 블록으로 나눠 두었다(노란 안내 표시). M2b 서버 배포 뒤에만 자세한 설명에 붙인다. 간단한 설명에는 온라인 언급이 없다. — 최종 리뷰 지적 반영</div>
 </section>
 
 <section>

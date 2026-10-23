@@ -1,12 +1,12 @@
 ﻿# 스토어·런처 이미지 규격 검사. 저장소 루트에서 실행:
-#   powershell.exe -NoProfile -File docs/store/src/check-store-images.ps1
+#   powershell.exe -NoProfile -ExecutionPolicy Bypass -File docs/store/src/check-store-images.ps1
 # 위반마다 "FAIL <path> <이유>", 전부 통과면 "OK n files". 위반 시 exit 1.
 Add-Type -AssemblyName System.Drawing
 $root = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
 
-# alpha: 'any' | 'none' | 'required'
+# alpha: 'any' | 'none' | 'channel'(알파 채널만 있으면 됨) | 'required'(채널 + 투명 모서리)
 $rules = @(
-    @{ Path = 'docs/store/icon-512.png';                  W = 512;  H = 512;  Alpha = 'any' },
+    @{ Path = 'docs/store/icon-512.png';                  W = 512;  H = 512;  Alpha = 'channel' },   # Play: 32비트 PNG
     @{ Path = 'docs/store/feature-1024x500.png';          W = 1024; H = 500;  Alpha = 'none' },
     @{ Path = 'Assets/_Project/Art/AppIcon/icon-bg.png';     W = 432;  H = 432;  Alpha = 'any' },
     @{ Path = 'Assets/_Project/Art/AppIcon/icon-fg.png';     W = 432;  H = 432;  Alpha = 'required'; SafeRadius = 132 },
@@ -29,6 +29,7 @@ foreach ($r in $rules) {
             $fails += "FAIL $($r.Path) size $($img.Width)x$($img.Height), want $($r.W)x$($r.H)"
         }
         $hasAlpha = [System.Drawing.Image]::IsAlphaPixelFormat($img.PixelFormat)
+        if ($r.Alpha -eq 'channel' -and -not $hasAlpha) { $fails += "FAIL $($r.Path) needs 32-bit alpha channel ($($img.PixelFormat))" }
         if ($r.Alpha -eq 'none' -and $hasAlpha) { $fails += "FAIL $($r.Path) has alpha channel ($($img.PixelFormat))" }
         if ($r.Alpha -eq 'required') {
             if (-not $hasAlpha) { $fails += "FAIL $($r.Path) needs alpha channel ($($img.PixelFormat))" }

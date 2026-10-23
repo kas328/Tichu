@@ -7,7 +7,7 @@ if (-not (Test-Path $path)) { Write-Output "FAIL docs/store/listing.html missing
 $html = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)
 
 $disclaimer = '본 앱은 Tichu 의 저작권자·상표권자 및 공식 라이선스 앱과 관련이 없는 독립 제작물입니다.'
-$limits = [ordered]@{ title = 30; short = 80; full = 4000 }
+$limits = [ordered]@{ title = 30; short = 80; full = 4000; online = 4000 }
 $fails = @()
 $fields = @{}
 foreach ($id in $limits.Keys) {
@@ -21,6 +21,13 @@ foreach ($id in $limits.Keys) {
 }
 if ($fields.title -and $fields.title -ne '용과 봉황: 팀 카드게임') { $fails += "FAIL title must be exactly '용과 봉황: 팀 카드게임'" }
 if ($fields.full -and -not $fields.full.Contains($disclaimer)) { $fails += "FAIL full lacks disclaimer" }
+# 온라인 단락은 별도 블록(M2b 배포 뒤에만 붙임). 합쳐도 4000자 이내여야 한다.
+if ($fields.full -and $fields.full.Contains('온라인 대전')) { $fails += "FAIL full must not contain the online section (keep it in <pre id=online>)" }
+if ($fields.full -and $fields.online) {
+    $joined = $fields.full.Length + 2 + $fields.online.Length
+    Write-Output "full+online $joined/4000"
+    if ($joined -gt 4000) { $fails += "FAIL full+online too long ($joined > 4000)" }
+}
 
 if ($fails.Count -gt 0) { $fails | ForEach-Object { Write-Output $_ }; exit 1 }
 Write-Output 'OK'

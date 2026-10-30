@@ -2,12 +2,13 @@
 
 > 앱 이름: 용과 봉황 (Google Play 출시 준비 중)
 
+> **개발 방식** — 이 프로젝트는 AI 에이전트(Claude)와 협업해 만들었습니다. 구현은 AI가 맡았고, 저는 개발 방향 결정, 설계안 검토와 승인, 반복 플레이테스트와 QA, 출시 준비를 맡았습니다.
+
 4인 팀 트릭테이킹 카드게임 **티츄**의 모바일(Android) 구현. 오프라인 AI 대전을 지원하며, Google Play 출시를 준비 중이다.
 
 [![core-tests](https://github.com/kas328/Tichu/actions/workflows/core-tests.yml/badge.svg)](https://github.com/kas328/Tichu/actions/workflows/core-tests.yml)
 ![Unity](https://img.shields.io/badge/Unity-6000.3.17f1%20LTS-000?logo=unity)
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)
-![tests](https://img.shields.io/badge/tests-470%20green-2ea44f)
 ![platform](https://img.shields.io/badge/platform-Android%20(arm64)-3DDC84?logo=android)
 
 게임 규칙과 AI는 **유니티 타입을 단 하나도 참조하지 않는 순수 C#** 으로 작성돼 있다. 그래서 에디터 없이 `dotnet test` 로 325개 테스트가 5초에 돌고, CI가 푸시마다 이를 검증한다. 유니티는 그 위에서 표시와 연출만 맡는다.
@@ -120,7 +121,7 @@ flowchart LR
 ├── core/                     정본 — 유니티 없이 도는 순수 C# 솔루션
 │   ├── src/Tichu.Core/         카드 · 콤보 · 라운드 상태기계 · 정산
 │   ├── src/Tichu.GameFlow/     에이전트 인터페이스 · 휴리스틱 AI · 콜 헤드
-│   └── tests/                  320 테스트 + 벤치/트레이너 하니스
+│   └── tests/                  룰엔진 · AI 테스트 + 벤치/트레이너 하니스
 ├── Assets/_Project/          유니티 프로젝트
 │   ├── Core/ GameFlow/         정본의 미러 + PIMC 탐색(유니티 전용)
 │   ├── Presentation/           DI · 앱 상태기계 · 뷰 · 연출 · 오디오

@@ -1,4 +1,6 @@
-# 용과 봉황
+# Tichu Master
+
+> 앱 이름: 용과 봉황 (Google Play 출시 준비 중)
 
 4인 팀 트릭테이킹 카드게임 **티츄**의 모바일(Android) 구현. 오프라인 AI 대전을 지원하며, Google Play 출시를 준비 중이다.
 
